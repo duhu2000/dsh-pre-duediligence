@@ -1,0 +1,100 @@
+{
+  "name": "qcc-previsit-dsh",
+  "version": "0.3.0",
+  "description": "Session 级 DeepSeek Harness 访前尽调工作台，使用企查查 MCP 生成可验证的拜访作战卡。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JinhangShi/qcc-previsit-dsh.git"
+  },
+  "homepage": "https://github.com/JinhangShi/qcc-previsit-dsh#readme",
+  "bugs": {
+    "url": "https://github.com/JinhangShi/qcc-previsit-dsh/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "packageManager": "pnpm@10.17.0",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "skills",
+    "install.sh",
+    "cordis.patch.yml",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "check": "pnpm run typecheck && pnpm run test && pnpm run build",
+    "prepare": "pnpm run build",
+    "prepublishOnly": "pnpm run check"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.1.1-rc.2"
+  },
+  "peerDependencies": {
+    "dsh-better-sidebar": "0.17.1",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
+    "@types/node": "^22.15.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "esbuild": "^0.25.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "qichacha",
+    "qcc",
+    "mcp",
+    "previsit"
+  ]
+}

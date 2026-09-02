@@ -1,0 +1,129 @@
+import { describe, expect, it } from "vitest"
+
+import {
+  COMPANY_PLACEHOLDER,
+  EMPTY_COMPOSER_STATE,
+  applySelection,
+  composeFullSentence,
+  generateFromSelection,
+  serializePrevisitRequest,
+  updateManualText,
+  validateComposerText,
+  type ComposerSelection,
+} from "./composer-model.js"
+import { derivePhaseStates, deriveWorkbenchStatus } from "./workbench-state.js"
+
+const fullSelection: ComposerSelection = {
+  role: "bank_rm",
+  purpose: "first",
+  focus: ["risk", "equity"],
+  budget: "standard",
+  output: "onepager",
+}
+
+describe("previsit composer contract", () => {
+  it("uses the handoff vocabulary in the generated natural-language request", () => {
+    expect(composeFullSentence(fullSelection, "浙江台华新材料集团股份有限公司")).toBe(
+      "我是银行对公客户经理，准备首次拜访浙江台华新材料集团股份有限公司，请重点看风险与涉诉、股权与实控人，做一次标准尽调，输出一页纸简报。",
+    )
+  })
+
+  it("does not duplicate prompt defaults in the front end", () => {
+    expect(composeFullSentence({ focus: [] })).toBe("")
+    expect(composeFullSentence({ focus: ["risk"] })).toContain(COMPANY_PLACEHOLDER)
+  })
+
+  it("captures a company typed only at the generated placeholder", () => {
+    const generated = applySelection(EMPTY_COMPOSER_STATE, fullSelection)
+    const typed = updateManualText(
+      generated,
+      generated.text.replace(COMPANY_PLACEHOLDER, "企查查科技股份有限公司"),
+    )
+    const changed = applySelection(typed, { ...fullSelection, budget: "deep" })
+
+    expect(typed.mode).toBe("generated")
+    expect(typed.lastCompany).toBe("企查查科技股份有限公司")
+    expect(changed.text).toContain("企查查科技股份有限公司")
+    expect(changed.text).toContain("深度尽调")
+  })
+
+  it("never overwrites free text and appends one imperative only on request", () => {
+    const manual = updateManualText(EMPTY_COMPOSER_STATE, "明天去见企查查科技股份有限公司，先看合作空间。")
+    const selected = applySelection(manual, fullSelection)
+    const appended = generateFromSelection(selected, fullSelection)
+
+    expect(selected.text).toBe(manual.text)
+    expect(appended.text).toMatch(/^明天去见企查查科技股份有限公司/)
+    expect(appended.text).toContain("请按银行对公客户经理视角")
+    expect(appended.text).toContain("标准尽调")
+  })
+
+  it("preserves text explicitly appended to a generated sentence", () => {
+    const generated = applySelection(EMPTY_COMPOSER_STATE, fullSelection)
+    const withTail = updateManualText(generated, generated.text + "另外关注近期管理层变化。")
+    const changed = applySelection(withTail, { ...fullSelection, output: "questions" })
+
+    expect(changed.text).toContain("以当面提问清单为主的简报")
+    expect(changed.text.endsWith("另外关注近期管理层变化。")).toBe(true)
+  })
+
+  it("requires the visible company placeholder to be replaced before sending", () => {
+    expect(validateComposerText("")).toContain("企业")
+    expect(validateComposerText("准备拜访" + COMPANY_PLACEHOLDER)).toContain("占位符")
+    expect(validateComposerText("拜访企查查科技股份有限公司")).toBeUndefined()
+  })
+
+  it("serializes one user-visible text request with a traceable task id", () => {
+    const prompt = serializePrevisitRequest("拜访企查查科技股份有限公司", "PV-20260902-0001")
+    expect(prompt).toContain("访前任务 ID：PV-20260902-0001")
+    expect(prompt).toContain("qcc-previsit-onepager Skill")
+  })
+})
+
+describe("session workbench state", () => {
+  it("starts empty and becomes running only from the addressed Session", () => {
+    expect(deriveWorkbenchStatus({
+      hasTask: false,
+      running: false,
+      seenRunning: false,
+      lastAgentError: null,
+      partial: false,
+      toolNames: [],
+    })).toBe("empty")
+    expect(deriveWorkbenchStatus({
+      hasTask: true,
+      running: true,
+      seenRunning: true,
+      lastAgentError: null,
+      partial: false,
+      toolNames: [],
+    })).toBe("running")
+  })
+
+  it("maps actual company and risk tools to the four business phases", () => {
+    const phases = derivePhaseStates({
+      hasTask: true,
+      running: true,
+      seenRunning: true,
+      lastAgentError: null,
+      partial: false,
+      toolNames: [
+        "mcp__qcc-company__get_company_profile",
+        "mcp__qcc-risk__get_company_risk_scan",
+      ],
+    })
+    expect(phases.map(phase => phase.progress)).toEqual(["done", "done", "active", "idle"])
+  })
+
+  it("marks every phase done only after the Session finishes without an agent error", () => {
+    const phases = derivePhaseStates({
+      hasTask: true,
+      running: false,
+      seenRunning: true,
+      lastAgentError: null,
+      partial: true,
+      toolNames: ["mcp__qcc-risk__get_company_risk_scan"],
+    })
+    expect(phases.every(phase => phase.progress === "done")).toBe(true)
+  })
+})

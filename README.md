@@ -1,8 +1,8 @@
 # qcc-previsit-dsh
 
-面向 DeepSeek Harness 的 Session 级访前尽调工作台。业务人员在对话旁定义一次拜访，Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付“拜访作战卡”。
+面向 DeepSeek Harness 的 Session 级访前尽调工作台。业务人员在对话旁定义一次拜访，Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
-## 0.3.0 重构
+## 功能概览
 
 本版本参考 dsh-tender-workbench 的 Session-scoped Better Sidebar 工作台范式，并吸收产品 handoff v0.2 的访前推理规范。
 
@@ -53,8 +53,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/JinhangShi/qcc-previsit-dsh/
 安装脚本会按顺序向 DSH Web profile 安装三个 Bundle：
 
 1. `dsh-better-sidebar@0.17.1`：提供 Session 级右侧工作台容器。
-2. `qcc-dsh-mcp-oauth@0.1.7`：完成企查查 OAuth，并动态挂载企业、风险、知产、经营和董监高 MCP。
-3. `qcc-previsit-dsh`：提供访前工作台、点选拼句器和完整 Skill。
+2. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
+3. `qcc-previsit-dsh@0.4.14`：提供访前工作台、点选拼句器和完整 Skill。
 
 安装完成后停止旧的 DSH Web 进程并重新运行：
 
@@ -62,18 +62,18 @@ bash <(curl -fsSL https://raw.githubusercontent.com/JinhangShi/qcc-previsit-dsh/
 dsh web
 ~~~
 
-首次启动会自动打开企查查授权页。若没有自动弹出，请在对话中输入“连接企查查”。授权完成后不需要分别安装 `qcc-company`、`qcc-risk`、`qcc-ipr`、`qcc-operation` 和 `qcc-executive`。
+首次使用时打开左侧“🧩 MCP连接器”，选择“企查查·企业工商”并完成 OAuth 授权。授权完成后会注册 `qcc-company`、`qcc-risk`、`qcc-ipr`、`qcc-operation`、`qcc-history` 和 `qcc-executive`，不需要分别安装这些 MCP Server。
 
 ### 手动安装
 
 ~~~bash
 dsh plugin --profile web add dsh-better-sidebar@0.17.1 --allow-build=node-pty
-dsh plugin --profile web add qcc-dsh-mcp-oauth@0.1.7
-dsh plugin --profile web add github:JinhangShi/qcc-previsit-dsh#main --allow-build=qcc-previsit-dsh
+dsh plugin --profile web add dsh-mcp-connector@0.2.32
+dsh plugin --profile web add qcc-previsit-dsh@0.4.14 --allow-build=qcc-previsit-dsh
 dsh web
 ~~~
 
-Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 `stateSubscription` 公共能力。GitHub 直装会通过 `prepare` 生成 Host 和 Client 产物，因此安装命令显式允许 `qcc-previsit-dsh` 构建；Better Sidebar 使用的 `node-pty` 也需要允许构建。
+Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 `stateSubscription` 公共能力。安装命令显式允许 `qcc-previsit-dsh` 的构建脚本；Better Sidebar 使用的 `node-pty` 也需要允许构建。
 
 如果 pnpm 仍提示 `Ignored build scripts`，请按终端提示在 `~/.dsh/profiles/web/pnpm-workspace.yaml` 的 `allowBuilds` 中允许对应包，然后重新执行失败的安装命令。
 
@@ -83,7 +83,18 @@ Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 
 dsh plugin --profile web list --depth 0
 ~~~
 
-应能看到 `dsh-better-sidebar@0.17.1`、`qcc-dsh-mcp-oauth@0.1.7` 和 `qcc-previsit-dsh`。进入任意工作空间和 Session 后，可从侧栏、对话输入框旁或 Session 头部打开“访前尽调”。
+应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `qcc-previsit-dsh@0.4.14`。重启 DSH 并连接“企查查·企业工商”后，进入任意工作空间和 Session，可从侧栏或对话输入框旁打开“访前尽调”。
+
+### 从旧企查查 OAuth 插件升级
+
+如果 Web profile 已安装 `qcc-dsh-mcp-oauth`，不要让它与 MCP 连接器同时管理同名企查查 Server：
+
+1. 先安装 `dsh-mcp-connector@0.2.32` 和 `qcc-previsit-dsh@0.4.14`，完全重启 DSH。
+2. 打开“🧩 MCP连接器”，按界面提示迁移旧企查查授权；也可以重新连接“企查查·企业工商”。
+3. 迁移完成后停止 DSH，执行 `dsh plugin --profile web remove qcc-dsh-mcp-oauth`。
+4. 再次启动 DSH，在“已安装”中确认企查查连接健康，然后执行一次真实企业查询。
+
+连接器只复制旧授权，不会自动删除旧插件或旧凭据；确认新连接可用后再移除旧插件。
 
 ## 本地开发
 
@@ -102,7 +113,7 @@ pnpm check 会执行 TypeScript 类型检查、Vitest 测试和 Host/Client 构�
 2. 分别检查左侧“访前尽调”、输入框旁“访前尽调”、Session 头部“访前”三个入口。
 3. 确认三个入口聚焦同一个 Better Sidebar 工作台，没有重复抽屉。
 4. 打开“定义拜访”，确认所有条件初始都未选择。
-5. 选择“银行/信贷客户经理、首次拜访摸底、风险与涉诉、股权与实控人、15分钟标准、一页纸简报”。
+5. 选择“银行/信贷客户经理、首次拜访、风险与涉诉、股权与实控人、15分钟标准、一页纸简报”。
 6. 将占位符替换为完整注册名称“企查查科技股份有限公司”，再切换档位，确认企业名称不丢失。
 7. 输入一段自由文本后点选条件，确认原文不被覆盖；点击“按条件补充”后才另起一句追加。
 8. 点击“开始访前尽调”，确认消息直接作为用户可见文本发送到当前 Session。

@@ -127,3 +127,18 @@ describe("session workbench state", () => {
     expect(phases.every(phase => phase.progress === "done")).toBe(true)
   })
 })
+
+describe("企业名回填", () => {
+  it("表单里填的企业名替换占位符；占位符本身不会被当成企业名", () => {
+    const generated = applySelection(EMPTY_COMPOSER_STATE, { focus: ["finance"], role: "bank_rm" })
+    expect(generated.text).toContain(COMPANY_PLACEHOLDER)
+    // 输入框内容未动（仍含占位符），此时从表单传入企业名
+    const withCompany = applySelection({ ...generated, lastCompany: "中微半导体（深圳）股份有限公司" }, { focus: ["finance"], role: "bank_rm" }, "中微半导体（深圳）股份有限公司")
+    expect(withCompany.text).toContain("准备拜访中微半导体（深圳）股份有限公司")
+    expect(withCompany.text).not.toContain(COMPANY_PLACEHOLDER)
+    // 再改一个条件，企业名保留
+    const more = applySelection(withCompany, { focus: ["finance"], role: "bank_rm", budget: "standard" }, "中微半导体（深圳）股份有限公司")
+    expect(more.text).toContain("中微半导体（深圳）股份有限公司")
+    expect(more.text).toContain("标准尽调")
+  })
+})

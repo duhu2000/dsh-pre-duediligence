@@ -32,19 +32,15 @@ export declare const ROLE_OPTIONS: readonly [{
 }];
 export declare const PURPOSE_OPTIONS: readonly [{
     readonly id: "first";
-    readonly label: "首次拜访摸底";
+    readonly label: "首次拜访";
     readonly phrase: "首次";
 }, {
     readonly id: "nego";
-    readonly label: "商务谈判前";
+    readonly label: "谈判前拜访";
     readonly phrase: "在商务谈判前";
 }, {
-    readonly id: "signing";
-    readonly label: "签约/准入前核查";
-    readonly phrase: "在签约前核查性地";
-}, {
     readonly id: "revisit";
-    readonly label: "复访更新";
+    readonly label: "复访";
     readonly phrase: "复访前更新式地";
     readonly extraClause: "如有此前对该企业的尽调记录，请对比说明变化；若无记录，请照常全量尽调并注明是首次。";
 }];
@@ -122,7 +118,7 @@ export declare const EMPTY_COMPOSER_STATE: ComposerState;
 export declare function composeFullSentence(selection: ComposerSelection, company?: string): string;
 export declare function composeImperative(selection: ComposerSelection): string;
 export declare function updateManualText(state: ComposerState, text: string): ComposerState;
-export declare function applySelection(state: ComposerState, selection: ComposerSelection): ComposerState;
+export declare function applySelection(state: ComposerState, selection: ComposerSelection, companyOverride?: string): ComposerState;
 export declare function generateFromSelection(state: ComposerState, selection: ComposerSelection): ComposerState;
 export declare function validateComposerText(text: string): string | undefined;
 export declare function createTaskId(now?: Date, randomValue?: number): string;

@@ -7,7 +7,7 @@ export const inject = ["skills"] as const
 
 export const SKILL_NAME = "qcc-previsit-onepager"
 export const SKILL_DESCRIPTION =
-  "调用企查查五类 MCP 执行企业访前尽调，以机会与风险双引擎识别经营状态、建立并反证业务假设，交付可追溯的拜访作战卡。"
+  "调用企查查五类 MCP 执行企业访前尽调，以机会与风险双引擎识别经营状态、建立并反证业务假设，交付可追溯的访前尽调报告。"
 
 type SkillRegistration = {
   name: string

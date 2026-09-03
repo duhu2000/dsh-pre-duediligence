@@ -6,10 +6,20 @@ type SnapshotStore<T> = {
 };
 type ConversationNode = {
     kind?: string;
+    role?: string;
     call?: {
         name?: string;
     } | null;
     isError?: boolean;
+    text?: string;
+    content?: unknown;
+    message?: {
+        content?: unknown;
+    } | null;
+    parts?: Array<{
+        text?: string;
+        type?: string;
+    } | string>;
 };
 type ConversationSnapshot = {
     running?: boolean;

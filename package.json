@@ -1,6 +1,6 @@
 {
   "name": "qcc-previsit-dsh",
-  "version": "0.3.0",
+  "version": "0.4.13",
   "description": "Session 级 DeepSeek Harness 访前尽调工作台，使用企查查 MCP 生成可验证的拜访作战卡。",
   "license": "MIT",
   "repository": {

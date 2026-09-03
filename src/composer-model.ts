@@ -17,12 +17,11 @@ export const ROLE_OPTIONS = [
 ] as const satisfies readonly ComposerOption[]
 
 export const PURPOSE_OPTIONS = [
-  { id: "first", label: "首次拜访摸底", phrase: "首次" },
-  { id: "nego", label: "商务谈判前", phrase: "在商务谈判前" },
-  { id: "signing", label: "签约/准入前核查", phrase: "在签约前核查性地" },
+  { id: "first", label: "首次拜访", phrase: "首次" },
+  { id: "nego", label: "谈判前拜访", phrase: "在商务谈判前" },
   {
     id: "revisit",
-    label: "复访更新",
+    label: "复访",
     phrase: "复访前更新式地",
     extraClause: "如有此前对该企业的尽调记录，请对比说明变化；若无记录，请照常全量尽调并注明是首次。",
   },
@@ -148,7 +147,7 @@ function capturePlaceholderCompany(lastGenerated: string, currentText: string): 
     return undefined
   }
   const captured = currentText.slice(prefix.length, currentText.length - suffix.length).trim()
-  return captured === "" ? undefined : captured
+  return captured === "" || captured === COMPANY_PLACEHOLDER ? undefined : captured
 }
 
 export function updateManualText(state: ComposerState, text: string): ComposerState {
@@ -165,13 +164,14 @@ export function updateManualText(state: ComposerState, text: string): ComposerSt
   return { ...state, text, mode: "manual" }
 }
 
-export function applySelection(state: ComposerState, selection: ComposerSelection): ComposerState {
+export function applySelection(state: ComposerState, selection: ComposerSelection, companyOverride?: string): ComposerState {
   if (state.mode === "manual") {
     return state
   }
 
   const captured = capturePlaceholderCompany(state.lastGenerated, state.text)
-  const company = captured ?? state.lastCompany
+  // 表单里填的企业名优先；其次是用户直接替换占位符写进输入框的；最后沿用上次
+  const company = (companyOverride !== undefined && companyOverride.trim() !== "") ? companyOverride.trim() : (captured ?? state.lastCompany)
   const tail = state.lastGenerated !== "" && state.text.startsWith(state.lastGenerated)
     ? state.text.slice(state.lastGenerated.length)
     : ""
@@ -222,6 +222,6 @@ export function serializePrevisitRequest(text: string, taskId: string): string {
     text.trim(),
     "",
     "访前任务 ID：" + taskId,
-    "请使用 qcc-previsit-onepager Skill 执行，并在完成作战卡后回写任务完成标记。",
+    "请使用 qcc-previsit-onepager Skill 执行，并在完成报告后回写任务完成标记。",
   ].join("\n")
 }

@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises"
 
 import { build } from "esbuild"
 
-const packageId = "qcc-previsit-dsh"
+const packageId = "dsh-pre-duediligence"
 
 await rm("lib", { recursive: true, force: true })
 await mkdir("lib", { recursive: true })

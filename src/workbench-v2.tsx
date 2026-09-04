@@ -1,18 +1,8 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { useEffect, useInsertionEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 
-
-import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
-import { PrevisitDock, PrevisitFields, composerTextarea, usePrevisitComposer, writeComposerDraft } from "./previsit-dock.js"
-import { createPrevisitStore, type ActiveTask, type PrevisitSessionState, type PrevisitStore } from "./previsit-store.js"
-import {
-  createRevealController,
-  openWorkbench,
-  registerWorkbenchTab,
-  useWorkbenchReveal,
-  type BetterSidebarService,
-  type BetterSidebarTabProps,
-  type RevealController,
-} from "./better-sidebar.js"
+import { PrevisitFields, composerTextarea, usePrevisitComposer, writeComposerDraft } from "./previsit-dock.js"
+import { createPrevisitStore, type ActiveTask, type PrevisitStore } from "./previsit-store.js"
+import { registerWorkbenchTab, type BetterSidebarService, type BetterSidebarTabProps } from "./better-sidebar.js"
 import {
   PREVISIT_PHASES,
   derivePhaseStates,
@@ -25,9 +15,9 @@ import { WORKBENCH_CSS } from "./workbench-style.js"
 import { adoptTaskFromSnapshot, buildPrevisitReportFromRenderedHtml, buildPrevisitReportHtml, extractCardText, normalizeHeading } from "./report-export.js"
 import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
 
-export const inject = ["slots", "sessions", "workspaces", "conversation", "betterSidebar"] as const
+export const inject = ["sessions", "conversation", "betterSidebar"] as const
 
-const STYLE_ID = "qcc-previsit-dsh-workbench-v2"
+const STYLE_ID = "dsh-pre-duediligence-workbench"
 const PHASE_LABELS: Record<PrevisitPhase, { label: string; description: string }> = {
   prepare: { label: "尽调设定", description: "企业、角色与范围" },
   opportunity: { label: "经营研判", description: "状态、假设与反证" },
@@ -66,31 +56,14 @@ type ConversationSnapshot = {
   lastAgentError?: string | null
 }
 
-type SessionListSnapshot = {
-  current?: string
-  byId: Record<string, { cwd?: string }>
-}
-
 type SessionConversation = {
   send(text: string): Promise<void>
 }
 
 type ClientContext = {
-  slots: {
-    inject(name: string, setup: () => unknown): unknown
-    register(
-      options: Readonly<Record<string, unknown>>,
-      component: (props: Record<string, unknown>) => JSX.Element | null,
-    ): unknown
-  }
   sessions: {
-    list: SnapshotStore<SessionListSnapshot>
     binding?(sessionId: string): { session: SnapshotStore<ConversationSnapshot> } | undefined
     scope?(sessionId: string): { get(name: string): unknown } | undefined
-    open?(sessionId: string): void
-  }
-  workspaces: {
-    startSession?(): void
   }
   betterSidebar: BetterSidebarService
   effect(setup: () => void | (() => void), label?: string): unknown
@@ -112,39 +85,6 @@ const EMPTY_RUNTIME: RuntimeState = {
   toolNames: [],
   toolEvents: [],
   failedToolCount: 0,
-}
-
-type NavigationController = {
-  attach(sessionId: string, listener: (phase: PrevisitPhase) => void): () => void
-  request(sessionId: string, phase: PrevisitPhase): void
-}
-
-function createNavigationController(): NavigationController {
-  const listeners = new Map<string, (phase: PrevisitPhase) => void>()
-  const pending = new Map<string, PrevisitPhase>()
-  return {
-    attach(sessionId, listener) {
-      listeners.set(sessionId, listener)
-      const requested = pending.get(sessionId)
-      if (requested !== undefined) {
-        pending.delete(sessionId)
-        listener(requested)
-      }
-      return () => {
-        if (listeners.get(sessionId) === listener) {
-          listeners.delete(sessionId)
-        }
-      }
-    },
-    request(sessionId, phase) {
-      const listener = listeners.get(sessionId)
-      if (listener === undefined) {
-        pending.set(sessionId, phase)
-      } else {
-        listener(phase)
-      }
-    },
-  }
 }
 
 function Icon({ name }: { name: "briefcase" | "prepare" | "opportunity" | "risk" | "delivery" | "clock" | "check" | "warning" }): JSX.Element {
@@ -416,23 +356,23 @@ function extractCardFromDom(): { html: string; text: string } | null {
 
 function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   ctx: ClientContext
-  reveal: RevealController
-  navigation: NavigationController
   shared: PrevisitStore
   startPrompt: (sessionId: string, prompt: string) => Promise<number>
 }): JSX.Element {
-  useWorkbenchReveal(props.reveal, props)
   const sessionId = props.scope.sessionId
   const shared = useSyncExternalStore(props.shared.subscribe, () => props.shared.get(sessionId))
   const task = shared.task
   const setTask = (fn: (current: ActiveTask | undefined) => ActiveTask | undefined) => props.shared.update(sessionId, s => ({ ...s, task: fn(s.task) }))
   const [phase, setPhase] = useState<PrevisitPhase>("prepare")
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
-  const [revealedTaskId, setRevealedTaskId] = useState<string>()
+  const [completedTaskId, setCompletedTaskId] = useState<string>()
   const [cardText, setCardText] = useState<string | null>(null)
   const [downloadNote, setDownloadNote] = useState<string>()
 
-  useEffect(() => props.navigation.attach(sessionId, setPhase), [props.navigation, sessionId])
+  useInsertionEffect(() => {
+    if (!props.visible) return
+    return installStyles()
+  }, [props.visible])
 
   useEffect(() => {
     const face = props.ctx.sessions.binding?.(sessionId)?.session
@@ -489,13 +429,12 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   }, [cardText, status, phase, runtime.toolEvents.length])
 
   useEffect(() => {
-    if ((status !== "ready" && status !== "failed") || task === undefined || revealedTaskId === task.id) {
+    if ((status !== "ready" && status !== "failed") || task === undefined || completedTaskId === task.id) {
       return
     }
-    setRevealedTaskId(task.id)
+    setCompletedTaskId(task.id)
     setPhase("delivery")
-    props.reveal.request(sessionId)
-  }, [props.reveal, revealedTaskId, sessionId, status, task])
+  }, [completedTaskId, status, task])
 
   const newTask = () => {
     setTask(() => undefined)
@@ -532,6 +471,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 0)
   }
+
+  if (!props.visible) return <></>
 
   return (
     <section className="qccPwShell" aria-label="访前尽调工作台" data-status={status}>
@@ -573,57 +514,6 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   )
 }
 
-// 过程显示：精简（默认）/ 完整。精简模式用 CSS 折叠连续的工具行、已结束的思考行和上下文注入行。
-const COMPACT_KEY = "qcc-previsit.compactProcess"
-function readCompact(): boolean {
-  try { return (localStorage.getItem(COMPACT_KEY) ?? "1") !== "0" } catch { return true }
-}
-function applyCompact(on: boolean): void {
-  if (typeof document === "undefined") return
-  if (on) document.documentElement.setAttribute("data-qcc-compact", "1")
-  else document.documentElement.removeAttribute("data-qcc-compact")
-  try { localStorage.setItem(COMPACT_KEY, on ? "1" : "0") } catch { /* ignore */ }
-}
-function CompactToggle(): JSX.Element {
-  const [on, setOn] = useState(readCompact)
-  useEffect(() => { applyCompact(on) }, [on])
-  return (
-    <button type="button" className="qccPwCompact" data-on={on} title={on ? "只显示每轮最后一步与结论；点击查看全部过程" : "显示全部工具调用与思考；点击精简"} onClick={() => setOn(!on)}>
-      <span data-active={on}>精简</span><i /><span data-active={!on}>完整</span>
-    </button>
-  )
-}
-
-// 首页主标题：DSH 的 hero.headline 文案改为产品名。先改词典（zh/en），再用 DOM 观察兜底。
-function patchHeroHeadline(ctx: ClientContext, headline: string): () => void {
-  const restore: Array<() => void> = []
-  try {
-    const locale = (ctx as unknown as { locale?: { dicts?: Map<string, Map<string, Record<string, string>>>; publish?: (active: string, changed: boolean) => void; snapshot?: { active: string } } }).locale
-    const conv = locale?.dicts?.get("conversation")
-    if (conv !== undefined) {
-      for (const dict of conv.values()) {
-        const prev = dict["hero.headline"]
-        if (prev === undefined) continue
-        dict["hero.headline"] = headline
-        restore.push(() => { dict["hero.headline"] = prev })
-      }
-      locale?.publish?.(locale.snapshot?.active ?? "zh", false)
-    }
-  } catch { /* 词典结构不同则只走 DOM 兜底 */ }
-  if (typeof document !== "undefined" && typeof MutationObserver !== "undefined") {
-    const fix = () => {
-      for (const el of Array.from(document.querySelectorAll<HTMLElement>('[class*="headlineText"]'))) {
-        if (el.textContent !== headline && /探索未至之境|Into the Unknown/.test(el.textContent ?? "")) el.textContent = headline
-      }
-    }
-    fix()
-    const observer = new MutationObserver(fix)
-    observer.observe(document.body, { childList: true, subtree: true })
-    restore.push(() => observer.disconnect())
-  }
-  return () => { for (const r of restore) r() }
-}
-
 function installStyles(): () => void {
   if (document.getElementById(STYLE_ID) !== null) {
     return () => {}
@@ -645,44 +535,8 @@ export function apply(ctx: ClientContext): void {
     await conversation.send(prompt)
     return baseline
   }
-  ctx.effect(() => patchHeroHeadline(ctx, "访前尽调智能体"), "qcc-previsit: hero headline")
-  const reveal = createRevealController()
-  const navigation = createNavigationController()
-  const openSession = (sessionId: string, phase?: PrevisitPhase): boolean => {
-    const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
-    const scope = cwd === undefined ? { sessionId } : { sessionId, cwd }
-    const opened = openWorkbench(service, scope, reveal)
-    if (opened && phase !== undefined) {
-      navigation.request(sessionId, phase)
-    }
-    return opened
-  }
-  const openCurrent = (): boolean => {
-    const current = ctx.sessions.list.getSnapshot().current
-    if (current === undefined) {
-      ctx.workspaces.startSession?.()
-      return false
-    }
-    return openSession(current)
-  }
-
-  ctx.effect(() => installStyles(), "qcc-previsit: workbench styles")
-  ctx.effect(() => registerWorkbenchTab(service, props => <PrevisitWorkbenchTab {...props} ctx={ctx} reveal={reveal} navigation={navigation} shared={shared} startPrompt={startPrompt} />), "qcc-previsit: Better Sidebar tab")
-  ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
-    name: "conversation.input.dock",
-    id: "qcc-previsit-dsh:dock",
-    order: -10,
-    inject: (sessionId: string) => ({
-      store: shared,
-      start: (prompt: string) => startPrompt(sessionId, prompt),
-      open: (phase?: PrevisitPhase) => { openSession(sessionId, phase) },
-    }),
-  }, PrevisitDock as unknown as (props: Record<string, unknown>) => JSX.Element))
-  ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
-    name: "conversation.session.header.actions",
-    id: "qcc-previsit-dsh:compact",
-    order: 91,
-    inject: () => ({}),
-  }, CompactToggle))
-  ctx.effect(() => { applyCompact(readCompact()); return () => { document.documentElement.removeAttribute("data-qcc-compact") } }, "qcc-previsit: compact process")
+  ctx.effect(
+    () => registerWorkbenchTab(service, props => <PrevisitWorkbenchTab {...props} ctx={ctx} shared={shared} startPrompt={startPrompt} />),
+    "dsh-pre-duediligence: Better Sidebar tab",
+  )
 }

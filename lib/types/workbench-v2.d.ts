@@ -1,5 +1,5 @@
 import { type BetterSidebarService } from "./better-sidebar.js";
-export declare const inject: readonly ["slots", "sessions", "workspaces", "conversation", "betterSidebar"];
+export declare const inject: readonly ["sessions", "conversation", "betterSidebar"];
 type SnapshotStore<T> = {
     getSnapshot(): T;
     subscribe?(listener: () => void): () => void;
@@ -30,29 +30,14 @@ type ConversationSnapshot = {
     nodes?: ConversationNode[];
     lastAgentError?: string | null;
 };
-type SessionListSnapshot = {
-    current?: string;
-    byId: Record<string, {
-        cwd?: string;
-    }>;
-};
 type ClientContext = {
-    slots: {
-        inject(name: string, setup: () => unknown): unknown;
-        register(options: Readonly<Record<string, unknown>>, component: (props: Record<string, unknown>) => JSX.Element | null): unknown;
-    };
     sessions: {
-        list: SnapshotStore<SessionListSnapshot>;
         binding?(sessionId: string): {
             session: SnapshotStore<ConversationSnapshot>;
         } | undefined;
         scope?(sessionId: string): {
             get(name: string): unknown;
         } | undefined;
-        open?(sessionId: string): void;
-    };
-    workspaces: {
-        startSession?(): void;
     };
     betterSidebar: BetterSidebarService;
     effect(setup: () => void | (() => void), label?: string): unknown;

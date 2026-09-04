@@ -1,21 +1,22 @@
-# qcc-previsit-dsh
+# dsh-pre-duediligence
 
-面向 DeepSeek Harness 的 Session 级访前尽调工作台。业务人员在对话旁定义一次拜访，Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
+面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员在右侧工作台定义一次拜访，Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
 ## 功能概览
 
-本版本参考 dsh-tender-workbench 的 Session-scoped Better Sidebar 工作台范式，并吸收产品 handoff v0.2 的访前推理规范。
+本版本参考 `dsh-data-cleaning-agent` 的独立智能体交互原则，以及 dsh-tender-workbench 的 Session-scoped Better Sidebar 工作台范式，并吸收产品 handoff v0.2 的访前推理规范。
 
 ### 工作台
 
 - 使用 dsh-better-sidebar 0.17.1，不再使用遮挡对话的自定义浮层
-- 左侧栏、对话输入框左侧、Session 头部三个入口打开同一个当前 Session 工作台
+- 只在右侧栏菜单注册“访前尽调智能体”，不替换 DSH 首页标题，不向原生输入框和 Session 头部插入控件
+- 用户点击右侧菜单、工作台真实可见后才挂载业务样式；关闭后立即卸载，不影响 DSH 原页面
 - 四阶段业务导航：
   1. 定义拜访
   2. 机会研判
   3. 风险核验
   4. 尽调报告
-- 执行完成或失败时自动打开工作台并切到“尽调报告”
+- 执行完成或失败时切到“尽调报告”；用户已关闭工作台时不会强制重新打开
 - 进度与工具记录只读取当前 Session 的真实事件，不维护跨 Session 的浏览器任务列表
 - 完整报告保留在 DSH 原生会话中
 
@@ -47,14 +48,14 @@
 ### 一键安装（推荐）
 
 ~~~bash
-bash <(curl -fsSL https://raw.githubusercontent.com/JinhangShi/qcc-previsit-dsh/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligence/main/install.sh)
 ~~~
 
 安装脚本会按顺序向 DSH Web profile 安装三个 Bundle：
 
 1. `dsh-better-sidebar@0.17.1`：提供 Session 级右侧工作台容器。
 2. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-3. `qcc-previsit-dsh@0.4.14`：提供访前工作台、点选拼句器和完整 Skill。
+3. `dsh-pre-duediligence@0.1.0`：提供访前工作台、点选拼句器和完整 Skill。
 
 安装完成后停止旧的 DSH Web 进程并重新运行：
 
@@ -69,11 +70,11 @@ dsh web
 ~~~bash
 dsh plugin --profile web add dsh-better-sidebar@0.17.1 --allow-build=node-pty
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add qcc-previsit-dsh@0.4.14 --allow-build=qcc-previsit-dsh
+dsh plugin --profile web add dsh-pre-duediligence@0.1.0 --allow-build=dsh-pre-duediligence
 dsh web
 ~~~
 
-Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 `stateSubscription` 公共能力。安装命令显式允许 `qcc-previsit-dsh` 的构建脚本；Better Sidebar 使用的 `node-pty` 也需要允许构建。
+Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 `stateSubscription` 公共能力。安装命令显式允许 `dsh-pre-duediligence` 的构建脚本；Better Sidebar 使用的 `node-pty` 也需要允许构建。
 
 如果 pnpm 仍提示 `Ignored build scripts`，请按终端提示在 `~/.dsh/profiles/web/pnpm-workspace.yaml` 的 `allowBuilds` 中允许对应包，然后重新执行失败的安装命令。
 
@@ -83,13 +84,23 @@ Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 
 dsh plugin --profile web list --depth 0
 ~~~
 
-应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `qcc-previsit-dsh@0.4.14`。重启 DSH 并连接“企查查·企业工商”后，进入任意工作空间和 Session，可从侧栏或对话输入框旁打开“访前尽调”。
+应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.0`。重启 DSH 并连接“企查查·企业工商”后，进入任意工作空间和 Session，在右侧栏菜单点击“访前尽调智能体”打开工作台。点击前 DSH 首页、输入框、消息流和 Session 头部均保持原样。
+
+### 从旧访前尽调包迁移
+
+新旧包会注册同一项访前能力，请勿同时安装。若 Web profile 已有 `qcc-previsit-dsh`，先执行：
+
+~~~bash
+dsh plugin --profile web remove qcc-previsit-dsh
+~~~
+
+然后安装 `dsh-pre-duediligence` 并完整重启 DSH。安装脚本检测到旧包时会停止并提示，不会自动删除用户现有插件。
 
 ### 从旧企查查 OAuth 插件升级
 
 如果 Web profile 已安装 `qcc-dsh-mcp-oauth`，不要让它与 MCP 连接器同时管理同名企查查 Server：
 
-1. 先安装 `dsh-mcp-connector@0.2.32` 和 `qcc-previsit-dsh@0.4.14`，完全重启 DSH。
+1. 先安装 `dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.0`，完全重启 DSH。
 2. 打开“🧩 MCP连接器”，按界面提示迁移旧企查查授权；也可以重新连接“企查查·企业工商”。
 3. 迁移完成后停止 DSH，执行 `dsh plugin --profile web remove qcc-dsh-mcp-oauth`。
 4. 再次启动 DSH，在“已安装”中确认企查查连接健康，然后执行一次真实企业查询。
@@ -99,8 +110,8 @@ dsh plugin --profile web list --depth 0
 ## 本地开发
 
 ~~~bash
-git clone https://github.com/JinhangShi/qcc-previsit-dsh.git
-cd qcc-previsit-dsh
+git clone https://github.com/duhu2000/dsh-pre-duediligence.git
+cd dsh-pre-duediligence
 pnpm install
 pnpm check
 ~~~
@@ -110,8 +121,8 @@ pnpm check 会执行 TypeScript 类型检查、Vitest 测试和 Host/Client 构�
 ## 人工验收
 
 1. 在 DSH 选择一个工作空间和 Session。
-2. 分别检查左侧“访前尽调”、输入框旁“访前尽调”、Session 头部“访前”三个入口。
-3. 确认三个入口聚焦同一个 Better Sidebar 工作台，没有重复抽屉。
+2. 打开右侧栏菜单，但不要点击“访前尽调智能体”；确认首页标题、输入框、消息流和 Session 头部均保持 DSH 原样。
+3. 点击“访前尽调智能体”，确认只在右侧 Better Sidebar 中出现工作台；关闭后业务 UI 和样式不再存在。
 4. 打开“定义拜访”，确认所有条件初始都未选择。
 5. 选择“银行/信贷客户经理、首次拜访、风险与涉诉、股权与实控人、15分钟标准、一页纸简报”。
 6. 将占位符替换为完整注册名称“企查查科技股份有限公司”，再切换档位，确认企业名称不丢失。
@@ -129,7 +140,7 @@ src/skill-contract.test.ts 会检查拼句器中的档位、角色、关注维�
 ## 项目结构
 
 ~~~text
-qcc-previsit-dsh/
+dsh-pre-duediligence/
 ├── src/
 │   ├── index.ts
 │   ├── client.tsx
@@ -155,6 +166,7 @@ qcc-previsit-dsh/
 ## 安全与边界
 
 - 插件不保存企查查 Token。
+- 插件只注册右侧 Better Sidebar 标签；未打开标签时不挂载业务 DOM 或 CSS，也不修改 DSH 原生文案。
 - 企业事实只能来自本次企查查 MCP 返回。
 - 条件仅生成用户可见文本，不在 Client 侧调用 MCP。
 - 用户点击“开始访前尽调”后才发送。
@@ -164,6 +176,8 @@ qcc-previsit-dsh/
 ## 设计参考与许可
 
 - dsh-tender-workbench：https://github.com/Sunhh3221/dsh-tender-workbench
+- dsh-data-cleaning-agent：https://github.com/duhu2000/dsh-data-cleaning-agent
+- 交互参考：`DeepSeek_Harness_数据清洗补全智能体_UI_Mockup_v2.html` 与 `DeepSeek_Harness_数据清洗补全智能体_业务流程与页面设计_v2.md`
 - 产品输入：桌面 handoff 中的系统提示词 v0.2、拼句器配置 v1.2.1、推理规范、业务内核和银行角色内容库
 - 第三方许可见 THIRD_PARTY_NOTICES.md
 

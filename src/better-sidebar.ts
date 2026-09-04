@@ -10,7 +10,7 @@ import type {
 export type { BetterSidebarService, SessionScope, SidebarState, SidebarStore }
 export type BetterSidebarTabProps = Pick<TabComponentProps, "scope" | "visible" | "store" | "tab">
 
-export const PREVISIT_WORKBENCH_TAB_ID = "qcc-previsit-dsh:agent"
+export const PREVISIT_WORKBENCH_TAB_ID = "dsh-pre-duediligence:agent"
 const SUPPORTED_SIDEBAR_VERSION = /^0\.17\./u
 
 type RevealTarget = {
@@ -81,7 +81,7 @@ export function useWorkbenchReveal(
 
 export function assertBetterSidebar(service: BetterSidebarService): void {
   if (!SUPPORTED_SIDEBAR_VERSION.test(service.version)) {
-    throw new Error("qcc-previsit-dsh requires dsh-better-sidebar 0.17.x")
+    throw new Error("dsh-pre-duediligence requires dsh-better-sidebar 0.17.x")
   }
   if (!service.features.includes("targetedOpen") || !service.features.includes("stateSubscription")) {
     throw new Error("dsh-better-sidebar is missing required targetedOpen/stateSubscription capabilities")
@@ -95,7 +95,7 @@ export function registerWorkbenchTab(
   assertBetterSidebar(service)
   return service.registerTab({
     id: PREVISIT_WORKBENCH_TAB_ID,
-    title: "访前尽调",
+    title: "访前尽调智能体",
     order: 30,
     single: true,
     component,

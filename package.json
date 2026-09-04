@@ -1,15 +1,15 @@
 {
-  "name": "qcc-previsit-dsh",
-  "version": "0.4.14",
+  "name": "dsh-pre-duediligence",
+  "version": "0.1.0",
   "description": "Session 级 DeepSeek Harness 访前尽调工作台，使用企查查 MCP 生成可追溯的访前尽调报告。",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JinhangShi/qcc-previsit-dsh.git"
+    "url": "git+https://github.com/duhu2000/dsh-pre-duediligence.git"
   },
-  "homepage": "https://github.com/JinhangShi/qcc-previsit-dsh#readme",
+  "homepage": "https://github.com/duhu2000/dsh-pre-duediligence#readme",
   "bugs": {
-    "url": "https://github.com/JinhangShi/qcc-previsit-dsh/issues"
+    "url": "https://github.com/duhu2000/dsh-pre-duediligence/issues"
   },
   "publishConfig": {
     "access": "public"

@@ -11,3 +11,13 @@ The referenced project is distributed under the MIT License:
 Permission is hereby granted, free of charge, to any person obtaining a copy of the software and associated documentation files to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies, subject to inclusion of the copyright and permission notice.
 
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
+The additive-agent interaction principles were also informed by:
+
+dsh-data-cleaning-agent
+
+Copyright (c) 2026 dsh-data-cleaning-agent plugin contributors
+
+https://github.com/duhu2000/dsh-data-cleaning-agent
+
+No source code from that project is bundled in this package.

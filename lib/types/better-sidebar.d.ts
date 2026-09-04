@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import type { BetterSidebarService, SessionScope, SidebarState, SidebarStore, TabComponentProps } from "dsh-better-sidebar/client/service";
 export type { BetterSidebarService, SessionScope, SidebarState, SidebarStore };
 export type BetterSidebarTabProps = Pick<TabComponentProps, "scope" | "visible" | "store" | "tab">;
-export declare const PREVISIT_WORKBENCH_TAB_ID = "qcc-previsit-dsh:agent";
+export declare const PREVISIT_WORKBENCH_TAB_ID = "dsh-pre-duediligence:agent";
 type RevealTarget = {
     store: SidebarStore;
     tabId: string;

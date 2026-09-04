@@ -5,7 +5,7 @@ whenToUse: 用户要求准备客户拜访、访前尽调、一页纸简报、授
 user-invocable: true
 metadata:
   author: QCC
-  version: 0.4.14
+  version: 0.1.0
 ---
 
 # 访前尽调

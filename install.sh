@@ -5,15 +5,16 @@ set -euo pipefail
 readonly PROFILE_NAME="${DSH_PROFILE:-web}"
 readonly BETTER_SIDEBAR_SPEC="dsh-better-sidebar@0.17.1"
 readonly MCP_CONNECTOR_SPEC="dsh-mcp-connector@0.2.32"
-readonly PREVISIT_SPEC="${QCC_PREVISIT_SPEC:-qcc-previsit-dsh@0.4.14}"
+readonly PREVISIT_SPEC="${DSH_PRE_DUEDILIGENCE_SPEC:-dsh-pre-duediligence@0.1.0}"
+readonly LEGACY_PREVISIT_NAME="qcc-previsit-dsh"
 readonly LEGACY_QCC_OAUTH_NAME="qcc-dsh-mcp-oauth"
 
 info() {
-  printf '\n[qcc-previsit] %s\n' "$1"
+  printf '\n[dsh-pre-duediligence] %s\n' "$1"
 }
 
 fail() {
-  printf '\n[qcc-previsit] 安装失败：%s\n' "$1" >&2
+  printf '\n[dsh-pre-duediligence] 安装失败：%s\n' "$1" >&2
   exit 1
 }
 
@@ -29,6 +30,9 @@ fi
 info "检测到 Node.js $(node --version)，DSH $(dsh --version)，目标 profile：${PROFILE_NAME}。"
 
 readonly INSTALLED_PLUGINS="$(dsh plugin --profile "${PROFILE_NAME}" list --depth 0 2>/dev/null || true)"
+if [[ "${INSTALLED_PLUGINS}" == *"${LEGACY_PREVISIT_NAME}@"* ]]; then
+  fail "检测到旧包 ${LEGACY_PREVISIT_NAME}。为避免重复注册智能体，请先执行：dsh plugin --profile ${PROFILE_NAME} remove ${LEGACY_PREVISIT_NAME}"
+fi
 if [[ "${INSTALLED_PLUGINS}" == *"${LEGACY_QCC_OAUTH_NAME}@"* ]]; then
   readonly LEGACY_QCC_OAUTH_PRESENT=true
 else
@@ -42,7 +46,7 @@ info "2/3 安装 MCP 连接器（通过市场连接企查查等 MCP）"
 dsh plugin --profile "${PROFILE_NAME}" add "${MCP_CONNECTOR_SPEC}"
 
 info "3/3 安装访前尽调工作台"
-dsh plugin --profile "${PROFILE_NAME}" add "${PREVISIT_SPEC}" --allow-build=qcc-previsit-dsh
+dsh plugin --profile "${PROFILE_NAME}" add "${PREVISIT_SPEC}" --allow-build=dsh-pre-duediligence
 
 info "安装完成。请停止正在运行的 DSH Web，然后重新执行：dsh web"
 if [[ "${LEGACY_QCC_OAUTH_PRESENT}" == true ]]; then
@@ -55,4 +59,4 @@ else
     "重启后打开左侧“🧩 MCP连接器”，选择“企查查·企业工商”并完成 OAuth 授权。" \
     "该连接会提供企业、风险、知产、经营、历史和董监高 MCP。"
 fi
-printf '%s\n' "进入任意工作空间和 Session 后，可从侧栏或对话输入框旁打开“访前尽调”。"
+printf '%s\n' "进入任意工作空间和 Session 后，在右侧栏菜单点击“访前尽调智能体”即可打开；未点击时不会改动原页面。"

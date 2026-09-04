@@ -1,5 +1,5 @@
 # 企业访前一页纸插件（DSH Bundle patch）
 # 安装 package 后，向 web profile 插入 Host 插件行；Client 入口由 package.json 的 dsh.client 声明加载。
 - insert:
-    - id: qcc-previsit-dsh
-      name: qcc-previsit-dsh
+    - id: dsh-pre-duediligence
+      name: dsh-pre-duediligence

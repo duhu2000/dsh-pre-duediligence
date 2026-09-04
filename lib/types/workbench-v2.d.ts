@@ -1,5 +1,6 @@
 import { type BetterSidebarService } from "./better-sidebar.js";
-export declare const inject: readonly ["sessions", "conversation", "betterSidebar"];
+import { type LeftSidebarHost } from "./left-sidebar.js";
+export declare const inject: readonly ["slots", "sessions", "workspaces", "conversation", "betterSidebar"];
 type SnapshotStore<T> = {
     getSnapshot(): T;
     subscribe?(listener: () => void): () => void;
@@ -30,7 +31,7 @@ type ConversationSnapshot = {
     nodes?: ConversationNode[];
     lastAgentError?: string | null;
 };
-type ClientContext = {
+type ClientContext = LeftSidebarHost & {
     sessions: {
         binding?(sessionId: string): {
             session: SnapshotStore<ConversationSnapshot>;

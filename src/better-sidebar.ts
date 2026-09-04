@@ -97,6 +97,7 @@ export function registerWorkbenchTab(
     id: PREVISIT_WORKBENCH_TAB_ID,
     title: "访前尽调智能体",
     order: 30,
+    hidden: true,
     single: true,
     component,
   })

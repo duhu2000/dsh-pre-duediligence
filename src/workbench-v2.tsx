@@ -2,7 +2,14 @@ import { useEffect, useInsertionEffect, useMemo, useRef, useState, useSyncExtern
 
 import { PrevisitFields, composerTextarea, usePrevisitComposer, writeComposerDraft } from "./previsit-dock.js"
 import { createPrevisitStore, type ActiveTask, type PrevisitStore } from "./previsit-store.js"
-import { registerWorkbenchTab, type BetterSidebarService, type BetterSidebarTabProps } from "./better-sidebar.js"
+import {
+  createRevealController,
+  registerWorkbenchTab,
+  useWorkbenchReveal,
+  type BetterSidebarService,
+  type BetterSidebarTabProps,
+} from "./better-sidebar.js"
+import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import {
   PREVISIT_PHASES,
   derivePhaseStates,
@@ -15,7 +22,7 @@ import { WORKBENCH_CSS } from "./workbench-style.js"
 import { adoptTaskFromSnapshot, buildPrevisitReportFromRenderedHtml, buildPrevisitReportHtml, extractCardText, normalizeHeading } from "./report-export.js"
 import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
 
-export const inject = ["sessions", "conversation", "betterSidebar"] as const
+export const inject = ["slots", "sessions", "workspaces", "conversation", "betterSidebar"] as const
 
 const STYLE_ID = "dsh-pre-duediligence-workbench"
 const PHASE_LABELS: Record<PrevisitPhase, { label: string; description: string }> = {
@@ -60,7 +67,7 @@ type SessionConversation = {
   send(text: string): Promise<void>
 }
 
-type ClientContext = {
+type ClientContext = LeftSidebarHost & {
   sessions: {
     binding?(sessionId: string): { session: SnapshotStore<ConversationSnapshot> } | undefined
     scope?(sessionId: string): { get(name: string): unknown } | undefined
@@ -357,6 +364,7 @@ function extractCardFromDom(): { html: string; text: string } | null {
 function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   ctx: ClientContext
   shared: PrevisitStore
+  reveal: ReturnType<typeof createRevealController>
   startPrompt: (sessionId: string, prompt: string) => Promise<number>
 }): JSX.Element {
   const sessionId = props.scope.sessionId
@@ -368,6 +376,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const [completedTaskId, setCompletedTaskId] = useState<string>()
   const [cardText, setCardText] = useState<string | null>(null)
   const [downloadNote, setDownloadNote] = useState<string>()
+
+  useWorkbenchReveal(props.reveal, props)
 
   useInsertionEffect(() => {
     if (!props.visible) return
@@ -528,6 +538,7 @@ function installStyles(): () => void {
 export function apply(ctx: ClientContext): void {
   const service = ctx.betterSidebar
   const shared = createPrevisitStore()
+  const reveal = createRevealController()
   const startPrompt = async (sessionId: string, prompt: string): Promise<number> => {
     const conversation = ctx.sessions.scope?.(sessionId)?.get("conversation") as SessionConversation | undefined
     if (conversation === undefined) throw new Error("conversation unavailable")
@@ -536,7 +547,8 @@ export function apply(ctx: ClientContext): void {
     return baseline
   }
   ctx.effect(
-    () => registerWorkbenchTab(service, props => <PrevisitWorkbenchTab {...props} ctx={ctx} shared={shared} startPrompt={startPrompt} />),
-    "dsh-pre-duediligence: Better Sidebar tab",
+    () => registerWorkbenchTab(service, props => <PrevisitWorkbenchTab {...props} ctx={ctx} shared={shared} reveal={reveal} startPrompt={startPrompt} />),
+    "dsh-pre-duediligence: hidden workbench tab",
   )
+  registerLeftSidebarLauncher(ctx, service, reveal)
 }

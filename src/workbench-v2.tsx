@@ -30,12 +30,12 @@ import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsi
 export const inject = ["slots", "sessions", "workspaces", "conversation", "betterSidebar"] as const
 
 const STYLE_ID = "dsh-pre-duediligence-workbench"
-const PHASE_LABELS: Record<PrevisitPhase, { label: string; description: string }> = {
-  target: { label: "对象与目标", description: "主体与拜访目的" },
-  scope: { label: "范围确认", description: "角色、重点与深度" },
-  collect: { label: "资料采集", description: "工商与经营画像" },
-  verify: { label: "证据核验", description: "风险、反证与边界" },
-  output: { label: "材料输出", description: "一页纸与行动问题" },
+const PHASE_LABELS: Record<PrevisitPhase, string> = {
+  target: "对象与目标",
+  scope: "范围确认",
+  collect: "资料采集",
+  verify: "证据核验",
+  output: "材料输出",
 }
 const STATUS_LABELS: Record<WorkbenchStatus, string> = {
   empty: "待设定",
@@ -552,13 +552,14 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         <button type="button" data-selected={shared.view !== "history"} onClick={() => setView("target")}>当前任务</button>
         <button type="button" data-selected={shared.view === "history"} onClick={() => setView("history")}>任务历史</button>
       </nav>
-      <nav className="qccPwStages" aria-label="访前任务阶段">
+      <nav className="qccPwStages" aria-label="访前任务阶段" role="tablist">
         {PREVISIT_PHASES.map(current => {
           const phaseState = phaseStates.find(item => item.id === current)
+          const selected = shared.view === current
           return (
-            <button key={current} type="button" className="qccPwStage" data-selected={shared.view === current} data-progress={phaseState?.progress ?? "idle"} onClick={() => setPhase(current)}>
-              <span className="qccPwStageIcon"><Icon name={current} /></span>
-              <span className="qccPwStageCopy"><strong>{PHASE_LABELS[current].label}</strong><small>{PHASE_LABELS[current].description}</small></span>
+            <button key={current} type="button" role="tab" aria-selected={selected} className="qccPwStage" data-selected={selected} data-progress={phaseState?.progress ?? "idle"} onClick={() => setPhase(current)}>
+              <span className="qccPwStageIcon" aria-hidden="true"><Icon name={current} /></span>
+              <span className="qccPwStageCopy"><strong>{PHASE_LABELS[current]}</strong></span>
             </button>
           )
         })}

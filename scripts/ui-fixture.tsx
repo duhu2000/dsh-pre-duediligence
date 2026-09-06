@@ -141,6 +141,11 @@ window.setTimeout(() => {
         document.body.dataset.brand = shell === null ? "missing" : getComputedStyle(shell).getPropertyValue("--qcc-brand").trim()
         document.body.dataset.menuPlaced = String(composerCard?.nextElementSibling?.querySelector(".qccPrevisitCapabilities") !== null)
         document.body.dataset.stageCount = String(document.querySelectorAll(".qccPwStage").length)
+        const stages = document.querySelector<HTMLElement>(".qccPwStages")
+        const firstStage = document.querySelector<HTMLElement>(".qccPwStage")
+        document.body.dataset.stageDescriptionCount = String(document.querySelectorAll(".qccPwStageCopy small").length)
+        document.body.dataset.stageFits = String(stages !== null && stages.scrollWidth <= stages.clientWidth + 1)
+        document.body.dataset.stageDirection = firstStage === null ? "missing" : getComputedStyle(firstStage).flexDirection
         document.body.dataset.logoCount = String(document.querySelectorAll(`path[d="${PREVISIT_LOGO_PATH}"]`).length)
         document.body.dataset.heroTitle = title?.textContent ?? "missing"
         document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)

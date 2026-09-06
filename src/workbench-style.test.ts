@@ -1,9 +1,12 @@
+import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 
 import { WORKBENCH_CSS } from "./workbench-style.js"
 
+const workbenchSource = readFileSync(new URL("workbench-v2.tsx", import.meta.url), "utf8")
+
 describe("访前工作台企查查蓝主题", () => {
-  it("包含 DSH-UX-001 v1.1.1 的完整浅色与深色 Token", () => {
+  it("包含 DSH-UX-001 v1.1.2 的完整浅色与深色 Token", () => {
     for (const token of [
       "--qcc-brand:#128BED", "--qcc-action:#0875D1", "--qcc-action-hover:#0666B7",
       "--qcc-selected:#E6F4FF", "--qcc-table-head:#F2F9FC", "--qcc-page:#F6F8FA",
@@ -21,5 +24,17 @@ describe("访前工作台企查查蓝主题", () => {
     expect(WORKBENCH_CSS).toContain("grid-template-columns:repeat(5")
     expect(WORKBENCH_CSS).toContain(".qccPrevisitCapabilities")
     expect(WORKBENCH_CSS).not.toContain(":root")
+  })
+
+  it("阶段菜单采用招投标式等宽图标标签，不渲染描述文案", () => {
+    expect(WORKBENCH_CSS).toContain("grid-template-columns:repeat(5,minmax(0,1fr))")
+    expect(WORKBENCH_CSS).toContain("flex-direction:column")
+    expect(WORKBENCH_CSS).toContain('data-selected="true"]::after')
+    expect(WORKBENCH_CSS).toContain("border-right:1px solid var(--qcc-border)")
+    expect(WORKBENCH_CSS).not.toContain(".qccPwStageCopy small")
+    expect(workbenchSource).not.toContain("PHASE_LABELS[current].description")
+    for (const description of ["主体与拜访目的", "角色、重点与深度", "工商与经营画像", "风险、反证与边界", "一页纸与行动问题"]) {
+      expect(workbenchSource).not.toContain(description)
+    }
   })
 })

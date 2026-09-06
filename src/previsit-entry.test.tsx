@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { createPrevisitSession, isPrevisitSession, type PrevisitSessionHost } from "./previsit-session.js"
-import { PrevisitHome, setPrevisitHeadline } from "./previsit-home.js"
+import { PREVISIT_HOME_SUMMARY, PREVISIT_HOME_TITLE, PrevisitHome, setPrevisitHeadline } from "./previsit-home.js"
 
 const id = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 function host() {
@@ -54,19 +54,22 @@ describe("session-specific previsit home", () => {
   const render = (sessionId: string, composerPhase: string) => renderToStaticMarkup(
     <PrevisitHome sessionId={sessionId} useSession={selector => selector({ composerPhase })} />,
   )
-  it("renders the product and workflow only in a blank previsit Session", () => {
-    expect(render(id, "blank")).toContain("访前尽调产品介绍")
-    expect(render(id, "blank")).toContain("打开尽调设定")
+  it("renders the concise home and navigation only in the owned Session", () => {
+    expect(render(id, "blank")).toContain(PREVISIT_HOME_SUMMARY)
+    expect(render(id, "blank")).toContain("访前尽调能力菜单")
+    expect(render(id, "blank")).toContain("企业核验")
+    expect(render(id, "blank")).not.toContain("打开尽调设定")
     for (const foreign of ["ordinary", id.replace("pre-duediligence", "tender-workbench"), id.replace("pre-duediligence", "data-cleaning-agent")]) {
       expect(render(foreign, "blank")).toBe("")
     }
-    expect(render(id, "active")).toBe("")
+    expect(render(id, "active")).toContain("任务历史")
+    expect(render(id, "active")).not.toContain(PREVISIT_HOME_SUMMARY)
   })
   it("restores the native headline and never overwrites the next owner's title", () => {
-    const title = { textContent: "探索未至之境" }
-    const anchor = { closest: () => ({ querySelector: () => title }) } as unknown as HTMLElement
+    const title = { textContent: "探索未至之境", dataset: {}, parentElement: null }
+    const anchor = { closest: () => ({ querySelector: () => title, querySelectorAll: () => [] }) } as unknown as HTMLElement
     const release = setPrevisitHeadline(anchor)
-    expect(title.textContent).toBe("访前尽调智能体")
+    expect(title.textContent).toBe(PREVISIT_HOME_TITLE)
     release()
     expect(title.textContent).toBe("探索未至之境")
     const next = setPrevisitHeadline(anchor)

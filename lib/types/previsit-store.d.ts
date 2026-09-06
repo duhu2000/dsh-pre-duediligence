@@ -8,12 +8,15 @@ export type ActiveTask = {
     selection: ComposerSelection;
 };
 export type DiligenceMode = "previsit" | "onboarding" | "transaction" | "ongoing";
+export type PrevisitView = "target" | "scope" | "collect" | "verify" | "output" | "history";
 export type PrevisitSessionState = {
     selection: ComposerSelection;
     company: string;
     composer: ComposerState;
     task: ActiveTask | undefined;
     panel: DiligenceMode | null;
+    view: PrevisitView;
+    dismissedTaskIds: string[];
 };
 export declare const EMPTY_SESSION_STATE: PrevisitSessionState;
 export type PrevisitStore = {

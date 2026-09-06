@@ -47,7 +47,7 @@ describe("buildPrevisitReportHtml", () => {
     expect(html).toContain("<title>访前尽调报告 · 企查查科技股份有限公司</title>")
     expect(html).toContain('class="hero"')
     expect(html).toContain("企查查科技股份有限公司")
-    expect(html).toContain("#2563eb") // demo 主蓝锁定
+    expect(html).toContain("#128BED") // 企查查蓝主色锁定
     expect(html).toContain("生成时间：2026-09-02")
     // 一级标题与锚定行已移入 hero，不重复出现在 body 的 h1
     expect(html).toContain("<h2>核心研判</h2>")

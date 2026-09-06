@@ -95,7 +95,7 @@ export function registerWorkbenchTab(
   assertBetterSidebar(service)
   return service.registerTab({
     id: PREVISIT_WORKBENCH_TAB_ID,
-    title: "访前尽调智能体",
+    title: "访前尽调",
     order: 30,
     hidden: true,
     single: true,

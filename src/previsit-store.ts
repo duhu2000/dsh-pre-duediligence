@@ -12,6 +12,8 @@ export type ActiveTask = {
 
 export type DiligenceMode = "previsit" | "onboarding" | "transaction" | "ongoing"
 
+export type PrevisitView = "target" | "scope" | "collect" | "verify" | "output" | "history"
+
 export type PrevisitSessionState = {
   selection: ComposerSelection
   company: string
@@ -19,6 +21,10 @@ export type PrevisitSessionState = {
   task: ActiveTask | undefined
   // 输入框下方选中的尽调类型；null = 未选，输入框上方不出现提示词生成条
   panel: DiligenceMode | null
+  // 工作台的业务视图。菜单只负责导航，不代表对应阶段已经执行完成。
+  view: PrevisitView
+  // 用户点击“新的尽调”后忽略旧任务，避免会话快照立即把它重新认领回来。
+  dismissedTaskIds: string[]
 }
 
 export const EMPTY_SESSION_STATE: PrevisitSessionState = {
@@ -27,6 +33,8 @@ export const EMPTY_SESSION_STATE: PrevisitSessionState = {
   composer: EMPTY_COMPOSER_STATE,
   task: undefined,
   panel: null,
+  view: "target",
+  dismissedTaskIds: [],
 }
 
 export type PrevisitStore = {

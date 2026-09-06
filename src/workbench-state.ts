@@ -1,4 +1,4 @@
-export const PREVISIT_PHASES = ["prepare", "opportunity", "risk", "delivery"] as const
+export const PREVISIT_PHASES = ["target", "scope", "collect", "verify", "output"] as const
 export type PrevisitPhase = (typeof PREVISIT_PHASES)[number]
 export type PhaseProgress = "idle" | "active" | "done" | "failed"
 export type WorkbenchStatus = "empty" | "waiting-agent" | "running" | "ready" | "failed"
@@ -10,6 +10,8 @@ export type SessionProgressInput = {
   lastAgentError: string | null
   partial: boolean
   toolNames: string[]
+  /** 只在捕获到符合报告结构的真实输出后为 true。 */
+  reportReady: boolean
 }
 
 export type PhaseState = {
@@ -54,52 +56,38 @@ export function isRiskTool(name: string): boolean {
 }
 
 export function deriveWorkbenchStatus(input: SessionProgressInput): WorkbenchStatus {
-  if (!input.hasTask) {
-    return "empty"
-  }
-  if (input.running) {
-    return "running"
-  }
-  if (!input.seenRunning) {
-    return "waiting-agent"
-  }
-  return input.lastAgentError === null ? "ready" : "failed"
+  if (!input.hasTask) return "empty"
+  if (input.running) return "running"
+  if (input.lastAgentError !== null) return "failed"
+  // 会话停止并不等于任务完成；必须捕获到符合契约的完整报告。
+  return input.reportReady ? "ready" : "waiting-agent"
 }
 
 export function derivePhaseStates(input: SessionProgressInput): PhaseState[] {
   const status = deriveWorkbenchStatus(input)
   const opportunitySeen = input.toolNames.some(isOpportunityTool)
   const riskSeen = input.toolNames.some(isRiskTool)
-  const entitySeen = hasTool(input.toolNames, ["get_company_by_query"])
+  const entitySeen = hasTool(input.toolNames, ["get_company_by_query", "get_company_profile"])
 
   if (!input.hasTask) {
     return PREVISIT_PHASES.map((id, index) => ({ id, progress: index === 0 ? "active" : "idle" }))
   }
-  if (status === "ready") {
-    return PREVISIT_PHASES.map(id => ({ id, progress: "done" }))
-  }
+  if (status === "ready") return PREVISIT_PHASES.map(id => ({ id, progress: "done" }))
   if (status === "failed") {
     return [
-      { id: "prepare", progress: "done" },
-      { id: "opportunity", progress: opportunitySeen || entitySeen ? "done" : "failed" },
-      { id: "risk", progress: riskSeen ? "done" : "failed" },
-      { id: "delivery", progress: "failed" },
+      { id: "target", progress: "done" },
+      { id: "scope", progress: "done" },
+      { id: "collect", progress: opportunitySeen || entitySeen ? "done" : "failed" },
+      { id: "verify", progress: riskSeen ? "done" : "failed" },
+      { id: "output", progress: "failed" },
     ]
   }
 
   return [
-    { id: "prepare", progress: "done" },
-    {
-      id: "opportunity",
-      progress: riskSeen ? "done" : opportunitySeen || entitySeen || input.running ? "active" : "idle",
-    },
-    {
-      id: "risk",
-      progress: input.partial && riskSeen ? "done" : riskSeen ? "active" : "idle",
-    },
-    {
-      id: "delivery",
-      progress: input.partial && riskSeen ? "active" : "idle",
-    },
+    { id: "target", progress: "done" },
+    { id: "scope", progress: opportunitySeen || entitySeen || input.running ? "done" : "active" },
+    { id: "collect", progress: riskSeen ? "done" : opportunitySeen || entitySeen || input.running ? "active" : "idle" },
+    { id: "verify", progress: riskSeen ? "active" : "idle" },
+    { id: "output", progress: input.reportReady ? "done" : "idle" },
   ]
 }

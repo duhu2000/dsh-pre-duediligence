@@ -1,8 +1,9 @@
-import { Button, IconAgentPresetOutline16 } from "@deepseek-ai/dsh-client-ui-primitives"
+import { Button } from "@deepseek-ai/dsh-client-ui-primitives"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
 import { assertBetterSidebar, openWorkbench, PREVISIT_WORKBENCH_TAB_ID, type BetterSidebarService, type RevealController } from "./better-sidebar.js"
+import { PrevisitLogo } from "./previsit-brand.js"
 import { createPrevisitSession } from "./previsit-session.js"
 
 const WORKSPACES_SLOT_SELECTOR = '[data-slot="sidebar.workspaces"]'
@@ -109,11 +110,10 @@ function LeftSidebarEntry(props: LeftSidebarEntryProps): JSX.Element {
     <Button
       type="button"
       variant="ghost"
-      icon={<IconAgentPresetOutline16 size={16} />}
-      aria-label="访前尽调智能体"
+      aria-label="访前尽调"
       aria-busy={busy}
       disabled={busy}
-      title={error ?? "打开访前尽调智能体"}
+      title={error ?? "打开访前尽调"}
       onClick={() => { void launch() }}
       style={{
         boxSizing: "border-box",
@@ -125,7 +125,10 @@ function LeftSidebarEntry(props: LeftSidebarEntryProps): JSX.Element {
         whiteSpace: "nowrap",
       }}
     >
-      {wide ? (busy ? "正在打开…" : error === undefined ? "访前尽调智能体" : "打开失败，请重试") : null}
+      <span className="qccPrevisitLauncherContent">
+        <PrevisitLogo size={18} />
+        {wide ? <span>{busy ? "正在打开…" : error === undefined ? "访前尽调" : "打开失败，请重试"}</span> : null}
+      </span>
     </Button>
   )
 

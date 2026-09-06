@@ -1,7 +1,10 @@
-import { useEffect, useInsertionEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 
+import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
+import { PrevisitLogo } from "./previsit-brand.js"
 import { PrevisitFields, composerTextarea, usePrevisitComposer, writeComposerDraft } from "./previsit-dock.js"
-import { createPrevisitStore, type ActiveTask, type PrevisitStore } from "./previsit-store.js"
+import { PrevisitPromptGenerator } from "./previsit-prompt.js"
+import { createPrevisitStore, type ActiveTask, type PrevisitSessionState, type PrevisitStore, type PrevisitView } from "./previsit-store.js"
 import {
   createRevealController,
   registerWorkbenchTab,
@@ -11,6 +14,7 @@ import {
 } from "./better-sidebar.js"
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import { PrevisitHome } from "./previsit-home.js"
+import { isPrevisitSession } from "./previsit-session.js"
 import { openWorkbench } from "./better-sidebar.js"
 import {
   PREVISIT_PHASES,
@@ -28,14 +32,15 @@ export const inject = ["slots", "sessions", "workspaces", "conversation", "bette
 
 const STYLE_ID = "dsh-pre-duediligence-workbench"
 const PHASE_LABELS: Record<PrevisitPhase, { label: string; description: string }> = {
-  prepare: { label: "尽调设定", description: "企业、角色与范围" },
-  opportunity: { label: "经营研判", description: "状态、假设与反证" },
-  risk: { label: "风险核查", description: "扫描、下钻与影响" },
-  delivery: { label: "尽调报告", description: "必问、触达与行动" },
+  target: { label: "对象与目标", description: "主体与拜访目的" },
+  scope: { label: "范围确认", description: "角色、重点与深度" },
+  collect: { label: "资料采集", description: "工商与经营画像" },
+  verify: { label: "证据核验", description: "风险、反证与边界" },
+  output: { label: "材料输出", description: "一页纸与行动问题" },
 }
 const STATUS_LABELS: Record<WorkbenchStatus, string> = {
   empty: "待设定",
-  "waiting-agent": "等待执行",
+  "waiting-agent": "等待确认 / 继续",
   running: "正在尽调",
   ready: "报告已生成",
   failed: "需要处理",
@@ -96,16 +101,17 @@ const EMPTY_RUNTIME: RuntimeState = {
   failedToolCount: 0,
 }
 
-function Icon({ name }: { name: "briefcase" | "prepare" | "opportunity" | "risk" | "delivery" | "clock" | "check" | "warning" }): JSX.Element {
+function Icon({ name }: { name: "target" | "scope" | "collect" | "verify" | "output" | "clock" | "check" | "warning" | "history" }): JSX.Element {
   const paths: Record<string, ReactNode> = {
-    briefcase: <><rect x="3" y="7" width="18" height="12" rx="2" /><path d="M8 7V5h8v2M3 12h18M10 12v2h4v-2" /></>,
-    prepare: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
-    opportunity: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 4 4M10.5 7v7M7 10.5h7" /></>,
-    risk: <><path d="M12 3 3.5 7v5c0 4.6 3.1 7.5 8.5 9 5.4-1.5 8.5-4.4 8.5-9V7z" /><path d="M12 8v5M12 17h.01" /></>,
-    delivery: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>,
+    target: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 4 4M10.5 7.5v6M7.5 10.5h6" /></>,
+    scope: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+    collect: <><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18" /></>,
+    verify: <><path d="M12 3 3.5 7v5c0 4.6 3.1 7.5 8.5 9 5.4-1.5 8.5-4.4 8.5-9V7z" /><path d="M12 8v5M12 17h.01" /></>,
+    output: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>,
     clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     check: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></>,
     warning: <><path d="M12 3 2.8 20h18.4z" /><path d="M12 9v4M12 17h.01" /></>,
+    history: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   }
   return <svg className="qccPwIcon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>
 }
@@ -152,7 +158,7 @@ function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: Acti
   return (
     <section className="qccPwPanel">
       <header className="qccPwPageHeading">
-        <div><p className="qccPwEyebrow">PREVISIT</p><h2>尽调设定</h2></div>
+        <div><p className="qccPwEyebrow">TARGET</p><h2>对象与目标</h2><p>确认拜访主体、角色与目标；前端不预设业务结论。</p></div>
         {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
       </header>
       <div className="qccPwCard qccPwSetupCard">
@@ -165,6 +171,32 @@ function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: Acti
         </div>
       )}
     </section>
+  )
+}
+
+const optionLabel = (options: readonly ComposerOption[], id: string | undefined): string =>
+  id === undefined ? "未选择" : (options.find(option => option.id === id)?.label ?? "未选择")
+
+function ScopePanel(props: { state: PrevisitSessionState; task: ActiveTask | undefined }): JSX.Element {
+  const focus = props.state.selection.focus.map(id => optionLabel(FOCUS_OPTIONS, id)).join("、") || "按 Skill 标准范围"
+  const rows = [
+    ["拜访对象", props.state.company.trim() || "尚未填写"],
+    ["我的角色", optionLabel(ROLE_OPTIONS, props.state.selection.role)],
+    ["拜访场景", optionLabel(PURPOSE_OPTIONS, props.state.selection.purpose)],
+    ["重点关注", focus],
+    ["尽调深度", optionLabel(BUDGET_OPTIONS, props.state.selection.budget)],
+    ["输出形态", optionLabel(OUTPUT_OPTIONS, props.state.selection.output)],
+  ]
+  return (
+    <StagePanel eyebrow="SCOPE" title="范围确认" task={props.task}>
+      <Feedback tone="notice" title="范围是执行意图，不是完成证明">实际覆盖以当前会话的企查查 MCP 调用、失败记录及报告覆盖说明为准。</Feedback>
+      <div className="qccPwCard">
+        <div className="qccPwCardHeader"><div><h3>本次设定</h3><p>需要调整时返回「对象与目标」，或使用输入框左上角的提示词生成器。</p></div></div>
+        <dl className="qccPwScopeList">
+          {rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+        </dl>
+      </div>
+    </StagePanel>
   )
 }
 
@@ -215,7 +247,7 @@ function OpportunityPanel(props: { task: ActiveTask | undefined; status: Workben
   const dims = opportunityDimensions(props.events)
   const concluded = insights.state !== null || insights.stateUndetermined
   return (
-    <StagePanel eyebrow="OPPORTUNITY" title="经营研判" task={props.task}>
+    <StagePanel eyebrow="COLLECT" title="资料采集" task={props.task}>
       <Steps steps={steps} />
       <Dimensions title="已取得" items={dims} empty={running ? "正在建立主体与信号集…" : "尽调开始后显示取得的维度"} />
       <div className="qccPwCard">
@@ -245,7 +277,7 @@ function RiskPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatu
   const real = (level: string) => insights.risks.filter(r => r.level === level && !/^(无|—|-|暂无|本次.*未发现)/.test(r.text))
   const judged = insights.sections.includes("红线提示")
   return (
-    <StagePanel eyebrow="RISK" title="风险核查" task={props.task}>
+    <StagePanel eyebrow="VERIFY" title="证据核验" task={props.task}>
       <Steps steps={steps} />
       <Dimensions title="已核查" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核查的维度"} />
       <div className="qccPwCard">
@@ -291,7 +323,7 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchS
     return (
       <section className="qccPwPanel">
         <header className="qccPwPageHeading">
-          <div><p className="qccPwEyebrow">REPORT</p><h2>尽调报告</h2></div>
+          <div><p className="qccPwEyebrow">OUTPUT</p><h2>访前材料</h2></div>
           {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
         </header>
         <div className="qccPwCard qccPwReportCard"><ReportViewer html={props.reportHtml} /></div>
@@ -311,7 +343,7 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchS
   return (
     <section className="qccPwPanel">
       <header className="qccPwPageHeading">
-        <div><p className="qccPwEyebrow">REPORT</p><h2>尽调报告</h2><p>不是资料堆砌，只回答四件事：去不去、见谁、聊什么、什么不能碰。</p></div>
+        <div><p className="qccPwEyebrow">OUTPUT</p><h2>访前材料</h2><p>不是资料堆砌，只回答四件事：去不去、见谁、聊什么、什么不能碰。</p></div>
         {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
       </header>
       {props.task === undefined ? (props.cardCaptured ? <Feedback tone="success" title="报告可下载">当前会话中已有尽调报告，可直接下载；新的尽调将重新计数。</Feedback> : <Feedback tone="notice" title="等待设定">完成尽调设定后，报告结构与执行进度会显示在这里。</Feedback>) : ready ? <Feedback tone="success" title="报告已生成">执行已结束。可下载报告，或回到会话查看完整内容与事实引用。</Feedback> : props.status === "failed" ? <Feedback tone="error" title="本次尽调未完整完成">请回到会话查看错误；已取得事实仍可保留，失败维度不得写成零记录。</Feedback> : <Feedback tone="notice" title={props.status === "running" ? "正在生成报告" : "等待开始"}>{props.status === "running" && !props.cardCaptured ? "会话若停在候选主体确认，请先在会话中选定企业；报告生成后「下载报告」才可点。" : "完成经营与风险两条线后，将自动切换到本页。"}</Feedback>}
@@ -326,9 +358,26 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchS
         <div className="qccPwCoverage">
           <div className="qccPwMetric"><strong>{props.toolCount}</strong><span>已识别工具调用</span></div>
           <div className="qccPwMetric"><strong>{props.failedToolCount}</strong><span>工具错误</span></div>
-          <div className="qccPwMetric"><strong>{ready ? "4/4" : "—"}</strong><span>业务阶段</span></div>
+          <div className="qccPwMetric"><strong>{ready ? "5/5" : "—"}</strong><span>业务阶段</span></div>
         </div>
       </div>
+    </section>
+  )
+}
+
+function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus }): JSX.Element {
+  return (
+    <section className="qccPwPanel">
+      <header className="qccPwPageHeading"><div><p className="qccPwEyebrow">HISTORY</p><h2>任务历史</h2><p>当前会话的完整消息、证据引用与报告由 DSH 原生会话保存。</p></div></header>
+      {props.task === undefined ? (
+        <Feedback tone="notice" title="当前没有已认领任务">从提示词生成器回填并发送，或在会话中直接发起访前尽调后，这里会显示当前任务。</Feedback>
+      ) : (
+        <div className="qccPwCard">
+          <div className="qccPwCardHeader"><div><h3>{props.task.id}</h3><p>{new Date(props.task.createdAt).toLocaleString("zh-CN")}</p></div><span className="qccPwStatus" data-status={props.status}>{STATUS_LABELS[props.status]}</span></div>
+          <pre className="qccPwPrompt">{props.task.prompt}</pre>
+        </div>
+      )}
+      <p className="qccPwNote">工作台不创建脱离会话的浏览器历史库，也不会把其它 Session 的任务合并到这里。</p>
     </section>
   )
 }
@@ -373,18 +422,16 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const shared = useSyncExternalStore(props.shared.subscribe, () => props.shared.get(sessionId))
   const task = shared.task
   const setTask = (fn: (current: ActiveTask | undefined) => ActiveTask | undefined) => props.shared.update(sessionId, s => ({ ...s, task: fn(s.task) }))
-  const [phase, setPhase] = useState<PrevisitPhase>("prepare")
+  const phase: PrevisitPhase = shared.view === "history" ? "target" : shared.view
+  const setView = (view: PrevisitView) => props.shared.update(sessionId, state => ({ ...state, view }))
+  const setPhase = (next: PrevisitPhase) => setView(next)
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
   const [completedTaskId, setCompletedTaskId] = useState<string>()
   const [cardText, setCardText] = useState<string | null>(null)
+  const [renderedCard, setRenderedCard] = useState<{ html: string; text: string } | null>(null)
   const [downloadNote, setDownloadNote] = useState<string>()
 
   useWorkbenchReveal(props.reveal, props)
-
-  useInsertionEffect(() => {
-    if (!props.visible) return
-    return installStyles()
-  }, [props.visible])
 
   useEffect(() => {
     const face = props.ctx.sessions.binding?.(sessionId)?.session
@@ -396,7 +443,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       // 设定条 / 会话内直接发起的尽调：工作台自己从会话认领任务，不依赖谁点了按钮
       if (task === undefined) {
         const adopted = adoptTaskFromSnapshot(snapshot)
-        if (adopted !== null) {
+        if (adopted !== null && !shared.dismissedTaskIds.includes(adopted.id)) {
           props.shared.update(sessionId, s => s.task !== undefined ? s : ({
             ...s,
             task: { ...adopted, createdAt: new Date().toISOString(), seenRunning: snapshot.running === true || (snapshot.nodes?.length ?? 0) > adopted.nodeBaseline + 1, selection: s.selection },
@@ -414,11 +461,13 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       if (snapshot.running === true) {
         setTask(current => current === undefined || current.seenRunning ? current : { ...current, seenRunning: true })
       }
-      setCardText(extractCardText(snapshot, task?.nodeBaseline ?? 0))
+      const captured = extractCardText(snapshot, task?.nodeBaseline ?? 0)
+      setCardText(captured)
+      setRenderedCard(captured === null ? extractCardFromDom() : null)
     }
     refresh()
     return face.subscribe?.(refresh)
-  }, [props.ctx, sessionId, task?.id, task?.nodeBaseline])
+  }, [props.ctx, sessionId, task?.id, task?.nodeBaseline, shared.dismissedTaskIds.join("|")])
 
   const progressInput: SessionProgressInput = {
     hasTask: task !== undefined,
@@ -427,6 +476,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     lastAgentError: runtime.lastAgentError,
     partial: runtime.partial,
     toolNames: runtime.toolNames,
+    reportReady: cardText !== null || renderedCard !== null,
   }
   const status = deriveWorkbenchStatus(progressInput)
   const phaseStates = derivePhaseStates(progressInput)
@@ -434,24 +484,28 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   // 报告就绪后在工作台内直接预览：优先用快照正文，其次用对话区已渲染的报告 DOM
   const reportHtml = useMemo(() => {
     if (cardText !== null) return buildPrevisitReportHtml(cardText)
-    if (status !== "ready" && task === undefined) return null
-    const dom = extractCardFromDom()
-    return dom === null ? null : buildPrevisitReportFromRenderedHtml(dom.html, dom.text)
+    return renderedCard === null ? null : buildPrevisitReportFromRenderedHtml(renderedCard.html, renderedCard.text)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardText, status, phase, runtime.toolEvents.length])
+  }, [cardText, renderedCard, status, phase, runtime.toolEvents.length])
 
   useEffect(() => {
-    if ((status !== "ready" && status !== "failed") || task === undefined || completedTaskId === task.id) {
+    if (status !== "ready" || task === undefined || completedTaskId === task.id) {
       return
     }
     setCompletedTaskId(task.id)
-    setPhase("delivery")
-  }, [completedTaskId, status, task])
+    if (shared.view !== "history") setPhase("output")
+  }, [completedTaskId, status, task, shared.view])
 
   const newTask = () => {
-    setTask(() => undefined)
+    props.shared.update(sessionId, state => ({
+      ...state,
+      task: undefined,
+      view: "target",
+      dismissedTaskIds: state.task === undefined ? state.dismissedTaskIds : [...new Set([...state.dismissedTaskIds, state.task.id])],
+    }))
     setRuntime(EMPTY_RUNTIME)
-    setPhase("prepare")
+    setCardText(null)
+    setRenderedCard(null)
   }
   const returnToConversation = () => {
     props.store.reduce(state => ({ ...state, panelOpen: false, bottomOpen: false }))
@@ -463,7 +517,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       html = buildPrevisitReportHtml(cardText)
       source = cardText
     } else {
-      const dom = extractCardFromDom()
+      const dom = renderedCard ?? extractCardFromDom()
       if (dom === null) {
         setDownloadNote("当前会话里还没有生成完整报告，或报告未展开在对话区；请先回到会话确认报告已输出。")
         return
@@ -490,16 +544,20 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     <section className="qccPwShell" aria-label="访前尽调工作台" data-status={status}>
       <header className="qccPwHeader">
         <div className="qccPwBrand">
-          <span className="qccPwBrandIcon"><Icon name="briefcase" /></span>
-          <div className="qccPwBrandCopy"><div className="qccPwTitleRow"><h1 className="qccPwTitle">访前尽调工作台</h1><span className="qccPwLiveDot" data-status={status} /></div><p className="qccPwSubtitle">企查查事实驱动 · 机会与风险双引擎</p></div>
+          <span className="qccPwBrandIcon"><PrevisitLogo size={24} /></span>
+          <div className="qccPwBrandCopy"><div className="qccPwTitleRow"><h1 className="qccPwTitle">访前尽调</h1><span className="qccPwLiveDot" data-status={status} /></div><p className="qccPwSubtitle">企查查事实驱动 · 机会与风险双引擎</p></div>
         </div>
-        <div className="qccPwMeta"><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span><span className="qccPwSession">当前 Session · {sessionId.slice(0, 12)}</span></div>
+        <div className="qccPwMeta"><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span><span className="qccPwSession">当前 Session · {sessionId.slice(0, 12)}</span><button type="button" className="qccPwClose" aria-label="关闭访前尽调工作台" title="关闭工作台（不会取消任务）" onClick={returnToConversation}>×</button></div>
       </header>
+      <nav className="qccPwTabs" aria-label="工作台视图">
+        <button type="button" data-selected={shared.view !== "history"} onClick={() => setView("target")}>当前任务</button>
+        <button type="button" data-selected={shared.view === "history"} onClick={() => setView("history")}>任务历史</button>
+      </nav>
       <nav className="qccPwStages" aria-label="访前任务阶段">
         {PREVISIT_PHASES.map(current => {
           const phaseState = phaseStates.find(item => item.id === current)
           return (
-            <button key={current} type="button" className="qccPwStage" data-selected={phase === current} data-progress={phaseState?.progress ?? "idle"} onClick={() => setPhase(current)}>
+            <button key={current} type="button" className="qccPwStage" data-selected={shared.view === current} data-progress={phaseState?.progress ?? "idle"} onClick={() => setPhase(current)}>
               <span className="qccPwStageIcon"><Icon name={current} /></span>
               <span className="qccPwStageCopy"><strong>{PHASE_LABELS[current].label}</strong><small>{PHASE_LABELS[current].description}</small></span>
             </button>
@@ -507,19 +565,21 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         })}
       </nav>
       <div className="qccPwBody">
-        {phase === "prepare" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("opportunity")} /> : null}
-        {phase === "opportunity" ? <OpportunityPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
-        {phase === "risk" ? <RiskPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
-        {phase === "delivery" ? <DeliveryPanel task={task} status={status} toolCount={runtime.toolNames.length} failedToolCount={runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
+        {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
+        {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
+        {shared.view === "collect" ? <OpportunityPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
+        {shared.view === "verify" ? <RiskPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
+        {shared.view === "output" ? <DeliveryPanel task={task} status={status} toolCount={runtime.toolNames.length} failedToolCount={runtime.failedToolCount} cardCaptured={cardText !== null || renderedCard !== null} reportHtml={reportHtml} /> : null}
+        {shared.view === "history" ? <HistoryPanel task={task} status={status} /> : null}
       </div>
       <footer className="qccPwFooter">
-        <span className="qccPwFooterHint" data-tone={downloadNote === undefined ? undefined : "error"}>{downloadNote !== undefined ? downloadNote : phase === "prepare" ? "" : "工作台绑定当前会话，企业事实与完整报告保留在会话中。"}</span>
+        <span className="qccPwFooterHint" data-tone={downloadNote === undefined ? undefined : "error"}>{downloadNote !== undefined ? downloadNote : shared.view === "target" ? "" : "工作台绑定当前会话，关闭只隐藏界面，不会取消正在执行的任务。"}</span>
         <div className="qccPwFooterActions">
 
-          {phase !== "prepare" && task !== undefined ? <button type="button" className="qccPwSecondary" onClick={newTask}>新的尽调</button> : null}
-          {phase === "delivery"
+          {shared.view !== "target" && task !== undefined ? <button type="button" className="qccPwSecondary" onClick={newTask}>新的尽调</button> : null}
+          {shared.view === "output"
             ? <button type="button" className="qccPwPrimary" title="下载为 HTML 文件，可直接打开或打印" onClick={downloadReport}>下载报告<span>↓</span></button>
-            : phase !== "prepare" ? <button type="button" className="qccPwPrimary" onClick={returnToConversation}>返回会话<span>→</span></button> : null}
+            : shared.view !== "target" ? <button type="button" className="qccPwPrimary" onClick={returnToConversation}>返回会话<span>→</span></button> : null}
         </div>
       </footer>
     </section>
@@ -537,6 +597,15 @@ function installStyles(): () => void {
   return () => style.remove()
 }
 
+function PrevisitHeaderEntry(props: { sessionId: string; openWorkbench(): void }): JSX.Element | null {
+  if (!isPrevisitSession(props.sessionId)) return null
+  return (
+    <button type="button" className="qccPrevisitHeaderAction" aria-label="打开访前尽调工作台" title="打开访前尽调工作台" onClick={props.openWorkbench}>
+      <PrevisitLogo size={16} /><span>访前尽调</span>
+    </button>
+  )
+}
+
 export function apply(ctx: ClientContext): void {
   const service = ctx.betterSidebar
   const shared = createPrevisitStore()
@@ -548,6 +617,11 @@ export function apply(ctx: ClientContext): void {
     await conversation.send(prompt)
     return baseline
   }
+  const openForSession = (sessionId: string, view?: PrevisitView) => {
+    if (view !== undefined) shared.update(sessionId, state => ({ ...state, view }))
+    openWorkbench(service, { sessionId }, reveal)
+  }
+  ctx.effect(() => installStyles(), "dsh-pre-duediligence: QCC blue UI styles")
   ctx.effect(
     () => registerWorkbenchTab(service, props => <PrevisitWorkbenchTab {...props} ctx={ctx} shared={shared} reveal={reveal} startPrompt={startPrompt} />),
     "dsh-pre-duediligence: hidden workbench tab",
@@ -558,7 +632,19 @@ export function apply(ctx: ClientContext): void {
     id: "dsh-pre-duediligence:home",
     order: 110,
     inject: (sessionId: string) => ({
-      openWorkbench: () => { openWorkbench(service, { sessionId }, reveal) },
+      openWorkbench: (view?: PrevisitView) => { openForSession(sessionId, view) },
     }),
   }, PrevisitHome))
+  ctx.slots.inject("conversation.input.overlay", () => ctx.slots.register({
+    name: "conversation.input.overlay",
+    id: "dsh-pre-duediligence:prompt-generator",
+    order: 110,
+    inject: () => ({ store: shared }),
+  }, PrevisitPromptGenerator))
+  ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
+    name: "conversation.session.header.actions",
+    id: "dsh-pre-duediligence:workbench-entry",
+    order: 110,
+    inject: (sessionId: string) => ({ openWorkbench: () => { openForSession(sessionId) } }),
+  }, PrevisitHeaderEntry))
 }

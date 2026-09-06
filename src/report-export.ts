@@ -212,8 +212,8 @@ export function renderCardMarkdown(md: string): string {
 // demo 锁定配色与字号；标题克制、四字优先，标题下可带小说明模块。
 const REPORT_CSS = `
 :root{
-  --blue:#2563eb;--blue-dark:#1e40af;--ink:#0f172a;--body:#334155;--muted:#64748b;
-  --line:#e2e8f0;--line-blue:#dbeafe;--hero:#f8fbff;
+  --blue:#128BED;--blue-dark:#0875D1;--ink:#202C3B;--body:#3D4A5C;--muted:#626F80;
+  --line:#DCE4EC;--line-blue:#CDE9FC;--hero:#F2F9FC;
   --ok:#16a34a;--ok-bg:#f0fdf4;--warn:#d97706;--warn-bg:#fff7ed;--risk:#ef4444;--risk-bg:#fef2f2;
 }
 *{box-sizing:border-box}

@@ -25,7 +25,7 @@ export async function createPrevisitSession(ctx: PrevisitSessionHost): Promise<s
   const cwd = items.find(item => current !== undefined && item.sessionIds?.includes(current))?.path
     ?? items.find(item => item.workspaceId === workspace?.recentWorkspaceId)?.path
     ?? items[0]?.path
-  if (!cwd) throw new Error("请先选择一个工作空间，再打开访前尽调智能体")
+  if (!cwd) throw new Error("请先选择一个工作空间，再打开访前尽调")
   if (typeof ctx.sessions.create !== "function" || typeof ctx.sessions.open !== "function") {
     throw new Error("当前 DSH 版本没有可用的会话创建能力")
   }

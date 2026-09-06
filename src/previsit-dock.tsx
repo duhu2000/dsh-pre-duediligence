@@ -110,7 +110,7 @@ export function usePrevisitComposer(args: {
   }
   const reset = () => {
     args.writeDraft("")
-    store.update(sessionId, s => ({ ...EMPTY_SESSION_STATE, task: s.task, panel: s.panel }))
+    store.update(sessionId, s => ({ ...EMPTY_SESSION_STATE, task: s.task, panel: s.panel, view: s.view, dismissedTaskIds: s.dismissedTaskIds }))
     setError(undefined)
   }
   const startTask = async () => {

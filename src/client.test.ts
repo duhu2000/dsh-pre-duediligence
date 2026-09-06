@@ -89,6 +89,7 @@ describe("session workbench state", () => {
       lastAgentError: null,
       partial: false,
       toolNames: [],
+      reportReady: false,
     })).toBe("empty")
     expect(deriveWorkbenchStatus({
       hasTask: true,
@@ -97,10 +98,11 @@ describe("session workbench state", () => {
       lastAgentError: null,
       partial: false,
       toolNames: [],
+      reportReady: false,
     })).toBe("running")
   })
 
-  it("maps actual company and risk tools to the four business phases", () => {
+  it("maps actual company and risk tools to the five business phases", () => {
     const phases = derivePhaseStates({
       hasTask: true,
       running: true,
@@ -111,11 +113,12 @@ describe("session workbench state", () => {
         "mcp__qcc-company__get_company_profile",
         "mcp__qcc-risk__get_company_risk_scan",
       ],
+      reportReady: false,
     })
-    expect(phases.map(phase => phase.progress)).toEqual(["done", "done", "active", "idle"])
+    expect(phases.map(phase => phase.progress)).toEqual(["done", "done", "done", "active", "idle"])
   })
 
-  it("marks every phase done only after the Session finishes without an agent error", () => {
+  it("does not mark completion when the Session stops without a report", () => {
     const phases = derivePhaseStates({
       hasTask: true,
       running: false,
@@ -123,7 +126,31 @@ describe("session workbench state", () => {
       lastAgentError: null,
       partial: true,
       toolNames: ["mcp__qcc-risk__get_company_risk_scan"],
+      reportReady: false,
     })
+    expect(deriveWorkbenchStatus({
+      hasTask: true,
+      running: false,
+      seenRunning: true,
+      lastAgentError: null,
+      partial: true,
+      toolNames: ["mcp__qcc-risk__get_company_risk_scan"],
+      reportReady: false,
+    })).toBe("waiting-agent")
+    expect(phases.at(-1)?.progress).toBe("idle")
+  })
+
+  it("marks all five phases done only after a complete report is captured", () => {
+    const phases = derivePhaseStates({
+      hasTask: true,
+      running: false,
+      seenRunning: true,
+      lastAgentError: null,
+      partial: true,
+      toolNames: ["mcp__qcc-risk__get_company_risk_scan"],
+      reportReady: true,
+    })
+    expect(phases).toHaveLength(5)
     expect(phases.every(phase => phase.progress === "done")).toBe(true)
   })
 })

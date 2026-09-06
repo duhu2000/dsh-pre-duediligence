@@ -1,4 +1,6 @@
 node_modules/
+.pnpm-store/
+_scratch/
 dist/
 .idea/
 .DS_Store

@@ -113,8 +113,7 @@ export function openWorkbench(
     return false
   }
   service.openTab({ type: PREVISIT_WORKBENCH_TAB_ID }, scope)
-  if (service.getSnapshot().sessionId === scope.sessionId) {
-    reveal.request(scope.sessionId)
-  }
+  // Queue reveal even before React attaches the newly selected Session tab.
+  reveal.request(scope.sessionId)
   return true
 }

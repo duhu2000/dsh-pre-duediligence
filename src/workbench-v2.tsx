@@ -10,6 +10,8 @@ import {
   type BetterSidebarTabProps,
 } from "./better-sidebar.js"
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
+import { PrevisitHome } from "./previsit-home.js"
+import { openWorkbench } from "./better-sidebar.js"
 import {
   PREVISIT_PHASES,
   derivePhaseStates,
@@ -551,4 +553,12 @@ export function apply(ctx: ClientContext): void {
     "dsh-pre-duediligence: hidden workbench tab",
   )
   registerLeftSidebarLauncher(ctx, service, reveal)
+  ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
+    name: "conversation.input.dock",
+    id: "dsh-pre-duediligence:home",
+    order: 110,
+    inject: (sessionId: string) => ({
+      openWorkbench: () => { openWorkbench(service, { sessionId }, reveal) },
+    }),
+  }, PrevisitHome))
 }

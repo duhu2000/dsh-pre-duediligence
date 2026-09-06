@@ -2,7 +2,8 @@ import { Button, IconAgentPresetOutline16 } from "@deepseek-ai/dsh-client-ui-pri
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
-import { openWorkbench, type BetterSidebarService, type RevealController } from "./better-sidebar.js"
+import { assertBetterSidebar, openWorkbench, PREVISIT_WORKBENCH_TAB_ID, type BetterSidebarService, type RevealController } from "./better-sidebar.js"
+import { createPrevisitSession } from "./previsit-session.js"
 
 const WORKSPACES_SLOT_SELECTOR = '[data-slot="sidebar.workspaces"]'
 const LAUNCHER_MOUNT_SELECTOR = '[data-previsit-launcher-mount="true"]'
@@ -18,14 +19,14 @@ type WorkspaceSnapshot = {
 
 type SlotsService = {
   inject(name: string, setup: () => void | (() => void)): unknown
-  register(
+  register<Props extends object>(
     descriptor: {
       name: string
       id: string
       order?: number
-      inject?: () => Record<string, unknown>
+      inject?: (sessionId: string) => Record<string, unknown>
     },
-    component: (props: LeftSidebarEntryProps) => JSX.Element,
+    component: (props: Props) => JSX.Element | null,
   ): () => void
 }
 
@@ -140,37 +141,6 @@ function LeftSidebarEntry(props: LeftSidebarEntryProps): JSX.Element {
   )
 }
 
-const PREVISIT_SESSION_ID_PREFIX = "session-dsh-pre-duediligence-"
-
-function createPrevisitSessionId(): string {
-  if (typeof globalThis.crypto?.randomUUID !== "function") {
-    throw new Error("当前浏览器不支持安全会话标识生成，请使用最新版浏览器")
-  }
-  return `${PREVISIT_SESSION_ID_PREFIX}${globalThis.crypto.randomUUID()}`
-}
-
-async function resolveSessionId(ctx: LeftSidebarHost): Promise<string> {
-  // 单一会话所有权：与招投标入口一致，显式创建带前缀的独立会话，绝不复用当前会话。
-  // 若复用当前「招投标」工作台会话，访前尽调与招投标会共享同一会话，
-  // 导致 Hero 标题与右侧工作台面板归属冲突（标题不刷新、面板不切换）。
-  // 只用 cwd 创建（不传 workspaceId）：会话不挂进工作区，
-  // 「新会话」的 blank 复用逻辑就不会把它当成空白会话复用。
-  const workspace = ctx.workspaces?.list?.getSnapshot()
-  const items = Array.isArray(workspace?.items) ? workspace.items : []
-  const cwd = items.find((item) => item.workspaceId === workspace?.recentWorkspaceId)?.path
-    ?? items[0]?.path
-  if (cwd === undefined) {
-    throw new Error("请先选择一个工作空间，再打开访前尽调智能体")
-  }
-  const create = ctx.sessions.create
-  if (typeof create !== "function") {
-    throw new Error("当前 DSH 版本没有可用的会话创建能力")
-  }
-  const sessionId = await create({ cwd, sessionId: createPrevisitSessionId() })
-  ctx.sessions.open?.(sessionId)
-  return sessionId
-}
-
 export function registerLeftSidebarLauncher(
   ctx: LeftSidebarHost,
   service: BetterSidebarService,
@@ -182,10 +152,15 @@ export function registerLeftSidebarLauncher(
     order: 20,
     inject: () => ({
       openAgent: async () => {
-        const sessionId = await resolveSessionId(ctx)
+        assertBetterSidebar(service)
+        if (!service.isTabEnabled(PREVISIT_WORKBENCH_TAB_ID)) {
+          throw new Error("访前尽调工作台当前不可用，请检查插件配置")
+        }
+        const sessionId = await createPrevisitSession(ctx)
         if (!openWorkbench(service, { sessionId }, reveal)) {
           throw new Error("访前尽调工作台当前不可用，请检查插件配置")
         }
+        ctx.sessions.open?.(sessionId)
       },
     }),
   }, LeftSidebarEntry))

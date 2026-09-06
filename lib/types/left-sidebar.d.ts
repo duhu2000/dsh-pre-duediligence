@@ -12,12 +12,12 @@ type WorkspaceSnapshot = {
 };
 type SlotsService = {
     inject(name: string, setup: () => void | (() => void)): unknown;
-    register(descriptor: {
+    register<Props extends object>(descriptor: {
         name: string;
         id: string;
         order?: number;
-        inject?: () => Record<string, unknown>;
-    }, component: (props: LeftSidebarEntryProps) => JSX.Element): () => void;
+        inject?: (sessionId: string) => Record<string, unknown>;
+    }, component: (props: Props) => JSX.Element | null): () => void;
 };
 export type LeftSidebarHost = {
     slots: SlotsService;
@@ -36,10 +36,6 @@ export type LeftSidebarHost = {
         connectWorkspace?(workspaceId: string): Promise<string>;
     };
     get?(name: string): unknown;
-};
-type LeftSidebarEntryProps = {
-    wide?: boolean;
-    openAgent?: () => Promise<void>;
 };
 export declare function registerLeftSidebarLauncher(ctx: LeftSidebarHost, service: BetterSidebarService, reveal: RevealController): void;
 export {};

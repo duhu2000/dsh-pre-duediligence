@@ -12,7 +12,7 @@ type SnapshotStore<T> = {
 }
 
 type WorkspaceSnapshot = {
-  items?: Array<{ workspaceId: string; sessionIds?: string[] }>
+  items?: Array<{ workspaceId: string; path?: string; sessionIds?: string[] }>
   recentWorkspaceId?: string
 }
 
@@ -37,7 +37,7 @@ export type LeftSidebarHost = {
   slots: SlotsService
   sessions: {
     list?: SnapshotStore<{ current?: string }>
-    create?(options: { workspaceId: string; sessionId: string }): Promise<string>
+    create?(options: { cwd: string; sessionId: string }): Promise<string>
     open?(sessionId: string): void
   }
   workspaces?: {
@@ -153,16 +153,20 @@ async function resolveSessionId(ctx: LeftSidebarHost): Promise<string> {
   // 单一会话所有权：与招投标入口一致，显式创建带前缀的独立会话，绝不复用当前会话。
   // 若复用当前「招投标」工作台会话，访前尽调与招投标会共享同一会话，
   // 导致 Hero 标题与右侧工作台面板归属冲突（标题不刷新、面板不切换）。
+  // 只用 cwd 创建（不传 workspaceId）：会话不挂进工作区，
+  // 「新会话」的 blank 复用逻辑就不会把它当成空白会话复用。
   const workspace = ctx.workspaces?.list?.getSnapshot()
-  const workspaceId = workspace?.recentWorkspaceId ?? workspace?.items?.[0]?.workspaceId
-  if (workspaceId === undefined) {
+  const items = Array.isArray(workspace?.items) ? workspace.items : []
+  const cwd = items.find((item) => item.workspaceId === workspace?.recentWorkspaceId)?.path
+    ?? items[0]?.path
+  if (cwd === undefined) {
     throw new Error("请先选择一个工作空间，再打开访前尽调智能体")
   }
   const create = ctx.sessions.create
   if (typeof create !== "function") {
     throw new Error("当前 DSH 版本没有可用的会话创建能力")
   }
-  const sessionId = await create({ workspaceId, sessionId: createPrevisitSessionId() })
+  const sessionId = await create({ cwd, sessionId: createPrevisitSessionId() })
   ctx.sessions.open?.(sessionId)
   return sessionId
 }

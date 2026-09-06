@@ -5,6 +5,7 @@ type SnapshotStore<T> = {
 type WorkspaceSnapshot = {
     items?: Array<{
         workspaceId: string;
+        path?: string;
         sessionIds?: string[];
     }>;
     recentWorkspaceId?: string;
@@ -25,7 +26,7 @@ export type LeftSidebarHost = {
             current?: string;
         }>;
         create?(options: {
-            workspaceId: string;
+            cwd: string;
             sessionId: string;
         }): Promise<string>;
         open?(sessionId: string): void;

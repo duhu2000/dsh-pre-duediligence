@@ -55,7 +55,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligenc
 
 1. `dsh-better-sidebar@0.17.1`：提供 Session 级右侧工作台容器。
 2. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-3. `dsh-pre-duediligence@0.1.2`：提供左侧智能体入口、访前工作台、点选拼句器和完整 Skill。
+3. `dsh-pre-duediligence@0.1.3`：提供左侧智能体入口、访前工作台、点选拼句器和完整 Skill。
 
 安装完成后停止旧的 DSH Web 进程并重新运行：
 
@@ -70,7 +70,7 @@ dsh web
 ~~~bash
 dsh plugin --profile web add dsh-better-sidebar@0.17.1 --allow-build=node-pty
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add dsh-pre-duediligence@0.1.2 --allow-build=dsh-pre-duediligence
+dsh plugin --profile web add dsh-pre-duediligence@0.1.3 --allow-build=dsh-pre-duediligence
 dsh web
 ~~~
 
@@ -84,7 +84,7 @@ Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 
 dsh plugin --profile web list --depth 0
 ~~~
 
-应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.2`。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调智能体”打开工作台；Better Sidebar 的右侧“+”菜单不会再列出该入口。点击前 DSH 首页、输入框、消息流和 Session 头部均保持原样。
+应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.3`。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调智能体”打开工作台；Better Sidebar 的右侧“+”菜单不会再列出该入口。点击前 DSH 首页、输入框、消息流和 Session 头部均保持原样。
 
 ### 从旧访前尽调包迁移
 
@@ -100,7 +100,7 @@ dsh plugin --profile web remove qcc-previsit-dsh
 
 如果 Web profile 已安装 `qcc-dsh-mcp-oauth`，不要让它与 MCP 连接器同时管理同名企查查 Server：
 
-1. 先安装 `dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.2`，完全重启 DSH。
+1. 先安装 `dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.3`，完全重启 DSH。
 2. 打开“🧩 MCP连接器”，按界面提示迁移旧企查查授权；也可以重新连接“企查查·企业工商”。
 3. 迁移完成后停止 DSH，执行 `dsh plugin --profile web remove qcc-dsh-mcp-oauth`。
 4. 再次启动 DSH，在“已安装”中确认企查查连接健康，然后执行一次真实企业查询。

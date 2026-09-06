@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # One-shot recovery for the existing v0.1.2 tag after enabling npm Trusted Publishing.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,25 +19,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
         with:
-          node-version: 20
-          registry-url: 'https://registry.npmjs.org'
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'v0.1.2' || github.ref }}
 
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.17.0 --activate
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.0
+
+      # npm Trusted Publishing requires npm >= 11.5.1 and Node >= 22.14.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Verify tag matches package version
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && 'v0.1.2' || github.ref_name }}
         run: >-
           node --input-type=module -e 'import fs from "node:fs";
           const { version } = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -55,4 +60,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && 'v0.1.2' || github.ref_name }}
           generate_release_notes: true

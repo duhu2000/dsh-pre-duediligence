@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { WORKBENCH_CSS } from "./workbench-style.js"
 
 describe("访前工作台企查查蓝主题", () => {
-  it("包含 DSH-UX-001 v1.1.0 的完整浅色与深色 Token", () => {
+  it("包含 DSH-UX-001 v1.1.1 的完整浅色与深色 Token", () => {
     for (const token of [
       "--qcc-brand:#128BED", "--qcc-action:#0875D1", "--qcc-action-hover:#0666B7",
       "--qcc-selected:#E6F4FF", "--qcc-table-head:#F2F9FC", "--qcc-page:#F6F8FA",

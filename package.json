@@ -1,6 +1,6 @@
 {
   "name": "dsh-pre-duediligence",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Session 级 DeepSeek Harness 访前尽调工作台，使用企查查 MCP 生成可追溯的访前尽调报告。",
   "license": "MIT",
   "repository": {

@@ -1,4 +1,4 @@
-import { type BetterSidebarService, type RevealController } from "./better-sidebar.js";
+import type { BetterSidebarService } from "./better-sidebar.js";
 type SnapshotStore<T> = {
     getSnapshot(): T;
 };
@@ -37,5 +37,5 @@ export type LeftSidebarHost = {
     };
     get?(name: string): unknown;
 };
-export declare function registerLeftSidebarLauncher(ctx: LeftSidebarHost, service: BetterSidebarService, reveal: RevealController): void;
+export declare function registerLeftSidebarLauncher(ctx: LeftSidebarHost, service: BetterSidebarService): void;
 export {};

@@ -5,7 +5,7 @@ set -euo pipefail
 readonly PROFILE_NAME="${DSH_PROFILE:-web}"
 readonly BETTER_SIDEBAR_SPEC="dsh-better-sidebar@0.17.1"
 readonly MCP_CONNECTOR_SPEC="dsh-mcp-connector@0.2.32"
-readonly PREVISIT_SPEC="${DSH_PRE_DUEDILIGENCE_SPEC:-dsh-pre-duediligence@0.1.5}"
+readonly PREVISIT_SPEC="${DSH_PRE_DUEDILIGENCE_SPEC:-dsh-pre-duediligence@0.1.6}"
 readonly LEGACY_PREVISIT_NAME="qcc-previsit-dsh"
 readonly LEGACY_QCC_OAUTH_NAME="qcc-dsh-mcp-oauth"
 
@@ -59,4 +59,4 @@ else
     "重启后打开左侧“🧩 MCP连接器”，选择“企查查·企业工商”并完成 OAuth 授权。" \
     "该连接会提供企业、风险、知产、经营、历史和董监高 MCP。"
 fi
-printf '%s\n' "在 DSH 左侧菜单点击“访前尽调”即可打开；右侧标签菜单不再显示该入口，普通会话不会挂载业务界面。"
+printf '%s\n' "在 DSH 左侧菜单点击“访前尽调”进入初始会话；右侧工作台默认关闭，点击输入框下方业务按钮后才打开。"

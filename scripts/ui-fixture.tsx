@@ -72,17 +72,14 @@ function useStaticSession<T>(selector: (state: { composerPhase: string }) => T):
 function Fixture(): JSX.Element {
   const home = registered.get("dsh-pre-duediligence:home")
   const prompt = registered.get("dsh-pre-duediligence:prompt-generator")
-  const header = registered.get("dsh-pre-duediligence:workbench-entry")
-  if (home === undefined || prompt === undefined || header === undefined || workbenchComponent === undefined) {
+  if (home === undefined || prompt === undefined || workbenchComponent === undefined) {
     return <p data-fixture-error="registration">插件 UI 未完成注册</p>
   }
   const Home = home.component
   const Prompt = prompt.component
-  const Header = header.component
   const Workbench = workbenchComponent
   const homeInjected = home.descriptor.inject(sessionId)
   const promptInjected = prompt.descriptor.inject(sessionId)
-  const headerInjected = header.descriptor.inject(sessionId)
   return (
     <main className="fixtureLayout">
       <aside className="fixtureSidebar" aria-label="测试菜单">
@@ -94,7 +91,6 @@ function Fixture(): JSX.Element {
           <span className="fixture_headlineText">探索未至之境</span>
           <span>预览版</span>
         </div>
-        <div className="fixtureHeader"><Header sessionId={sessionId} {...headerInjected} /></div>
         <div data-composer-seat>
           <div className="fixtureComposerStack">
             <Home sessionId={sessionId} useSession={useStaticSession} {...homeInjected} />

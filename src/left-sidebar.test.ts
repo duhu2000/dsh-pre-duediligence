@@ -4,7 +4,7 @@ vi.mock("@deepseek-ai/dsh-client-ui-primitives", () => ({
   IconAgentPresetOutline16: () => null,
 }))
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
-import { createRevealController, type BetterSidebarService } from "./better-sidebar.js"
+import { type BetterSidebarService } from "./better-sidebar.js"
 
 function fixture() {
   const events: string[] = []
@@ -29,25 +29,23 @@ function fixture() {
     isTabEnabled: vi.fn(() => true),
     openTab: vi.fn(() => { events.push("prepare-tab") }),
   } as unknown as BetterSidebarService
-  const reveal = createRevealController()
-  const request = vi.spyOn(reveal, "request")
-  registerLeftSidebarLauncher(ctx, service, reveal)
-  return { ctx, service, request, events, launch: () => openAgent() }
+  registerLeftSidebarLauncher(ctx, service)
+  return { ctx, service, events, launch: () => openAgent() }
 }
 describe("previsit navigation commit", () => {
-  it("prepares the target panel and pending reveal before changing selection", async () => {
+  it("enters a dedicated session without opening the workbench", async () => {
     const f = fixture()
     await f.launch()
-    expect(f.events).toEqual(["create", "prepare-tab", "select"])
-    const sessionId = vi.mocked(f.ctx.sessions.open!).mock.calls[0]![0]
-    expect(f.request).toHaveBeenCalledWith(sessionId)
-    expect(f.service.openTab).toHaveBeenCalledWith({ type: "dsh-pre-duediligence:agent" }, { sessionId })
+    expect(f.events).toEqual(["create", "select"])
+    expect(f.ctx.sessions.open).toHaveBeenCalledOnce()
+    expect(f.service.openTab).not.toHaveBeenCalled()
   })
-  it("leaves current selection intact if panel preparation fails", async () => {
+  it("leaves current selection intact if session creation fails", async () => {
     const f = fixture()
-    vi.mocked(f.service.openTab).mockImplementation(() => { throw new Error("panel failed") })
-    await expect(f.launch()).rejects.toThrow("panel failed")
+    vi.mocked(f.ctx.sessions.create!).mockRejectedValue(new Error("session failed"))
+    await expect(f.launch()).rejects.toThrow("session failed")
     expect(f.ctx.sessions.open).not.toHaveBeenCalled()
+    expect(f.service.openTab).not.toHaveBeenCalled()
   })
   it("does not create a session when the tab is disabled", async () => {
     const f = fixture()

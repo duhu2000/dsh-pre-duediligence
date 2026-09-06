@@ -1,6 +1,6 @@
 # dsh-pre-duediligence
 
-当前版本：**0.1.5**。界面已对齐 DSH-UX-001 v1.1.0 与企查查蓝 Mockup：菜单、首页和工作台使用同一建筑 LOGO，首页名称为“访前尽调一页纸智能体”，并新增五项快捷菜单与四步提示词生成器。详见 [更新日志](CHANGELOG.md)和[规范采纳记录](docs/DSH-UX-001-ADOPTION.md)。
+当前版本：**0.1.6**。界面已对齐 DSH-UX-001 v1.1.1 与企查查蓝 Mockup：菜单、首页和工作台使用同一建筑 LOGO，首页名称为“访前尽调一页纸智能体”；点击左侧“访前尽调”只进入初始会话，右侧工作台默认关闭，点击输入框下方业务按钮后才打开。详见 [更新日志](CHANGELOG.md)和[规范采纳记录](docs/DSH-UX-001-ADOPTION.md)。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
@@ -13,6 +13,7 @@
 - 使用 dsh-better-sidebar 0.17.1，不再使用遮挡对话的自定义浮层
 - 只在 DSH 左侧菜单增加“访前尽调”入口；对应工作台标签在 Better Sidebar 的右侧“+”菜单中隐藏
 - 菜单、首页与工作台统一使用企查查蓝 Mockup 的线性建筑 LOGO；初始页面为“访前尽调一页纸智能体”
+- 点击左侧入口只创建并进入访前 Session，初始页不打开右侧工作台；点击输入框下方五项业务按钮后才打开对应视图
 - 首页只保留简洁说明、DSH 原生输入框和输入框下方五项快捷菜单：企业核验、经营画像、风险核查、访前材料、任务历史
 - “当前任务 / 任务历史”主导航与五阶段业务导航分离：
   1. 对象与目标
@@ -21,7 +22,7 @@
   4. 证据核验
   5. 材料输出
 - 快捷菜单与阶段导航只切换视图，不伪造执行状态；只有捕获到完整报告后才显示“报告已生成”
-- 关闭工作台只隐藏界面，不取消任务；可从输入区快捷菜单或会话头按钮恢复
+- 关闭工作台只隐藏界面，不取消任务；从输入框下方同一组快捷按钮恢复
 - 进度与工具记录只读取当前 Session 的真实事件，不维护跨 Session 的浏览器任务列表
 - 完整报告保留在 DSH 原生会话中
 
@@ -63,7 +64,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligenc
 
 1. `dsh-better-sidebar@0.17.1`：提供 Session 级右侧工作台容器。
 2. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-3. `dsh-pre-duediligence@0.1.5`：提供左侧智能体入口、访前工作台、提示词生成器和完整 Skill。
+3. `dsh-pre-duediligence@0.1.6`：提供左侧智能体入口、访前工作台、提示词生成器和完整 Skill。
 
 安装完成后停止旧的 DSH Web 进程并重新运行：
 
@@ -78,7 +79,7 @@ dsh web
 ~~~bash
 dsh plugin --profile web add dsh-better-sidebar@0.17.1 --allow-build=node-pty
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add dsh-pre-duediligence@0.1.5 --allow-build=dsh-pre-duediligence
+dsh plugin --profile web add dsh-pre-duediligence@0.1.6 --allow-build=dsh-pre-duediligence
 dsh web
 ~~~
 
@@ -92,7 +93,7 @@ Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 
 dsh plugin --profile web list --depth 0
 ~~~
 
-应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.5`。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”打开工作台；Better Sidebar 的右侧“+”菜单不会再列出该入口。普通会话的首页、输入框、消息流和 Session 头部保持原样。
+应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.6`。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”只进入初始会话；右侧工作台保持关闭，点击输入框下方业务按钮后才打开对应视图。Better Sidebar 的右侧“+”菜单不会列出该入口，普通会话的首页、输入框、消息流和 Session 头部保持原样。
 
 ### 从旧访前尽调包迁移
 
@@ -108,7 +109,7 @@ dsh plugin --profile web remove qcc-previsit-dsh
 
 如果 Web profile 已安装 `qcc-dsh-mcp-oauth`，不要让它与 MCP 连接器同时管理同名企查查 Server：
 
-1. 先安装 `dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.5`，完全重启 DSH。
+1. 先安装 `dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.6`，完全重启 DSH。
 2. 打开“🧩 MCP连接器”，按界面提示迁移旧企查查授权；也可以重新连接“企查查·企业工商”。
 3. 迁移完成后停止 DSH，执行 `dsh plugin --profile web remove qcc-dsh-mcp-oauth`。
 4. 再次启动 DSH，在“已安装”中确认企查查连接健康，然后执行一次真实企业查询。
@@ -130,16 +131,16 @@ pnpm test:ui
 ## 人工验收
 
 1. 在 DSH 选择一个工作空间和 Session。
-2. 确认左侧菜单出现“访前尽调”及建筑 LOGO，同时右侧 Better Sidebar 的“+”菜单不再出现该入口；普通会话保持 DSH 原样。
+2. 点击左侧“访前尽调”，确认只进入专属初始会话，右侧工作台保持关闭；同时右侧 Better Sidebar 的“+”菜单不出现该入口，普通会话保持 DSH 原样。
 3. 点击“访前尽调”，确认首页标题为“访前尽调一页纸智能体”，LOGO 与菜单一致，说明行独立居中。
-4. 确认五项快捷菜单位于原生输入框下方，点击后只切换右侧工作台视图。
+4. 确认五项快捷菜单位于原生输入框下方，点击后才打开右侧工作台并切换到对应视图。
 5. 打开输入框左上角“提示词生成”，检查四步、滚动、固定头尾、Tab 焦点环和 Escape 恢复焦点。
 6. 选择“银行/信贷客户经理、首次拜访、风险与涉诉、股权与实控人、15分钟标准、一页纸简报”并填写企业。
 7. 输入框已有自由文本时，分别验证取消、追加、替换；确认回填后不会自动发送。
 8. 点击 DSH 原生发送按钮，确认消息作为用户可见文本发送到当前 Session。
 9. 确认工作台只展示当前 Session 真实发生的企业、经营、知识产权和风险工具调用。
 10. 检查风险侧先出现企业风险扫描，零计数维度没有继续下钻。
-11. 中途关闭工作台，确认任务继续；点击会话头“访前尽调”可恢复。
+11. 中途关闭工作台，确认任务继续；点击输入框下方任一业务快捷按钮可恢复并进入对应视图。
 12. Agent 停止但未生成完整报告时应显示“等待确认 / 继续”；完整报告出现后才显示“报告已生成”。
 13. 检查报告有八段（含独立产业定位），假设包含支持/反对/未知，必问包含答 A/B 分支，覆盖声明区分零记录和调用失败。
 

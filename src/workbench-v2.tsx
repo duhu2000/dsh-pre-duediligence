@@ -14,7 +14,6 @@ import {
 } from "./better-sidebar.js"
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import { PrevisitHome } from "./previsit-home.js"
-import { isPrevisitSession } from "./previsit-session.js"
 import { openWorkbench } from "./better-sidebar.js"
 import {
   PREVISIT_PHASES,
@@ -597,15 +596,6 @@ function installStyles(): () => void {
   return () => style.remove()
 }
 
-function PrevisitHeaderEntry(props: { sessionId: string; openWorkbench(): void }): JSX.Element | null {
-  if (!isPrevisitSession(props.sessionId)) return null
-  return (
-    <button type="button" className="qccPrevisitHeaderAction" aria-label="打开访前尽调工作台" title="打开访前尽调工作台" onClick={props.openWorkbench}>
-      <PrevisitLogo size={16} /><span>访前尽调</span>
-    </button>
-  )
-}
-
 export function apply(ctx: ClientContext): void {
   const service = ctx.betterSidebar
   const shared = createPrevisitStore()
@@ -626,7 +616,7 @@ export function apply(ctx: ClientContext): void {
     () => registerWorkbenchTab(service, props => <PrevisitWorkbenchTab {...props} ctx={ctx} shared={shared} reveal={reveal} startPrompt={startPrompt} />),
     "dsh-pre-duediligence: hidden workbench tab",
   )
-  registerLeftSidebarLauncher(ctx, service, reveal)
+  registerLeftSidebarLauncher(ctx, service)
   ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
     name: "conversation.input.dock",
     id: "dsh-pre-duediligence:home",
@@ -641,10 +631,4 @@ export function apply(ctx: ClientContext): void {
     order: 110,
     inject: () => ({ store: shared }),
   }, PrevisitPromptGenerator))
-  ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
-    name: "conversation.session.header.actions",
-    id: "dsh-pre-duediligence:workbench-entry",
-    order: 110,
-    inject: (sessionId: string) => ({ openWorkbench: () => { openForSession(sessionId) } }),
-  }, PrevisitHeaderEntry))
 }

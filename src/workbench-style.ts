@@ -1,6 +1,6 @@
-/** DSH-UX-001 v1.1.0：所有变量和组件选择器均限定在本插件拥有的节点内。 */
+/** DSH-UX-001 v1.1.1：所有变量和组件选择器均限定在本插件拥有的节点内。 */
 export const WORKBENCH_CSS = String.raw`
-.qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent,.qccPrevisitHeaderAction{
+.qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent{
   --qcc-brand:#128BED;
   --qcc-action:#0875D1;
   --qcc-action-hover:#0666B7;
@@ -20,7 +20,7 @@ export const WORKBENCH_CSS = String.raw`
   --qcc-danger-bg:#FFF1F0;
   color:var(--qcc-text);
 }
-:is(html[data-theme="dark"],html.dark) :is(.qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent,.qccPrevisitHeaderAction){
+:is(html[data-theme="dark"],html.dark) :is(.qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent){
   --qcc-brand:#55ADFF;
   --qcc-action:#82C3FF;
   --qcc-action-hover:#ACD7FF;
@@ -40,7 +40,7 @@ export const WORKBENCH_CSS = String.raw`
   --qcc-danger-bg:#442826;
 }
 @media(prefers-color-scheme:dark){
-  .qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent,.qccPrevisitHeaderAction{
+  .qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent{
     --qcc-brand:#55ADFF;
     --qcc-action:#82C3FF;
     --qcc-action-hover:#ACD7FF;
@@ -70,11 +70,9 @@ html[data-theme="dark"] .qccPrevisitHeroLogo,html.dark .qccPrevisitHeroLogo{colo
 .qccPrevisitCapability{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:38px;padding:8px 12px;border:1px solid var(--qcc-border);border-radius:10px;background:var(--qcc-surface);color:var(--qcc-secondary);font:inherit;font-size:13px;cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease}
 .qccPrevisitCapability svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .qccPrevisitCapability:hover{border-color:var(--qcc-brand);background:var(--qcc-selected);color:var(--qcc-action)}
-.qccPrevisitCapability:focus-visible,.qccPromptTrigger:focus-visible,.qccPromptPanel button:focus-visible,.qccPromptPanel input:focus-visible,.qccPwShell button:focus-visible,.qccPrevisitHeaderAction:focus-visible{outline:2px solid var(--qcc-brand);outline-offset:2px}
+.qccPrevisitCapability:focus-visible,.qccPromptTrigger:focus-visible,.qccPromptPanel button:focus-visible,.qccPromptPanel input:focus-visible,.qccPwShell button:focus-visible{outline:2px solid var(--qcc-brand);outline-offset:2px}
 .qccPrevisitLauncherContent{display:inline-flex;align-items:center;gap:9px;color:inherit}
 .qccPrevisitLauncherContent svg{color:var(--qcc-brand);flex:none}
-.qccPrevisitHeaderAction{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid var(--qcc-border);border-radius:8px;background:var(--qcc-surface);color:var(--qcc-text);font:inherit;font-size:12px;cursor:pointer}
-.qccPrevisitHeaderAction svg{color:var(--qcc-brand)}
 
 .qccPromptLayer{position:absolute;z-index:4;top:10px;left:12px}
 .qccPromptTrigger{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;border:1px solid var(--qcc-border);border-radius:8px;background:var(--qcc-surface);color:var(--qcc-action);font:inherit;font-size:12px;font-weight:600;cursor:pointer}

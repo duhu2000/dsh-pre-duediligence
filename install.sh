@@ -5,7 +5,7 @@ set -euo pipefail
 readonly PROFILE_NAME="${DSH_PROFILE:-web}"
 readonly BETTER_SIDEBAR_SPEC="dsh-better-sidebar@0.17.1"
 readonly MCP_CONNECTOR_SPEC="dsh-mcp-connector@0.2.32"
-readonly PREVISIT_SPEC="${DSH_PRE_DUEDILIGENCE_SPEC:-dsh-pre-duediligence@0.1.1}"
+readonly PREVISIT_SPEC="${DSH_PRE_DUEDILIGENCE_SPEC:-dsh-pre-duediligence@0.1.2}"
 readonly LEGACY_PREVISIT_NAME="qcc-previsit-dsh"
 readonly LEGACY_QCC_OAUTH_NAME="qcc-dsh-mcp-oauth"
 

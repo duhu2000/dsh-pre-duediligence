@@ -26,6 +26,7 @@ export type LeftSidebarHost = {
         }>;
         create?(options: {
             workspaceId: string;
+            sessionId: string;
         }): Promise<string>;
         open?(sessionId: string): void;
     };

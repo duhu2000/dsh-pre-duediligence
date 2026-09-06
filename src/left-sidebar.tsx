@@ -37,7 +37,7 @@ export type LeftSidebarHost = {
   slots: SlotsService
   sessions: {
     list?: SnapshotStore<{ current?: string }>
-    create?(options: { workspaceId: string }): Promise<string>
+    create?(options: { workspaceId: string; sessionId: string }): Promise<string>
     open?(sessionId: string): void
   }
   workspaces?: {
@@ -140,25 +140,29 @@ function LeftSidebarEntry(props: LeftSidebarEntryProps): JSX.Element {
   )
 }
 
-async function resolveSessionId(ctx: LeftSidebarHost, service: BetterSidebarService): Promise<string> {
-  const current = service.getSnapshot().sessionId ?? ctx.sessions.list?.getSnapshot().current
-  if (current !== undefined) return current
+const PREVISIT_SESSION_ID_PREFIX = "session-dsh-pre-duediligence-"
 
+function createPrevisitSessionId(): string {
+  if (typeof globalThis.crypto?.randomUUID !== "function") {
+    throw new Error("当前浏览器不支持安全会话标识生成，请使用最新版浏览器")
+  }
+  return `${PREVISIT_SESSION_ID_PREFIX}${globalThis.crypto.randomUUID()}`
+}
+
+async function resolveSessionId(ctx: LeftSidebarHost): Promise<string> {
+  // 单一会话所有权：与招投标入口一致，显式创建带前缀的独立会话，绝不复用当前会话。
+  // 若复用当前「招投标」工作台会话，访前尽调与招投标会共享同一会话，
+  // 导致 Hero 标题与右侧工作台面板归属冲突（标题不刷新、面板不切换）。
   const workspace = ctx.workspaces?.list?.getSnapshot()
   const workspaceId = workspace?.recentWorkspaceId ?? workspace?.items?.[0]?.workspaceId
   if (workspaceId === undefined) {
     throw new Error("请先选择一个工作空间，再打开访前尽调智能体")
   }
-
-  const uiWorkspace = ctx.get?.("uiWorkspace") as UiWorkspaceService | undefined
-  const sessionId = ctx.workspaces?.connectWorkspace !== undefined
-    ? await ctx.workspaces.connectWorkspace(workspaceId)
-    : uiWorkspace?.connectWorkspace !== undefined
-      ? await uiWorkspace.connectWorkspace(workspaceId)
-      : await ctx.sessions.create?.({ workspaceId })
-  if (sessionId === undefined) {
+  const create = ctx.sessions.create
+  if (typeof create !== "function") {
     throw new Error("当前 DSH 版本没有可用的会话创建能力")
   }
+  const sessionId = await create({ workspaceId, sessionId: createPrevisitSessionId() })
   ctx.sessions.open?.(sessionId)
   return sessionId
 }
@@ -174,7 +178,7 @@ export function registerLeftSidebarLauncher(
     order: 20,
     inject: () => ({
       openAgent: async () => {
-        const sessionId = await resolveSessionId(ctx, service)
+        const sessionId = await resolveSessionId(ctx)
         if (!openWorkbench(service, { sessionId }, reveal)) {
           throw new Error("访前尽调工作台当前不可用，请检查插件配置")
         }

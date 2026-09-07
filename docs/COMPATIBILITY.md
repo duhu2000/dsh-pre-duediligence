@@ -61,6 +61,7 @@ Node：22.19+（22 LTS）或 24 LTS。CI 新增两组 Node × 两组 Sidebar × 
 - 本地补验于 `2026-09-07T03:47:47.537Z` 通过：[provenance](https://registry.npmjs.org/-/npm/v1/attestations/dsh-pre-duediligence@0.1.9) 的仓库、workflow、tag、commit 和发布物摘要均匹配；npm 发布者为 GitHub Actions Trusted Publisher。
 - npm 完整性：`sha512-Y39F4Tv61LRyA/Ta+j7g5tn8+YUbFeDH+zFFqV2q5KBrGrTpFbTT1siuwIZ8yA5vUekqpN4mfQ+b0CM+UULtlg==`，与发布前本地打包检查一致。
 - 后续回读允许最长 10 分钟的可见性等待，规避旧 404 缓存，并按不可变 tag 校验，而非随 main 前进的 HEAD。新增只读 `Release readback` workflow 可补存远端证据；它不具有发布或仓库写权限，不重复发布、不移动 tag。
+- [独立远端补验成功](https://github.com/duhu2000/dsh-pre-duediligence/actions/runs/34081263665)，结果 artifact 为 `registry-readback-34081263665`；补验脚本所在提交 `19d01ed` 的[八组 CI 亦通过](https://github.com/duhu2000/dsh-pre-duediligence/actions/runs/34080984871)。原始发布运行的回读失败与后续补验成功分别保留。
 
 发布成功不改变真实四插件组合、Provider 或市场的待验收状态。
 

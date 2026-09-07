@@ -38,7 +38,9 @@ Node：22.19+（22 LTS）或 24 LTS。CI 新增两组 Node × 两组 Sidebar × 
 - 本机已安装 Cordis 4.0.2 / DSH ToolRuntime 0.1.1-rc.2：实际运行生成后的 `lib/index.js`，三个业务工具注册、合成审批服务、合成 MCP 嵌套调度、主体确认、直接 MCP 调用拒绝、回合结束传播和卸载均通过。该检查未启动 DSH Web，也未使用真实审批 UI、客户连接或额度。
 - `bash -n install.sh`、两个发布核验脚本的 `node --check`、`git diff --check` 通过。发布核验脚本的远端 CI / Registry 分支仍须在正式发布流程验证。
 - `npm pack --dry-run --ignore-scripts --json` 通过，发布清单共 38 个文件；包含构建产物，不包含 `_scratch`、测试夹具或本机配置。
-- 尚未执行远端 CI 矩阵、真实 Web Loader、四插件共装、Connector 双版本真链路或市场投稿；当前结论是本地开发门禁通过，不是组合验收通过。
+- 真实 Web Loader、四插件共装、Connector 双版本真链路和市场投稿仍待完成；远端 CI 进度另列下文，本地门禁通过不等于组合验收通过。
+
+首次远端 CI（提交 `75bf8b7`）的八组类型检查、单元测试和构建均通过；Linux Chrome 冷启动触发原有 8 秒进程超时，多数组合未进入 UI 断言。发布前修正为 30 秒启动窗口，保留全部原有 UI / 会话断言，减少 Chrome 后台启动服务，并新增隔离 DOM / 日志 / 截图 artifact。必须等待修正提交的完整矩阵通过后打 tag；不以重试绕过失败检查。
 
 ## 发布与市场
 

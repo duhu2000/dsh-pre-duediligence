@@ -62,3 +62,15 @@ jobs:
 
       - name: Check package contents
         run: npm pack --dry-run --ignore-scripts
+
+      - name: Retain isolated UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-${{ matrix.node }}-${{ matrix.sidebar }}-${{ matrix.dsh-sdk }}
+          retention-days: 7
+          path: |
+            _scratch/ui-layout/*.png
+            _scratch/ui-layout/*.dom.html
+            _scratch/ui-layout/*.browser.log
+            _scratch/ui-layout/results.json

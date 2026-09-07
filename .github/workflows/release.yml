@@ -54,6 +54,18 @@ jobs:
       - name: Inspect publish contents
         run: npm pack --dry-run --ignore-scripts
 
+      - name: Retain isolated UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ui-${{ github.ref_name }}
+          retention-days: 7
+          path: |
+            _scratch/ui-layout/*.png
+            _scratch/ui-layout/*.dom.html
+            _scratch/ui-layout/*.browser.log
+            _scratch/ui-layout/results.json
+
       # GitHub OIDC Trusted Publishing：无长期 NPM_TOKEN；需在 npm 侧绑定本仓库 + 本 workflow 后生效。
       - name: Publish to npm
         run: npm publish --access public --provenance

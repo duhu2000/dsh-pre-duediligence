@@ -48,6 +48,12 @@ for (const [theme, width, height] of scenarios) {
   const run = spawnSync(chrome, [
     "--headless=new",
     "--disable-gpu",
+    "--disable-background-networking",
+    "--disable-component-update",
+    "--disable-default-apps",
+    "--disable-sync",
+    "--metrics-recording-only",
+    "--no-pings",
     "--force-device-scale-factor=1",
     "--no-first-run",
     "--no-default-browser-check",
@@ -58,9 +64,13 @@ for (const [theme, width, height] of scenarios) {
     `--screenshot=${screenshot}`,
     "--dump-dom",
     url,
-  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024, timeout: 8_000, killSignal: "SIGKILL" })
+  // Linux CI cold-starts the full Chrome binary; 8s can expire before it opens
+  // the fixture. Keep the same virtual-time/assertion gates, allow 30s startup.
+  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024, timeout: 30_000, killSignal: "SIGKILL" })
+  await writeFile(resolve(output, `${theme}-${width}.dom.html`), run.stdout ?? "", "utf8")
+  await writeFile(resolve(output, `${theme}-${width}.browser.log`), run.stderr ?? "", "utf8")
   const timedOutAfterDump = run.error?.code === "ETIMEDOUT" && run.stdout.includes('data-ui-ready="true"')
-  assert.ok(run.status === 0 || timedOutAfterDump, run.stderr || `Chrome failed for ${theme} ${width}x${height}`)
+  assert.ok(run.status === 0 || timedOutAfterDump, `Chrome ${theme} ${width}x${height}: ${run.error?.code ?? run.status}\n${run.stderr}`)
   const dom = run.stdout
   const attr = (name) => new RegExp(`data-${name}="([^"]*)"`).exec(dom)?.[1]
   assert.equal(attr("ui-ready"), "true")

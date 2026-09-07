@@ -65,4 +65,4 @@ Node：22.19+（22 LTS）或 24 LTS。CI 新增两组 Node × 两组 Sidebar × 
 
 发布成功不改变真实四插件组合、Provider 或市场的待验收状态。
 
-市场材料待备齐：准确业务简介、两个安装基线和限制、公开仓库/npm/许可证、无客户信息的安装与切换截图、真实安装/卸载证据、权限与额度说明、规范采用记录。投稿/合并/目录生效分别登记；当前不声明已上架。
+市场材料已在 [awesome-dsh-plugin 投稿登记](MARKETPLACE.md) 中汇总。上游 [PR #4587](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4587) 已开放，PR check 与 Submission gate 均通过；截至 2026-09-07 仍为 OPEN、Ready for review，等待维护者合并和目录生效。投稿成功不等于已收录，当前不声明已上架。

@@ -40,10 +40,12 @@
 
 | 项目 | 状态 |
 | --- | --- |
-| 重复 PR 检索 | 未发现同名历史或在途 PR |
-| 上游 PR | 待创建 |
-| PR checks | 待创建后登记 |
+| 重复 PR 检索 | 创建前未发现同名历史或在途 PR；当前同名投稿为本次 PR #4587 |
+| 上游 PR | [awesome-dsh-plugin#4587](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4587)，OPEN、Ready for review（非 Draft） |
+| 投稿分支 / 提交 | `duhu2000:add/duhu2000-dsh-pre-duediligence` / `550f65c3c731991ef829f791a67b17761df760ce` |
+| PR check | SUCCESS（2026-09-07），[运行记录](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/actions/runs/34131526825/job/101772555052) |
+| Submission gate | SUCCESS（2026-09-07），[运行记录](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/runs/101773351008) |
 | 目录状态 | 未收录 |
-| 下一步 | 从上游最新 `main` 创建单文件投稿 PR，等待 CI 和维护者评审 |
+| 下一步 | 等待维护者评审与合并；合并后再核验 README、站点目录和 npm 自动映射是否生效 |
 
 发布版本保持不可变：本次只补充市场材料，不移动 `v0.1.9` tag，不重复发布 npm 0.1.9。

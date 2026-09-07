@@ -1,6 +1,6 @@
 # dsh-pre-duediligence
 
-版本：**0.1.9**。本版按 DSH-UX-001 v1.2.0 同步摘要整改，已通过本地自动化门禁；尚未完成权威全文核对、真实 DSH 四插件组合及企查查 Provider 验收。npm 发布与组合验收是独立状态，候选环境请隔离测试。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)和[兼容与验收矩阵](docs/COMPATIBILITY.md)。
+版本：**0.1.9**。本版按 DSH-UX-001 v1.2.0 同步摘要整改，已通过本地自动化门禁；尚未完成权威全文核对、真实 DSH 四插件组合及企查查 Provider 验收。npm 发布与组合验收是独立状态，候选环境请隔离测试。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 

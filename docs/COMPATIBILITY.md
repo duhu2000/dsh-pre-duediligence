@@ -53,4 +53,15 @@ Node：22.19+（22 LTS）或 24 LTS。CI 新增两组 Node × 两组 Sidebar × 
 
 0.1.9 流程：材料/完整本地门禁 → release commit 推 main → 该提交 CI 全绿 → annotated v0.1.9 tag → Actions 门禁/OIDC/npm/provenance → GitHub Release → Registry 回读并上传证据 artifact。用户已授权本次提交与发布；发布完成后在 main 回写证据，不移动公开 tag 或重用 npm 版本。
 
+### 0.1.9 发布结果（2026-09-07）
+
+- 发布提交与 annotated tag：`d5ab1ca30cd0eff28ac7997f24806f0a948b7ae8` / `v0.1.9`；[八组 CI 全部通过](https://github.com/duhu2000/dsh-pre-duediligence/actions/runs/34079044391)。
+- [Release 工作流](https://github.com/duhu2000/dsh-pre-duediligence/actions/runs/34080271414) 的门禁、OIDC npm 发布和 GitHub Release 创建成功；最后自动回读因 Registry 仍在处理、返回 404 而失败。该首次运行保留真实失败状态，不写成全绿。
+- [npm 0.1.9](https://www.npmjs.com/package/dsh-pre-duediligence/v/0.1.9) 已回读，`latest=0.1.9`；[GitHub Release](https://github.com/duhu2000/dsh-pre-duediligence/releases/tag/v0.1.9) 已创建。
+- 本地补验于 `2026-09-07T03:47:47.537Z` 通过：[provenance](https://registry.npmjs.org/-/npm/v1/attestations/dsh-pre-duediligence@0.1.9) 的仓库、workflow、tag、commit 和发布物摘要均匹配；npm 发布者为 GitHub Actions Trusted Publisher。
+- npm 完整性：`sha512-Y39F4Tv61LRyA/Ta+j7g5tn8+YUbFeDH+zFFqV2q5KBrGrTpFbTT1siuwIZ8yA5vUekqpN4mfQ+b0CM+UULtlg==`，与发布前本地打包检查一致。
+- 后续回读允许最长 10 分钟的可见性等待，规避旧 404 缓存，并按不可变 tag 校验，而非随 main 前进的 HEAD。新增只读 `Release readback` workflow 可补存远端证据；它不具有发布或仓库写权限，不重复发布、不移动 tag。
+
+发布成功不改变真实四插件组合、Provider 或市场的待验收状态。
+
 市场材料待备齐：准确业务简介、两个安装基线和限制、公开仓库/npm/许可证、无客户信息的安装与切换截图、真实安装/卸载证据、权限与额度说明、规范采用记录。投稿/合并/目录生效分别登记；当前不声明已上架。

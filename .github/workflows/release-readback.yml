@@ -1,0 +1,33 @@
+name: Release readback
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable annotated release tag (read-only verification)
+        required: true
+        type: string
+
+# Deliberately no npm publish, OIDC or repository-write permission.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Verify existing Registry version and provenance
+        env:
+          VERIFY_RELEASE_TAG: ${{ inputs.tag }}
+        run: node scripts/verify-published.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: registry-readback-${{ github.run_id }}
+          path: _scratch/release/registry-evidence.json

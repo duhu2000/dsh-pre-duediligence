@@ -127,6 +127,8 @@ export function PrevisitHome({ sessionId, useSession, openWorkbench }: PrevisitH
   const enabled = isPrevisitSession(sessionId)
   const marker = useRef<HTMLDivElement>(null)
   const [menuMount, setMenuMount] = useState<HTMLElement | null>(null)
+  const [error, setError] = useState<string>()
+  useEffect(() => { setError(undefined) }, [sessionId])
 
   useEffect(() => {
     if (!enabled || marker.current === null) return
@@ -139,11 +141,15 @@ export function PrevisitHome({ sessionId, useSession, openWorkbench }: PrevisitH
   }, [enabled, blank, sessionId])
 
   if (!enabled) return null
-  const menu = <CapabilityBar onNavigate={view => openWorkbench?.(view)} />
+  const menu = <CapabilityBar onNavigate={view => {
+    try { openWorkbench?.(view); setError(undefined) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "工作台暂不可用，请检查插件配置。") }
+  }} />
   return (
     <div ref={marker} className={`qccPrevisitExperience${blank ? " is-home" : ""}`} data-session-id={sessionId}>
       {menuMount === null ? menu : createPortal(menu, menuMount)}
       {blank ? <p className="qccPrevisitHomeSummary">{PREVISIT_HOME_SUMMARY}</p> : null}
+      {error === undefined ? null : <p role="status">{error}</p>}
     </div>
   )
 }

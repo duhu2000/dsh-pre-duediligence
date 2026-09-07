@@ -115,7 +115,7 @@ describe("session workbench state", () => {
       ],
       reportReady: false,
     })
-    expect(phases.map(phase => phase.progress)).toEqual(["done", "done", "done", "active", "idle"])
+    expect(phases.map(phase => phase.progress)).toEqual(["idle", "idle", "active", "idle", "idle"])
   })
 
   it("does not mark completion when the Session stops without a report", () => {
@@ -140,7 +140,7 @@ describe("session workbench state", () => {
     expect(phases.at(-1)?.progress).toBe("idle")
   })
 
-  it("marks all five phases done only after a complete report is captured", () => {
+  it("does not treat report completion or tool names as proof of full coverage", () => {
     const phases = derivePhaseStates({
       hasTask: true,
       running: false,
@@ -151,7 +151,7 @@ describe("session workbench state", () => {
       reportReady: true,
     })
     expect(phases).toHaveLength(5)
-    expect(phases.every(phase => phase.progress === "done")).toBe(true)
+    expect(phases.map(p => p.progress)).toEqual(["idle", "idle", "idle", "idle", "done"])
   })
 })
 

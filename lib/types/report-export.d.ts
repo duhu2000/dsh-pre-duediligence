@@ -3,6 +3,13 @@ export type ReportMeta = {
     generatedAt?: string;
 };
 export type CardNode = {
+    id?: string;
+    seq?: number;
+    interrupted?: boolean;
+    blocks?: Array<{
+        kind: string;
+        text?: string;
+    }>;
     kind?: string;
     role?: string;
     text?: string;
@@ -22,11 +29,16 @@ export type CardSnapshot = {
     nodes?: CardNode[];
     running?: boolean;
 };
-export declare function adoptTaskFromSnapshot(snapshot: CardSnapshot): {
+export declare function adoptTaskFromSnapshot(snapshot: CardSnapshot, sessionId: string, minimumBaseline?: number): {
     id: string;
     prompt: string;
     nodeBaseline: number;
 } | null;
+export declare function captureTaskReport(snapshot: CardSnapshot, sessionId: string, task: {
+    id: string;
+    nodeBaseline: number;
+    prompt: string;
+}): string | null;
 export declare function extractCardText(snapshot: CardSnapshot, baseline: number): string | null;
 export declare function humanizeCell(text: string): string;
 export declare function stripFactIds(text: string): string;

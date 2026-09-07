@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from "react"
 import { createRoot } from "react-dom/client"
+import { flushSync } from "react-dom"
 
 import { PREVISIT_LOGO_PATH, PrevisitLogo } from "../src/previsit-brand.js"
 import { apply } from "../src/workbench-v2.js"
+import { verifySessionIsolation } from "./session-isolation-fixture.js"
 
 const sessionId = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 document.documentElement.dataset.theme = new URLSearchParams(location.search).get("theme") === "dark" ? "dark" : "light"
@@ -30,6 +32,7 @@ const sidebarStore = {
 }
 
 const ctx: any = {
+  inject(_deps: string[], setup: (context: unknown) => unknown) { return setup(ctx) },
   effect(setup: () => unknown) { return setup() },
   slots: {
     inject(_name: string, setup: () => unknown) { return setup() },
@@ -114,12 +117,15 @@ function Fixture(): JSX.Element {
   )
 }
 
-createRoot(document.getElementById("app")!).render(<Fixture />)
+void (async () => {
+await verifySessionIsolation()
+document.body.dataset.sessionIsolation = "true"
+flushSync(() => createRoot(document.getElementById("app")!).render(<Fixture />))
 
 window.setTimeout(() => {
   const trigger = document.querySelector<HTMLButtonElement>(".qccPromptTrigger")
   trigger?.focus()
-  trigger?.click()
+  flushSync(() => trigger?.click())
   window.setTimeout(() => {
     const panel = document.querySelector<HTMLElement>(".qccPromptPanel")
     const backdrop = document.querySelector<HTMLElement>(".qccPromptBackdrop")
@@ -129,11 +135,11 @@ window.setTimeout(() => {
     document.body.dataset.promptFixed = backdrop === null ? "missing" : getComputedStyle(backdrop).position
     document.body.dataset.promptFits = String(panelRect !== undefined && panelRect.left >= -0.5 && panelRect.right <= window.innerWidth + 0.5)
     document.body.dataset.promptActionsFit = String(nextButtonRect !== undefined && nextButtonRect.left >= 0 && nextButtonRect.right <= window.innerWidth)
-    panel?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    flushSync(() => panel?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })))
     window.setTimeout(() => {
       document.body.dataset.escapeClosed = String(document.querySelector(".qccPromptPanel") === null)
       document.body.dataset.focusRestored = String(document.activeElement === trigger)
-      trigger?.click()
+      flushSync(() => trigger?.click())
       window.setTimeout(() => {
         const composerCard = document.querySelector<HTMLElement>("[data-composer-card]")
         const shell = document.querySelector<HTMLElement>(".qccPwShell")
@@ -167,3 +173,4 @@ window.setTimeout(() => {
     }, 80)
   }, 120)
 }, 120)
+})().catch(error => { document.body.dataset.uiError = String(error) })

@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      dsh-better-sidebar:
-        specifier: 0.17.1
-        version: 0.17.1(d46845ca93a55df16bb32ffceeede6a2)
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: 4.0.2
@@ -30,6 +26,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.0
         version: 18.3.7(@types/react@18.3.31)
+      dsh-better-sidebar:
+        specifier: 0.17.1
+        version: 0.17.1(d46845ca93a55df16bb32ffceeede6a2)
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12

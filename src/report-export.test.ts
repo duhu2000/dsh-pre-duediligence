@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { adoptTaskFromSnapshot, buildPrevisitReportFromRenderedHtml, buildPrevisitReportHtml, extractCardText, renderCardMarkdown } from "./report-export.js"
+import { adoptTaskFromSnapshot, buildPrevisitReportFromRenderedHtml, buildPrevisitReportHtml, captureTaskReport, extractCardText, renderCardMarkdown } from "./report-export.js"
+const ownedSession = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 
 describe("renderCardMarkdown", () => {
   it("渲染标题、加粗；事实编号对读者无意义，去掉", () => {
@@ -112,12 +113,37 @@ describe("buildPrevisitReportFromRenderedHtml", () => {
 describe("adoptTaskFromSnapshot", () => {
   it("认领带任务 ID 的正式提交", () => {
     const snap = { nodes: [{ kind: "user", text: "我是银行对公客户经理，准备拜访某某公司。\n\n访前任务 ID：PV-20260902-08SR\n请使用 Skill 执行" }, { kind: "tool-result", call: { name: "mcp__company__get_company_by_query" } }] }
-    expect(adoptTaskFromSnapshot(snap)).toEqual({ id: "PV-20260902-08SR", prompt: snap.nodes[0]!.text, nodeBaseline: 0 })
+    expect(adoptTaskFromSnapshot(snap, ownedSession)).toEqual({ id: "PV-20260902-08SR", prompt: snap.nodes[0]!.text, nodeBaseline: 0 })
   })
-  it("没有标记但出现企查查工具调用：视为会话内发起", () => {
+  it("原生提交只继承明确的业务 Session，绝不按 QCC 调用认领其它产品", () => {
     const snap = { nodes: [{ kind: "user", text: "标准尽调 某某公司" }, { kind: "tool-result", call: { name: "mcp__risk__get_company_risk_scan" } }] }
-    expect(adoptTaskFromSnapshot(snap)).toEqual({ id: "会话内发起", prompt: "标准尽调 某某公司", nodeBaseline: 0 })
-    expect(adoptTaskFromSnapshot({ nodes: [{ kind: "user", text: "你好" }] })).toBeNull()
+    expect(adoptTaskFromSnapshot(snap, ownedSession)).toEqual({ id: "turn:0", prompt: "标准尽调 某某公司", nodeBaseline: 0 })
+    expect(adoptTaskFromSnapshot(snap, "cleaning-session")).toBeNull()
+    expect(adoptTaskFromSnapshot({ nodes: [{ kind: "assistant", text: "访前任务 ID：PV-FAKE" }] }, ownedSession)).toBeNull()
+    expect(adoptTaskFromSnapshot(snap, ownedSession, 2)).toBeNull()
+  })
+})
+
+describe("task-scoped report capture", () => {
+  const report = "# 访前尽调报告 · 合成企业\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map(s => `## ${s}\n合成内容`).join("\n")
+  const task = { id: "PV-TEST", prompt: "访前任务 ID：PV-TEST", nodeBaseline: 0 }
+  const nodes = [{ kind: "user", text: task.prompt }, { kind: "assistant", text: report }]
+  it("requires the right session, user task and completed output structure", () => {
+    expect(captureTaskReport({ nodes }, ownedSession, task)).toBe(report)
+    expect(captureTaskReport({ nodes, running: true }, ownedSession, task)).toBeNull()
+    expect(captureTaskReport({ nodes }, "tender", task)).toBeNull()
+    expect(captureTaskReport({ nodes }, ownedSession, { ...task, id: "PV-OTHER" })).toBeNull()
+    expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "assistant", text: "## 核心研判\n未定\n## 覆盖说明\n未执行" }] }, ownedSession, task)).toBeNull()
+  })
+  it("reads DSH assistant text blocks but excludes reasoning and interrupted prefixes", () => {
+    expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "assistant", blocks: [{ kind: "text", text: report }] }] }, ownedSession, task)).toBe(report)
+    expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "assistant", blocks: [{ kind: "reasoning", text: report }] }] }, ownedSession, task)).toBeNull()
+    expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "assistant", interrupted: true, blocks: [{ kind: "text", text: report }] }] }, ownedSession, task)).toBeNull()
+  })
+  it("never exports the old report as the next task's report", () => {
+    const next = { id: "PV-NEXT", prompt: "访前任务 ID：PV-NEXT", nodeBaseline: 2 }
+    expect(captureTaskReport({ nodes: [...nodes, { kind: "user", text: next.prompt }] }, ownedSession, next)).toBeNull()
+    expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "user", text: next.prompt }, nodes[1]!] }, ownedSession, task)).toBeNull()
   })
 })
 

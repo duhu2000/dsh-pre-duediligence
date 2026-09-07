@@ -17,6 +17,7 @@ export type PrevisitSessionState = {
     panel: DiligenceMode | null;
     view: PrevisitView;
     dismissedTaskIds: string[];
+    minimumNodeBaseline: number;
 };
 export declare const EMPTY_SESSION_STATE: PrevisitSessionState;
 export type PrevisitStore = {

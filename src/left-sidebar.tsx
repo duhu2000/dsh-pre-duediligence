@@ -2,8 +2,6 @@ import { Button } from "@deepseek-ai/dsh-client-ui-primitives"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
-import { assertBetterSidebar, PREVISIT_WORKBENCH_TAB_ID } from "./better-sidebar.js"
-import type { BetterSidebarService } from "./better-sidebar.js"
 import { PrevisitLogo } from "./previsit-brand.js"
 import { createPrevisitSession } from "./previsit-session.js"
 
@@ -147,7 +145,7 @@ function LeftSidebarEntry(props: LeftSidebarEntryProps): JSX.Element {
 
 export function registerLeftSidebarLauncher(
   ctx: LeftSidebarHost,
-  service: BetterSidebarService,
+  isActive: () => boolean = () => true,
 ): void {
   ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
     name: "sidebar.footer.action",
@@ -155,13 +153,10 @@ export function registerLeftSidebarLauncher(
     order: 20,
     inject: () => ({
       openAgent: async () => {
-        assertBetterSidebar(service)
-        if (!service.isTabEnabled(PREVISIT_WORKBENCH_TAB_ID)) {
-          throw new Error("访前尽调工作台当前不可用，请检查插件配置")
-        }
+        const previous = ctx.sessions.list?.getSnapshot().current
         // DSH-UX-001 UX-03/UX-06：业务入口只进入 Session；工作台由输入框下方快捷按钮显式打开。
         const sessionId = await createPrevisitSession(ctx)
-        ctx.sessions.open?.(sessionId)
+        if (isActive() && ctx.sessions.list?.getSnapshot().current === previous) ctx.sessions.open?.(sessionId)
       },
     }),
   }, LeftSidebarEntry))

@@ -11,6 +11,12 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.19.0', '24']
+        sidebar: ['0.17.1', '0.18.0']
+        dsh-sdk: ['0.1.1-rc.2', '0.1.2-rc.1']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
 
       - name: Enable pnpm
         run: |
@@ -31,6 +37,15 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Install candidate SDK contracts
+        env:
+          SIDEBAR_VERSION: ${{ matrix.sidebar }}
+          DSH_SDK_VERSION: ${{ matrix.dsh-sdk }}
+        run: pnpm add -D --ignore-scripts "dsh-better-sidebar@$SIDEBAR_VERSION" "@deepseek-ai/dsh-client-ui-primitives@$DSH_SDK_VERSION" "@deepseek-ai/dsh-invariants@$DSH_SDK_VERSION"
+
+      - name: Typecheck candidate SDK
+        run: pnpm typecheck
+
       - name: Check installer syntax
         run: bash -n install.sh
 
@@ -39,6 +54,11 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Isolated browser UI (not real DSH)
+        run: pnpm test:ui
+        env:
+          PREVISIT_CHROME: /usr/bin/google-chrome
 
       - name: Check package contents
         run: npm pack --dry-run --ignore-scripts

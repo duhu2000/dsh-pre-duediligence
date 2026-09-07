@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 
 import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
 import { PrevisitLogo } from "./previsit-brand.js"
-import { PrevisitFields, composerTextarea, usePrevisitComposer, writeComposerDraft } from "./previsit-dock.js"
+import { PrevisitFields, usePrevisitComposer } from "./previsit-dock.js"
+import { resolveSessionInput, clearSubmittedDraft, type SessionInput } from "./session-input.js"
+import { isPrevisitSession } from "./previsit-session.js"
+import { toolEvent, TOOL_OUTCOME_LABELS } from "./tool-outcome.js"
 import { PrevisitPromptGenerator } from "./previsit-prompt.js"
 import { createPrevisitStore, type ActiveTask, type PrevisitSessionState, type PrevisitStore, type PrevisitView } from "./previsit-store.js"
 import {
@@ -24,10 +27,10 @@ import {
   type WorkbenchStatus,
 } from "./workbench-state.js"
 import { WORKBENCH_CSS } from "./workbench-style.js"
-import { adoptTaskFromSnapshot, buildPrevisitReportFromRenderedHtml, buildPrevisitReportHtml, extractCardText, normalizeHeading } from "./report-export.js"
+import { adoptTaskFromSnapshot, buildPrevisitReportHtml, captureTaskReport } from "./report-export.js"
 import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
 
-export const inject = ["slots", "sessions", "workspaces", "conversation", "betterSidebar"] as const
+export const inject = ["slots", "sessions", "workspaces", "conversation"] as const
 
 const STYLE_ID = "dsh-pre-duediligence-workbench"
 const PHASE_LABELS: Record<PrevisitPhase, string> = {
@@ -51,10 +54,14 @@ type SnapshotStore<T> = {
 }
 
 type ConversationNode = {
+  seq?: number
+  interrupted?: boolean
+  blocks?: Array<{ kind: string; text?: string }>
   kind?: string
   role?: string
   call?: { name?: string } | null
   isError?: boolean
+  error?: { name?: string; code?: string }
   text?: string
   content?: unknown
   message?: { content?: unknown } | null
@@ -78,7 +85,8 @@ type ClientContext = LeftSidebarHost & {
     binding?(sessionId: string): { session: SnapshotStore<ConversationSnapshot> } | undefined
     scope?(sessionId: string): { get(name: string): unknown } | undefined
   }
-  betterSidebar: BetterSidebarService
+  betterSidebar?: BetterSidebarService
+  inject(deps: string[], setup: (ctx: ClientContext) => void): unknown
   effect(setup: () => void | (() => void), label?: string): unknown
 }
 
@@ -121,8 +129,9 @@ function collectRuntime(snapshot: ConversationSnapshot, baseline: number): Omit<
   for (const node of (snapshot.nodes ?? []).slice(baseline)) {
     if (node.kind !== "tool-result") continue
     if (typeof node.call?.name === "string") {
-      toolNames.add(node.call.name)
-      toolEvents.push({ name: node.call.name, status: node.isError === true ? "failed" : "done" })
+      const event = toolEvent({ ...node, call: { name: node.call.name } })
+      toolNames.add(event.name)
+      toolEvents.push(event)
     }
   }
   for (const call of snapshot.runningCalls ?? []) {
@@ -144,13 +153,17 @@ function Feedback(props: { tone: "notice" | "success" | "error"; title: string; 
   )
 }
 
-function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: ActiveTask | undefined; start: (prompt: string) => Promise<number>; onStarted: () => void }): JSX.Element {
+function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: ActiveTask | undefined; input: SessionInput | undefined; start: (prompt: string) => Promise<number>; onStarted: () => void }): JSX.Element {
+  useSyncExternalStore(listener => props.input?.state.subscribe?.(listener) ?? (() => {}), () => props.input?.state.getSnapshot().draft ?? "")
   // 与输入框上方的设定条共用同一份状态与逻辑；草稿直接读写 DSH 输入框
   const actions = usePrevisitComposer({
     sessionId: props.sessionId,
     store: props.store,
-    readDraft: () => composerTextarea()?.value ?? "",
-    writeDraft: text => writeComposerDraft(undefined, text),
+    readDraft: () => props.input?.state.getSnapshot().draft ?? "",
+    writeDraft: text => {
+      if (props.input === undefined) throw new Error("当前会话输入框尚未就绪")
+      props.input.setDraft(text)
+    },
     start: props.start,
     onStarted: props.onStarted,
   })
@@ -219,7 +232,7 @@ function Dimensions(props: { title: string; items: Dimension[]; empty: string })
       <div className="qccPwCardHeader"><div><h3>{props.title}</h3></div>{done === 0 ? null : <span className="qccPwMode">{done} 项</span>}</div>
       {props.items.length === 0 ? <p className="qccPwEmpty">{props.empty}</p> : (
         <div className="qccPwDims">
-          {props.items.map(item => <span key={item.label} className="qccPwDim" data-status={item.status}>{item.label}</span>)}
+          {props.items.map(item => <span key={item.label} className="qccPwDim" data-status={item.status}>{item.label} · {TOOL_OUTCOME_LABELS[item.status]}</span>)}
         </div>
       )}
     </div>
@@ -357,7 +370,7 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchS
         <div className="qccPwCoverage">
           <div className="qccPwMetric"><strong>{props.toolCount}</strong><span>已识别工具调用</span></div>
           <div className="qccPwMetric"><strong>{props.failedToolCount}</strong><span>工具错误</span></div>
-          <div className="qccPwMetric"><strong>{ready ? "5/5" : "—"}</strong><span>业务阶段</span></div>
+          <div className="qccPwMetric"><strong>{ready ? "已生成" : "待生成"}</strong><span>报告制品（不代表全量覆盖）</span></div>
         </div>
       </div>
     </section>
@@ -381,36 +394,6 @@ function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchSt
   )
 }
 
-// 兜底：会话快照拿不到正文时，直接从页面里已渲染的报告 DOM 取（排除工作台自身）
-function extractCardFromDom(): { html: string; text: string } | null {
-  if (typeof document === "undefined") return null
-  const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4")).filter(h => /核心研判/.test(h.textContent ?? "") && h.closest(".qccPwShell") === null)
-  const last = headings[headings.length - 1]
-  if (last === undefined) return null
-  let el: HTMLElement | null = last.parentElement
-  while (el !== null && el !== document.body) {
-    const t = el.textContent ?? ""
-    if (/核心研判/.test(t) && /现场必问|覆盖说明/.test(t) && el.querySelector(".qccPwShell") === null) break
-    el = el.parentElement
-  }
-  if (el === null || el === document.body) return null
-  const clone = el.cloneNode(true) as HTMLElement
-  clone.querySelectorAll("button,svg,script,style,textarea,input,select,[contenteditable],[role='toolbar']").forEach(n => n.remove())
-  // 一级标题与锚定行进 hero，正文里去掉
-  clone.querySelectorAll("h1,h2,h3,p").forEach(n => {
-    const t = (n.textContent ?? "").trim()
-    if (/^(访前尽调报告|拜访作战卡)\s*·/.test(t) || /^锚定主体：/.test(t)) n.remove()
-  })
-  clone.querySelectorAll("h1,h2,h3,h4").forEach(n => { n.textContent = normalizeHeading(n.textContent ?? "") })
-  clone.querySelectorAll("*").forEach(n => {
-    for (const attr of Array.from(n.attributes)) {
-      if (!/^(colspan|rowspan|href)$/i.test(attr.name)) n.removeAttribute(attr.name)
-    }
-  })
-  const text = el.textContent ?? ""
-  return { html: clone.innerHTML, text }
-}
-
 function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   ctx: ClientContext
   shared: PrevisitStore
@@ -426,8 +409,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const setPhase = (next: PrevisitPhase) => setView(next)
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
   const [completedTaskId, setCompletedTaskId] = useState<string>()
-  const [cardText, setCardText] = useState<string | null>(null)
-  const [renderedCard, setRenderedCard] = useState<{ html: string; text: string } | null>(null)
+  const [capturedReport, setCapturedReport] = useState<{ taskId: string; text: string } | null>(null)
+  const cardText = capturedReport?.taskId === task?.id ? capturedReport?.text ?? null : null
   const [downloadNote, setDownloadNote] = useState<string>()
 
   useWorkbenchReveal(props.reveal, props)
@@ -441,7 +424,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       const snapshot = face.getSnapshot()
       // 设定条 / 会话内直接发起的尽调：工作台自己从会话认领任务，不依赖谁点了按钮
       if (task === undefined) {
-        const adopted = adoptTaskFromSnapshot(snapshot)
+        const adopted = adoptTaskFromSnapshot(snapshot, sessionId, shared.minimumNodeBaseline)
         if (adopted !== null && !shared.dismissedTaskIds.includes(adopted.id)) {
           props.shared.update(sessionId, s => s.task !== undefined ? s : ({
             ...s,
@@ -460,13 +443,12 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       if (snapshot.running === true) {
         setTask(current => current === undefined || current.seenRunning ? current : { ...current, seenRunning: true })
       }
-      const captured = extractCardText(snapshot, task?.nodeBaseline ?? 0)
-      setCardText(captured)
-      setRenderedCard(captured === null ? extractCardFromDom() : null)
+      const captured = task === undefined ? null : captureTaskReport(snapshot, sessionId, task)
+      setCapturedReport(captured === null || task === undefined ? null : { taskId: task.id, text: captured })
     }
     refresh()
     return face.subscribe?.(refresh)
-  }, [props.ctx, sessionId, task?.id, task?.nodeBaseline, shared.dismissedTaskIds.join("|")])
+  }, [props.ctx, sessionId, task?.id, task?.nodeBaseline, shared.minimumNodeBaseline, shared.dismissedTaskIds.join("|")])
 
   const progressInput: SessionProgressInput = {
     hasTask: task !== undefined,
@@ -475,17 +457,13 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     lastAgentError: runtime.lastAgentError,
     partial: runtime.partial,
     toolNames: runtime.toolNames,
-    reportReady: cardText !== null || renderedCard !== null,
+    toolEvents: runtime.toolEvents,
+    reportReady: cardText !== null,
   }
   const status = deriveWorkbenchStatus(progressInput)
   const phaseStates = derivePhaseStates(progressInput)
   const insights = useMemo(() => parseCardInsights(cardText), [cardText])
-  // 报告就绪后在工作台内直接预览：优先用快照正文，其次用对话区已渲染的报告 DOM
-  const reportHtml = useMemo(() => {
-    if (cardText !== null) return buildPrevisitReportHtml(cardText)
-    return renderedCard === null ? null : buildPrevisitReportFromRenderedHtml(renderedCard.html, renderedCard.text)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardText, renderedCard, status, phase, runtime.toolEvents.length])
+  const reportHtml = useMemo(() => cardText === null ? null : buildPrevisitReportHtml(cardText), [cardText])
 
   useEffect(() => {
     if (status !== "ready" || task === undefined || completedTaskId === task.id) {
@@ -500,30 +478,22 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       ...state,
       task: undefined,
       view: "target",
+      minimumNodeBaseline: props.ctx.sessions.binding?.(sessionId)?.session.getSnapshot().nodes?.length ?? state.minimumNodeBaseline,
       dismissedTaskIds: state.task === undefined ? state.dismissedTaskIds : [...new Set([...state.dismissedTaskIds, state.task.id])],
     }))
     setRuntime(EMPTY_RUNTIME)
-    setCardText(null)
-    setRenderedCard(null)
+    setCapturedReport(null)
   }
   const returnToConversation = () => {
     props.store.reduce(state => ({ ...state, panelOpen: false, bottomOpen: false }))
   }
   const downloadReport = () => {
-    let html: string
-    let source: string
-    if (cardText !== null) {
-      html = buildPrevisitReportHtml(cardText)
-      source = cardText
-    } else {
-      const dom = renderedCard ?? extractCardFromDom()
-      if (dom === null) {
-        setDownloadNote("当前会话里还没有生成完整报告，或报告未展开在对话区；请先回到会话确认报告已输出。")
-        return
-      }
-      html = buildPrevisitReportFromRenderedHtml(dom.html, dom.text)
-      source = dom.text
+    if (cardText === null || status !== "ready") {
+      setDownloadNote("当前任务的报告尚未就绪，请等待会话生成符合输出结构的报告。")
+      return
     }
+    const html = buildPrevisitReportHtml(cardText)
+    const source = cardText
     setDownloadNote(undefined)
     const company = /(?:访前尽调报告|拜访作战卡)\s*·\s*([^\n（(锚｜]+)/.exec(source)?.[1]?.trim() || "访前尽调报告"
     const blob = new Blob([html], { type: "text/html;charset=utf-8" })
@@ -537,7 +507,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
-  if (!props.visible) return <></>
+  if (!props.visible || !isPrevisitSession(sessionId)) return <></>
 
   return (
     <section className="qccPwShell" aria-label="访前尽调工作台" data-status={status}>
@@ -565,11 +535,11 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         })}
       </nav>
       <div className="qccPwBody">
-        {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
+        {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
         {shared.view === "collect" ? <OpportunityPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
         {shared.view === "verify" ? <RiskPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
-        {shared.view === "output" ? <DeliveryPanel task={task} status={status} toolCount={runtime.toolNames.length} failedToolCount={runtime.failedToolCount} cardCaptured={cardText !== null || renderedCard !== null} reportHtml={reportHtml} /> : null}
+        {shared.view === "output" ? <DeliveryPanel task={task} status={status} toolCount={runtime.toolNames.length} failedToolCount={runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
         {shared.view === "history" ? <HistoryPanel task={task} status={status} /> : null}
       </div>
       <footer className="qccPwFooter">
@@ -578,7 +548,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
 
           {shared.view !== "target" && task !== undefined ? <button type="button" className="qccPwSecondary" onClick={newTask}>新的尽调</button> : null}
           {shared.view === "output"
-            ? <button type="button" className="qccPwPrimary" title="下载为 HTML 文件，可直接打开或打印" onClick={downloadReport}>下载报告<span>↓</span></button>
+            ? <button type="button" className="qccPwPrimary" disabled={status !== "ready" || cardText === null} title="下载为 HTML 文件，可直接打开或打印" onClick={downloadReport}>下载报告<span>↓</span></button>
             : shared.view !== "target" ? <button type="button" className="qccPwPrimary" onClick={returnToConversation}>返回会话<span>→</span></button> : null}
         </div>
       </footer>
@@ -598,26 +568,44 @@ function installStyles(): () => void {
 }
 
 export function apply(ctx: ClientContext): void {
-  const service = ctx.betterSidebar
+  let service: BetterSidebarService | undefined
+  let unavailable = "工作台需要安装或启用 Better Sidebar 0.17.x / 0.18.x；当前会话仍可使用原生输入框。"
+  let active = true
+  ctx.effect(() => () => { active = false })
   const shared = createPrevisitStore()
   const reveal = createRevealController()
   const startPrompt = async (sessionId: string, prompt: string): Promise<number> => {
+    if (!active || !isPrevisitSession(sessionId)) throw new Error("访前会话不可用")
+    const input = resolveSessionInput(ctx, sessionId)
+    const draft = input?.state.getSnapshot().draft
     const conversation = ctx.sessions.scope?.(sessionId)?.get("conversation") as SessionConversation | undefined
     if (conversation === undefined) throw new Error("conversation unavailable")
     const baseline = ctx.sessions.binding?.(sessionId)?.session.getSnapshot().nodes?.length ?? 0
     await conversation.send(prompt)
+    if (active && draft !== undefined) clearSubmittedDraft(input, draft)
     return baseline
   }
   const openForSession = (sessionId: string, view?: PrevisitView) => {
+    if (!active || !isPrevisitSession(sessionId)) return
+    if (service === undefined) throw new Error(unavailable)
+    if (!openWorkbench(service, { sessionId }, reveal)) throw new Error("访前工作台已禁用，请在 Sidebar 设置中启用。")
     if (view !== undefined) shared.update(sessionId, state => ({ ...state, view }))
-    openWorkbench(service, { sessionId }, reveal)
   }
   ctx.effect(() => installStyles(), "dsh-pre-duediligence: QCC blue UI styles")
-  ctx.effect(
-    () => registerWorkbenchTab(service, props => <PrevisitWorkbenchTab {...props} ctx={ctx} shared={shared} reveal={reveal} startPrompt={startPrompt} />),
-    "dsh-pre-duediligence: hidden workbench tab",
-  )
-  registerLeftSidebarLauncher(ctx, service)
+  ctx.inject(["betterSidebar"], sidebarCtx => {
+    sidebarCtx.effect(() => {
+      const candidate = sidebarCtx.betterSidebar
+      try {
+        if (candidate === undefined) return
+        const dispose = registerWorkbenchTab(candidate, props => <PrevisitWorkbenchTab key={props.scope.sessionId} {...props} ctx={ctx} shared={shared} reveal={reveal} startPrompt={startPrompt} />)
+        service = candidate
+        return () => { if (service === candidate) service = undefined; dispose() }
+      } catch (cause) {
+        unavailable = cause instanceof Error ? cause.message : "工作台接口不兼容"
+      }
+    })
+  })
+  registerLeftSidebarLauncher(ctx, () => active)
   ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
     name: "conversation.input.dock",
     id: "dsh-pre-duediligence:home",

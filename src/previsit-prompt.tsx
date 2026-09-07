@@ -11,7 +11,7 @@ import {
   type ComposerOption,
   type ComposerSelection,
 } from "./composer-model.js"
-import { composerTextarea, writeComposerDraft } from "./previsit-dock.js"
+import { writeComposerDraft } from "./previsit-dock.js"
 import { isPrevisitSession } from "./previsit-session.js"
 import type { PrevisitStore } from "./previsit-store.js"
 
@@ -135,11 +135,18 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
   const [error, setError] = useState<string>()
   const [conflict, setConflict] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const previousSession = useRef(props.sessionId)
+  useEffect(() => {
+    if (previousSession.current === props.sessionId) return
+    previousSession.current = props.sessionId
+    setOpen(false); setConflict(false); setError(undefined)
+  }, [props.sessionId])
 
   if (!enabled) return null
 
   const openWizard = () => {
     if (initializedSession !== props.sessionId) {
+      setStep(1)
       const stored = props.store.get(props.sessionId)
       setCompany(stored.company)
       setSelection(cloneSelection(stored.selection))
@@ -165,7 +172,8 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
       return
     }
     const next = mergePromptDraft(draft, generated, mode)
-    writeComposerDraft(props.inputActions, next)
+    try { writeComposerDraft(props.inputActions, next) }
+    catch { setError("当前会话输入框无法回填，请稍后重试。"); return }
     props.store.update(props.sessionId, state => ({
       ...state,
       company: company.trim(),
@@ -179,9 +187,6 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
     }))
     setOpen(false)
     setConflict(false)
-    window.setTimeout(() => {
-      composerTextarea()?.focus()
-    }, 0)
   }
 
   const confirm = () => {
@@ -217,7 +222,7 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8zM18 13l.7 1.8 1.8.7-1.8.7L18 18l-.7-1.8-1.8-.7 1.8-.7z" /></svg>
         <span>提示词生成</span>
       </button>
-      {open ? (
+      {open && initializedSession === props.sessionId ? (
         <PromptDialog sessionId={props.sessionId} onClose={close}>
           <header className="qccPromptHead">
             <div><h3>生成访前尽调任务</h3><p>四步明确对象、场景、范围和输出；回填后仍可人工修改。</p></div>

@@ -29,7 +29,7 @@ function fixture() {
     isTabEnabled: vi.fn(() => true),
     openTab: vi.fn(() => { events.push("prepare-tab") }),
   } as unknown as BetterSidebarService
-  registerLeftSidebarLauncher(ctx, service)
+  registerLeftSidebarLauncher(ctx)
   return { ctx, service, events, launch: () => openAgent() }
 }
 describe("previsit navigation commit", () => {
@@ -47,11 +47,11 @@ describe("previsit navigation commit", () => {
     expect(f.ctx.sessions.open).not.toHaveBeenCalled()
     expect(f.service.openTab).not.toHaveBeenCalled()
   })
-  it("does not create a session when the tab is disabled", async () => {
+  it("allows the native session entry even when the optional workbench is disabled", async () => {
     const f = fixture()
     vi.mocked(f.service.isTabEnabled).mockReturnValue(false)
-    await expect(f.launch()).rejects.toThrow("不可用")
-    expect(f.ctx.sessions.create).not.toHaveBeenCalled()
-    expect(f.ctx.sessions.open).not.toHaveBeenCalled()
+    await f.launch()
+    expect(f.ctx.sessions.create).toHaveBeenCalledOnce()
+    expect(f.ctx.sessions.open).toHaveBeenCalledOnce()
   })
 })

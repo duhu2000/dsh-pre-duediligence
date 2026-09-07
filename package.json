@@ -1,6 +1,6 @@
 {
   "name": "dsh-pre-duediligence",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Session 级 DeepSeek Harness 访前尽调工作台，使用企查查 MCP 生成可追溯的访前尽调报告。",
   "license": "MIT",
   "repository": {
@@ -63,15 +63,18 @@
     }
   },
   "engines": {
-    "node": ">=20",
+    "node": "^22.19.0 || ^24.0.0",
     "dsh": ">=0.1.1-rc.2"
   },
   "peerDependencies": {
-    "dsh-better-sidebar": "0.17.1",
+    "dsh-better-sidebar": ">=0.17.1 <0.19.0",
     "react": ">=18",
     "react-dom": ">=18"
   },
   "peerDependenciesMeta": {
+    "dsh-better-sidebar": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
@@ -80,6 +83,7 @@
     }
   },
   "devDependencies": {
+    "dsh-better-sidebar": "0.17.1",
     "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/dsh-client-ui-primitives": "0.1.1-rc.2",
     "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",

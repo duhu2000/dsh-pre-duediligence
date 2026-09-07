@@ -15,9 +15,8 @@ export type PrevisitDockProps = {
     start: (prompt: string) => Promise<number>;
     open: (phase?: "opportunity") => void;
 };
-declare function composerTextarea(): HTMLTextAreaElement | null;
 declare function writeDraft(actions: PrevisitDockProps["inputActions"], text: string): void;
-export { writeDraft as writeComposerDraft, composerTextarea };
+export { writeDraft as writeComposerDraft };
 export type ComposerActions = ReturnType<typeof usePrevisitComposer>;
 export declare function usePrevisitComposer(args: {
     sessionId: string;

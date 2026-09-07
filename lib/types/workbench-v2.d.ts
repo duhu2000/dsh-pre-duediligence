@@ -1,17 +1,27 @@
 import { type BetterSidebarService } from "./better-sidebar.js";
 import { type LeftSidebarHost } from "./left-sidebar.js";
-export declare const inject: readonly ["slots", "sessions", "workspaces", "conversation", "betterSidebar"];
+export declare const inject: readonly ["slots", "sessions", "workspaces", "conversation"];
 type SnapshotStore<T> = {
     getSnapshot(): T;
     subscribe?(listener: () => void): () => void;
 };
 type ConversationNode = {
+    seq?: number;
+    interrupted?: boolean;
+    blocks?: Array<{
+        kind: string;
+        text?: string;
+    }>;
     kind?: string;
     role?: string;
     call?: {
         name?: string;
     } | null;
     isError?: boolean;
+    error?: {
+        name?: string;
+        code?: string;
+    };
     text?: string;
     content?: unknown;
     message?: {
@@ -40,7 +50,8 @@ type ClientContext = LeftSidebarHost & {
             get(name: string): unknown;
         } | undefined;
     };
-    betterSidebar: BetterSidebarService;
+    betterSidebar?: BetterSidebarService;
+    inject(deps: string[], setup: (ctx: ClientContext) => void): unknown;
     effect(setup: () => void | (() => void), label?: string): unknown;
 };
 export declare function apply(ctx: ClientContext): void;

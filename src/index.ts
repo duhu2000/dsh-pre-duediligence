@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 import { parseSkillFile } from "./skill-file.js"
+import { registerPrevisitTools, type ToolHost } from "./previsit-tools.js"
 
-export const inject = ["skills"] as const
+export const inject = ["skills", "tools"] as const
 
 export const SKILL_NAME = "qcc-previsit-onepager"
 export const SKILL_DESCRIPTION =
@@ -22,7 +23,8 @@ type SkillRegistration = {
   metadata: Readonly<Record<string, unknown>>
 }
 
-export type HostContext = {
+export type HostContext = ToolHost & {
+  effect(setup: () => void | (() => void)): unknown
   skills: {
     register(skill: SkillRegistration): () => void
   }
@@ -45,7 +47,7 @@ export function loadBundledSkill(): SkillRegistration {
     },
     metadata: {
       author: "QCC",
-      version: "0.1.8",
+      version: "0.1.9",
       industry: "enterprise-services",
       mcpServers: ["qcc-company", "qcc-risk", "qcc-ipr", "qcc-operation", "qcc-executive"],
     },
@@ -53,5 +55,6 @@ export function loadBundledSkill(): SkillRegistration {
 }
 
 export function apply(ctx: HostContext): void {
+  ctx.effect(() => registerPrevisitTools(ctx))
   ctx.skills.register(loadBundledSkill())
 }

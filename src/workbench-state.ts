@@ -1,3 +1,5 @@
+import type { ToolEvent } from "./stage-insights.js"
+
 export const PREVISIT_PHASES = ["target", "scope", "collect", "verify", "output"] as const
 export type PrevisitPhase = (typeof PREVISIT_PHASES)[number]
 export type PhaseProgress = "idle" | "active" | "done" | "failed"
@@ -12,6 +14,7 @@ export type SessionProgressInput = {
   toolNames: string[]
   /** 只在捕获到符合报告结构的真实输出后为 true。 */
   reportReady: boolean
+  toolEvents?: ToolEvent[]
 }
 
 export type PhaseState = {
@@ -24,6 +27,7 @@ function hasTool(toolNames: string[], fragments: string[]): boolean {
 }
 
 export function isOpportunityTool(name: string): boolean {
+  if (isRiskTool(name)) return false
   return [
     "qcc-company",
     "qcc-operation",
@@ -65,18 +69,31 @@ export function deriveWorkbenchStatus(input: SessionProgressInput): WorkbenchSta
 
 export function derivePhaseStates(input: SessionProgressInput): PhaseState[] {
   const status = deriveWorkbenchStatus(input)
-  const opportunitySeen = input.toolNames.some(isOpportunityTool)
-  const riskSeen = input.toolNames.some(isRiskTool)
-  const entitySeen = hasTool(input.toolNames, ["get_company_by_query", "get_company_profile"])
+  const events = input.toolEvents ?? []
+  const latest = new Map(events.map(event => [event.name, event]))
+  const completed = [...latest.values()].filter(e => e.status === "done" || e.status === "no-data").map(e => e.name)
+  const opportunitySeen = completed.some(isOpportunityTool)
+  const riskSeen = completed.some(isRiskTool)
+  const entitySeen = hasTool(completed, ["get_company_by_query", "get_company_profile"])
+  const target: PhaseProgress = completed.includes("previsit_confirm_entity") ? "done" : entitySeen ? "active" : "idle"
+  const scope: PhaseProgress = completed.includes("previsit_begin") ? "done" : "idle"
 
   if (!input.hasTask) {
     return PREVISIT_PHASES.map((id, index) => ({ id, progress: index === 0 ? "active" : "idle" }))
   }
-  if (status === "ready") return PREVISIT_PHASES.map(id => ({ id, progress: "done" }))
+  // A report may explicitly disclose missing dimensions. Never turn that into
+  // five green checks, or infer human entity/range approval from a tool name.
+  if (status === "ready") return [
+    { id: "target", progress: target },
+    { id: "scope", progress: scope },
+    { id: "collect", progress: opportunitySeen ? "done" : "idle" },
+    { id: "verify", progress: riskSeen ? "done" : "idle" },
+    { id: "output", progress: "done" },
+  ]
   if (status === "failed") {
     return [
-      { id: "target", progress: "done" },
-      { id: "scope", progress: "done" },
+      { id: "target", progress: target },
+      { id: "scope", progress: scope },
       { id: "collect", progress: opportunitySeen || entitySeen ? "done" : "failed" },
       { id: "verify", progress: riskSeen ? "done" : "failed" },
       { id: "output", progress: "failed" },
@@ -84,9 +101,9 @@ export function derivePhaseStates(input: SessionProgressInput): PhaseState[] {
   }
 
   return [
-    { id: "target", progress: "done" },
-    { id: "scope", progress: opportunitySeen || entitySeen || input.running ? "done" : "active" },
-    { id: "collect", progress: riskSeen ? "done" : opportunitySeen || entitySeen || input.running ? "active" : "idle" },
+    { id: "target", progress: target },
+    { id: "scope", progress: scope },
+    { id: "collect", progress: opportunitySeen || entitySeen || input.running ? "active" : "idle" },
     { id: "verify", progress: riskSeen ? "active" : "idle" },
     { id: "output", progress: input.reportReady ? "done" : "idle" },
   ]

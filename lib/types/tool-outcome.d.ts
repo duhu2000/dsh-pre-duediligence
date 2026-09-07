@@ -1,0 +1,21 @@
+export type ToolOutcome = "running" | "done" | "no-data" | "no-permission" | "not-executed" | "failed" | "unknown";
+export declare const TOOL_OUTCOME_LABELS: Record<ToolOutcome, string>;
+/** Interpret explicit structured signals only. A successful transport is not proof of facts. */
+export declare function classifyToolOutcome(value: unknown, isError?: boolean): ToolOutcome;
+export declare function resultOutcome(node: {
+    isError?: boolean;
+    content?: unknown;
+    value?: unknown;
+    error?: unknown;
+}): ToolOutcome;
+export declare function toolEvent(node: {
+    call: {
+        name: string;
+    };
+    isError?: boolean;
+    content?: unknown;
+    error?: unknown;
+}): {
+    name: string;
+    status: ToolOutcome;
+};

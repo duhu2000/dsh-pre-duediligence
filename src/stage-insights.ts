@@ -1,10 +1,11 @@
 // 阶段面板的信息层：把原始工具事件翻译成“做到哪了 / 查到了什么”，把报告正文抽成“得出了什么”。
 // 纯函数，无 DOM 依赖。
 
-export type ToolEvent = { name: string; status: "running" | "done" | "failed" }
+import type { ToolOutcome } from "./tool-outcome.js"
+export type ToolEvent = { name: string; status: ToolOutcome }
 export type StepState = "done" | "active" | "idle"
 export type Step = { label: string; state: StepState; note?: string | undefined }
-export type Dimension = { label: string; status: "done" | "running" | "failed" }
+export type Dimension = { label: string; status: ToolOutcome }
 
 // 工具名片段 → 业务维度名。顺序即展示顺序。
 const OPPORTUNITY_DIMENSIONS: Array<[string, string]> = [
@@ -52,9 +53,7 @@ function eventStatus(events: ToolEvent[], fragment: string): Dimension["status"]
   let seen: Dimension["status"] | null = null
   for (const event of events) {
     if (!event.name.includes(fragment)) continue
-    if (event.status === "done") return "done"
-    if (event.status === "failed") seen = "failed"
-    else if (seen === null) seen = "running"
+    seen = event.status
   }
   return seen
 }
@@ -163,7 +162,7 @@ const DRILL = ["get_dishonest_info", "get_judgment_debtor_info", "get_terminated
 
 function stepOf(done: boolean, active: boolean, finished: boolean): Step["state"] {
   if (done) return "done"
-  if (finished) return "done"
+  if (finished) return "idle"
   return active ? "active" : "idle"
 }
 
@@ -187,7 +186,7 @@ export function riskSteps(events: ToolEvent[], insights: CardInsights, finished:
   const judged = insights.sections.includes("红线提示")
   return [
     { label: "风险扫描", state: stepOf(scanDone, has(events, ["get_company_risk_scan"]), finished) },
-    { label: "明细下钻", state: stepOf(drillDone, has(events, DRILL), finished), note: !drillDone && (scanDone || finished) ? "零记录不下钻" : undefined },
+    { label: "明细下钻", state: stepOf(drillDone, has(events, DRILL), finished), note: !drillDone && finished ? "未见明细查询完成证据" : undefined },
     { label: "董监高", state: stepOf(execDone, has(events, ["get_executive_risk_scan"]), finished), note: !execDone && finished ? "未单独扫描" : undefined },
     { label: "影响判断", state: stepOf(judged, scanDone, finished), note: judged ? `${insights.risks.length} 项` : undefined },
   ]

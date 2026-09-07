@@ -11,7 +11,7 @@ export type { BetterSidebarService, SessionScope, SidebarState, SidebarStore }
 export type BetterSidebarTabProps = Pick<TabComponentProps, "scope" | "visible" | "store" | "tab">
 
 export const PREVISIT_WORKBENCH_TAB_ID = "dsh-pre-duediligence:agent"
-const SUPPORTED_SIDEBAR_VERSION = /^0\.17\./u
+const SUPPORTED_SIDEBAR_VERSION = /^0\.(?:17|18)\.\d+$/u
 
 type RevealTarget = {
   store: SidebarStore
@@ -80,10 +80,14 @@ export function useWorkbenchReveal(
 }
 
 export function assertBetterSidebar(service: BetterSidebarService): void {
-  if (!SUPPORTED_SIDEBAR_VERSION.test(service.version)) {
-    throw new Error("dsh-pre-duediligence requires dsh-better-sidebar 0.17.x")
+  if (service === undefined || service === null) {
+    throw new Error("工作台需要安装 Better Sidebar；当前会话仍可使用原生输入框。")
   }
-  if (!service.features.includes("targetedOpen") || !service.features.includes("stateSubscription")) {
+  if (!SUPPORTED_SIDEBAR_VERSION.test(service.version)) {
+    throw new Error("访前工作台支持 Better Sidebar 0.17.x / 0.18.x，请核对兼容矩阵。")
+  }
+  if (!Array.isArray(service.features) || !service.features.includes("targetedOpen") || !service.features.includes("stateSubscription")
+    || typeof service.registerTab !== "function" || typeof service.openTab !== "function" || typeof service.isTabEnabled !== "function") {
     throw new Error("dsh-better-sidebar is missing required targetedOpen/stateSubscription capabilities")
   }
 }

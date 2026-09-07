@@ -1,6 +1,7 @@
 // 作战卡 Markdown → 可下载的自包含样式化 HTML 报告。
 // 配色、字号、标题规范全部锁定为用户提供的 demo 设计，模型/前端都不再自行配色。
 // 纯函数，无 DOM 依赖，便于单测。
+import { isPrevisitSession } from "./previsit-session.js"
 
 export type ReportMeta = {
   company?: string
@@ -9,6 +10,10 @@ export type ReportMeta = {
 
 // 会话节点的最小结构（DSH 节点具体形态未知，字段全部可选）
 export type CardNode = {
+  id?: string
+  seq?: number
+  interrupted?: boolean
+  blocks?: Array<{ kind: string; text?: string }>
   kind?: string
   role?: string
   text?: string
@@ -22,6 +27,7 @@ export type CardSnapshot = { nodes?: CardNode[]; running?: boolean }
 
 // 防御式提取助手输出的作战卡正文：DSH 会话节点形态未知，逐种可能字段尝试。
 function nodeText(node: CardNode): string {
+  if (Array.isArray(node.blocks)) return node.blocks.filter(b => b.kind === "text").map(b => b.text ?? "").join("\n")
   if (typeof node.text === "string") return node.text
   if (typeof node.content === "string") return node.content
   if (node.message && typeof node.message.content === "string") return node.message.content
@@ -41,31 +47,47 @@ const CARD_SHAPE = (text: string): boolean => /核心研判/.test(text) && /现�
 // 注入内容（技能清单、系统提醒等）绝不进报告
 const JUNK = /<system-reminder>|<available_skills>|<command-name>|<\/?antml/i
 const isTool = (node: CardNode): boolean => node.kind === "tool-result" || node.kind === "tool-call"
-const isUserish = (node: CardNode): boolean => /user|human|system/i.test(`${node.role ?? ""} ${node.kind ?? ""}`)
+const isUserish = (node: CardNode): boolean => /user|human|system|context|steering/i.test(`${node.role ?? ""} ${node.kind ?? ""}`) || node.interrupted === true
 
 // 从会话里认领任务：找最后一条带“访前任务 ID：PV-xxx”的消息（工作台/设定条发出的正式提交）；
 // 没有标记但已出现企查查工具调用时，视为“会话内直接发起的尽调”，从头跟踪。
-export function adoptTaskFromSnapshot(snapshot: CardSnapshot): { id: string; prompt: string; nodeBaseline: number } | null {
+export function adoptTaskFromSnapshot(snapshot: CardSnapshot, sessionId: string, minimumBaseline = 0): { id: string; prompt: string; nodeBaseline: number } | null {
+  if (!isPrevisitSession(sessionId)) return null
   const nodes = snapshot.nodes ?? []
-  for (let idx = nodes.length - 1; idx >= 0; idx--) {
+  for (let idx = nodes.length - 1; idx >= minimumBaseline; idx--) {
     const node = nodes[idx]
-    if (node === undefined || node.kind === "tool-result" || node.kind === "tool-call") continue
+    if (node === undefined || !/^(user|human)$/i.test(node.role ?? node.kind ?? "")) continue
     const text = nodeText(node)
     const m = /访前任务 ID[：:]\s*(PV-[A-Z0-9-]+)/.exec(text)
     if (m !== null && m[1] !== undefined) return { id: m[1], prompt: text.trim(), nodeBaseline: idx }
   }
-  const firstTool = nodes.findIndex(n => n.kind === "tool-result" && /mcp__(company|risk|ipr|operation|executive)|qcc/i.test(n.call?.name ?? ""))
-  if (firstTool !== -1) {
-    let prompt = ""
-    for (let idx = firstTool - 1; idx >= 0; idx--) {
-      const node = nodes[idx]
-      if (node === undefined || node.kind === "tool-result" || node.kind === "tool-call") continue
-      const t = nodeText(node).trim()
-      if (t !== "" && !/<system-reminder>/.test(t)) { prompt = t; break }
-    }
-    return { id: "会话内发起", prompt, nodeBaseline: 0 }
+  // Native composer submissions inherit the explicitly owned Session. Never infer
+  // ownership from QCC calls (shared by cleaning, form-fill and tender plugins).
+  for (let idx = nodes.length - 1; idx >= minimumBaseline; idx--) {
+    const node = nodes[idx]
+    if (node === undefined || !/^(user|human)$/i.test(node.role ?? node.kind ?? "")) continue
+    const prompt = nodeText(node).trim()
+    if (prompt !== "" && !JUNK.test(prompt)) return { id: `turn:${node.seq ?? node.id ?? idx}`, prompt, nodeBaseline: idx }
   }
   return null
+}
+
+const FULL_REPORT_SECTIONS = ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"]
+export function captureTaskReport(snapshot: CardSnapshot, sessionId: string, task: { id: string; nodeBaseline: number; prompt: string }): string | null {
+  if (!isPrevisitSession(sessionId) || snapshot.running === true) return null
+  const node = snapshot.nodes?.[task.nodeBaseline]
+  if (node === undefined || !/^(user|human)$/i.test(node.role ?? node.kind ?? "")) return null
+  const adopted = adoptTaskFromSnapshot({ nodes: (snapshot.nodes ?? []).slice(0, task.nodeBaseline + 1) }, sessionId, task.nodeBaseline)
+  if (adopted?.id !== task.id) return null
+  // A later explicitly submitted task is a hard boundary, including after reload.
+  const nodes = snapshot.nodes ?? []
+  const next = nodes.findIndex((n, i) => i > task.nodeBaseline && /^(user|human)$/i.test(n.role ?? n.kind ?? "") && /访前任务 ID[：:]\s*PV-/.test(nodeText(n)))
+  const text = extractCardText({ nodes: next === -1 ? nodes : nodes.slice(0, next) }, task.nodeBaseline + 1)
+  if (text === null) return null
+  const sections = [...text.matchAll(/^#{1,4}\s+(.+)$/gm)].map(m => normalizeHeading(m[1] ?? "").replace(/^\d+、\s*/, "").replace(/\*\*/g, "").trim())
+  const required = task.prompt.includes("适合转发给同事的简短摘要")
+    ? FULL_REPORT_SECTIONS.filter(s => s !== "业务假设" && s !== "触达开场") : FULL_REPORT_SECTIONS
+  return required.every(s => sections.some(title => title === s || title.startsWith(s + "（") || title.startsWith(s + "："))) ? text : null
 }
 
 export function extractCardText(snapshot: CardSnapshot, baseline: number): string | null {

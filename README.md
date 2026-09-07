@@ -1,6 +1,6 @@
 # dsh-pre-duediligence
 
-当前版本：**0.1.8**。界面已对齐 DSH-UX-001 v1.1.3 与企查查蓝 Mockup：菜单、首页和工作台使用同一建筑 LOGO，首页名称为“访前尽调一页纸智能体”；点击左侧“访前尽调”只进入初始会话，右侧工作台默认关闭，点击输入框下方业务按钮后才打开。首页快捷菜单采用数据清洗补全式纵向描边卡片，右侧阶段菜单采用招投标式等宽图标标签。详见 [更新日志](CHANGELOG.md)和[规范采纳记录](docs/DSH-UX-001-ADOPTION.md)。
+版本：**0.1.9**。本版按 DSH-UX-001 v1.2.0 同步摘要整改，已通过本地自动化门禁；尚未完成权威全文核对、真实 DSH 四插件组合及企查查 Provider 验收。npm 发布与组合验收是独立状态，候选环境请隔离测试。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)和[兼容与验收矩阵](docs/COMPATIBILITY.md)。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
@@ -10,7 +10,7 @@
 
 ### 工作台
 
-- 使用 dsh-better-sidebar 0.17.1，不再使用遮挡对话的自定义浮层
+- Better Sidebar 为可选工作台依赖，适配 0.17.x / 0.18.x 的公开能力；缺失或不兼容时保留原生会话，并在打开工作台时提示
 - 只在 DSH 左侧菜单增加“访前尽调”入口；对应工作台标签在 Better Sidebar 的右侧“+”菜单中隐藏
 - 菜单、首页与工作台统一使用企查查蓝 Mockup 的线性建筑 LOGO；初始页面为“访前尽调一页纸智能体”
 - 点击左侧入口只创建并进入访前 Session，初始页不打开右侧工作台；点击输入框下方五项业务按钮后才打开对应视图
@@ -44,6 +44,8 @@
 
 - 五类 MCP：qcc-company、qcc-risk、qcc-ipr、qcc-operation、qcc-executive
 - 唯一法律实体硬门；多候选必须停下消歧
+- Agent-owned 执行链：`previsit_begin → previsit_query(entity_search) → previsit_confirm_entity → previsit_query`。由真实用户确认付费预算和唯一主体，Host 固定业务路由，经 ToolRuntime 调用
+- 8/18/40 次硬预算含搜索与失败重试；重启后需要重新确认授权；无法匹配的 Provider 契约明确记为未执行
 - 机会轨：八种经营状态 → 状态 × 角色假设 → 支持/反对/未知 → 反证
 - 风险轨：全量扫描 → 零计数不下钻 → 非零维度明细 → 拜访影响
 - 行为信号超过 24 个月只作历史沿革
@@ -53,7 +55,7 @@
 
 ## 安装
 
-前置条件：Node.js 20 或更高版本、DeepSeek Harness `0.1.1-rc.2` 或更高版本、可用的 `pnpm`，以及已经配置好的模型。
+前置条件：Node.js 22.19+（22 LTS）或 24 LTS、固定版本 DeepSeek Harness、可用的 `pnpm`，以及已经配置好的模型。默认安装基线为 DSH `0.1.1-rc.2` / Sidebar `0.17.1` / Connector `0.2.32`；候选基线为 `0.1.2-rc.1` / `0.18.0` / `0.2.37`，尚待真实四插件组合验收。
 
 ### 一键安装（推荐）
 
@@ -65,7 +67,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligenc
 
 1. `dsh-better-sidebar@0.17.1`：提供 Session 级右侧工作台容器。
 2. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-3. `dsh-pre-duediligence@0.1.8`：提供左侧智能体入口、访前工作台、提示词生成器和完整 Skill。
+3. `dsh-pre-duediligence@0.1.9`：提供左侧智能体入口、访前工作台、提示词生成器、Host 执行门和 Skill。
+
+脚本先读取 JSON 插件清单并检查全部共同依赖；已有版本不匹配会在安装前停止，不自动降级或覆盖。现有匹配依赖跳过安装。隔离联调可设置 `DSH_PREVISIT_BASELINE=candidate`；开发包路径通过 `DSH_PRE_DUEDILIGENCE_SPEC` 指定。安装前完整停止对应 Profile 的 DSH Web。
 
 安装完成后停止旧的 DSH Web 进程并重新运行：
 
@@ -80,11 +84,11 @@ dsh web
 ~~~bash
 dsh plugin --profile web add dsh-better-sidebar@0.17.1 --allow-build=node-pty
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add dsh-pre-duediligence@0.1.8 --allow-build=dsh-pre-duediligence
+dsh plugin --profile web add dsh-pre-duediligence@0.1.9 --allow-build=dsh-pre-duediligence
 dsh web
 ~~~
 
-Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 `stateSubscription` 公共能力。安装命令显式允许 `dsh-pre-duediligence` 的构建脚本；Better Sidebar 使用的 `node-pty` 也需要允许构建。
+工作台检查 Better Sidebar 的 `targetedOpen`、`stateSubscription` 及注册/打开接口；已读取 0.18.0 发布包对应公开接口，真实宿主兼容结论仍以验收矩阵为准。安装命令显式允许插件构建；Better Sidebar 使用的 `node-pty` 也需要允许构建。
 
 如果 pnpm 仍提示 `Ignored build scripts`，请按终端提示在 `~/.dsh/profiles/web/pnpm-workspace.yaml` 的 `allowBuilds` 中允许对应包，然后重新执行失败的安装命令。
 
@@ -94,7 +98,7 @@ Better Sidebar 必须使用 `0.17.1`；工作台依赖它的 `targetedOpen` 与 
 dsh plugin --profile web list --depth 0
 ~~~
 
-应能看到 `dsh-better-sidebar@0.17.1`、`dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.8`。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”只进入初始会话；右侧工作台保持关闭，点击输入框下方业务按钮后才打开对应视图。Better Sidebar 的右侧“+”菜单不会列出该入口，普通会话的首页、输入框、消息流和 Session 头部保持原样。
+应能看到所选基线的 Sidebar、Connector 和 `dsh-pre-duediligence@0.1.9`。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”只进入初始会话；右侧工作台保持关闭，点击输入框下方业务按钮后才打开对应视图。Better Sidebar 的右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
 
 ### 从旧访前尽调包迁移
 
@@ -110,10 +114,10 @@ dsh plugin --profile web remove qcc-previsit-dsh
 
 如果 Web profile 已安装 `qcc-dsh-mcp-oauth`，不要让它与 MCP 连接器同时管理同名企查查 Server：
 
-1. 先安装 `dsh-mcp-connector@0.2.32` 和 `dsh-pre-duediligence@0.1.8`，完全重启 DSH。
+1. 先按选定基线安装 MCP 连接器和访前插件，完全重启 DSH。
 2. 打开“🧩 MCP连接器”，按界面提示迁移旧企查查授权；也可以重新连接“企查查·企业工商”。
-3. 迁移完成后停止 DSH，执行 `dsh plugin --profile web remove qcc-dsh-mcp-oauth`。
-4. 再次启动 DSH，在“已安装”中确认企查查连接健康，然后执行一次真实企业查询。
+3. 先确认新连接健康，并在新连接上成功完成一次真实企业查询。
+4. 查询成功后停止 DSH，执行 `dsh plugin --profile web remove qcc-dsh-mcp-oauth`，然后完整重启并复核连接。
 
 连接器只复制旧授权，不会自动删除旧插件或旧凭据；确认新连接可用后再移除旧插件。
 

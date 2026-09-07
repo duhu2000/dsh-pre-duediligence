@@ -1,4 +1,3 @@
-import type { BetterSidebarService } from "./better-sidebar.js";
 type SnapshotStore<T> = {
     getSnapshot(): T;
 };
@@ -37,5 +36,5 @@ export type LeftSidebarHost = {
     };
     get?(name: string): unknown;
 };
-export declare function registerLeftSidebarLauncher(ctx: LeftSidebarHost, service: BetterSidebarService): void;
+export declare function registerLeftSidebarLauncher(ctx: LeftSidebarHost, isActive?: () => boolean): void;
 export {};

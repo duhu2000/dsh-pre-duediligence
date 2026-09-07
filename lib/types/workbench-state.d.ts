@@ -1,3 +1,4 @@
+import type { ToolEvent } from "./stage-insights.js";
 export declare const PREVISIT_PHASES: readonly ["target", "scope", "collect", "verify", "output"];
 export type PrevisitPhase = (typeof PREVISIT_PHASES)[number];
 export type PhaseProgress = "idle" | "active" | "done" | "failed";
@@ -11,6 +12,7 @@ export type SessionProgressInput = {
     toolNames: string[];
     /** 只在捕获到符合报告结构的真实输出后为 true。 */
     reportReady: boolean;
+    toolEvents?: ToolEvent[];
 };
 export type PhaseState = {
     id: PrevisitPhase;

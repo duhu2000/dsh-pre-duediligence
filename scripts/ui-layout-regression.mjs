@@ -1,12 +1,14 @@
 // 真实 React + 隔离宿主 DOM + 本机 Headless Chrome；不连接 DSH 或企查查服务。
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
+import { existsSync } from "node:fs"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 
 import { build } from "esbuild"
 
-const chrome = process.env.PREVISIT_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+const chrome = process.env.PREVISIT_CHROME || ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"].find(existsSync)
+assert.ok(chrome, "Chrome not found; set PREVISIT_CHROME to an installed Chrome/Chromium executable")
 const output = resolve("_scratch/ui-layout")
 await rm(output, { recursive: true, force: true })
 await mkdir(output, { recursive: true })
@@ -62,6 +64,7 @@ for (const [theme, width, height] of scenarios) {
   const dom = run.stdout
   const attr = (name) => new RegExp(`data-${name}="([^"]*)"`).exec(dom)?.[1]
   assert.equal(attr("ui-ready"), "true")
+  assert.equal(attr("session-isolation"), "true")
   assert.equal(attr("brand"), theme === "dark" ? "#55ADFF" : "#128BED")
   assert.equal(attr("menu-placed"), "true")
   assert.equal(attr("capability-count"), "5")

@@ -25,6 +25,7 @@ export type PrevisitSessionState = {
   view: PrevisitView
   // 用户点击“新的尽调”后忽略旧任务，避免会话快照立即把它重新认领回来。
   dismissedTaskIds: string[]
+  minimumNodeBaseline: number
 }
 
 export const EMPTY_SESSION_STATE: PrevisitSessionState = {
@@ -35,6 +36,7 @@ export const EMPTY_SESSION_STATE: PrevisitSessionState = {
   panel: null,
   view: "target",
   dismissedTaskIds: [],
+  minimumNodeBaseline: 0,
 }
 
 export type PrevisitStore = {

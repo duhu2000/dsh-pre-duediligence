@@ -19,6 +19,7 @@ import {
 } from "./composer-model.js"
 import { EMPTY_SESSION_STATE, summarizeSelection, type DiligenceMode, type PrevisitStore } from "./previsit-store.js"
 import { adoptTaskFromSnapshot, type CardSnapshot } from "./report-export.js"
+import { writeSessionDraft } from "./session-input.js"
 
 type InputStateLike = { draft: string; phase?: string }
 
@@ -34,26 +35,10 @@ export type PrevisitDockProps = {
 }
 
 // 找到 DSH 原生输入框（排除本条自己的输入）
-function composerTextarea(): HTMLTextAreaElement | null {
-  if (typeof document === "undefined") return null
-  const all = Array.from(document.querySelectorAll("textarea")).filter(t => t.closest(".qccDock") === null && t.closest(".qccPwShell") === null && !t.disabled)
-  return all[all.length - 1] ?? null
-}
-// 双保险：先走 DSH 公开动作；若输入框没跟着变，再用原生 setter + input 事件写入（受控组件会走 onChange）
 function writeDraft(actions: PrevisitDockProps["inputActions"], text: string): void {
-  try { actions?.setDraft(text) } catch { /* fall through */ }
-  const apply = () => {
-    const ta = composerTextarea()
-    if (ta === null || ta.value === text) return
-    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set
-    if (setter === undefined) return
-    setter.call(ta, text)
-    ta.dispatchEvent(new Event("input", { bubbles: true }))
-  }
-  if (actions === undefined) { apply(); return }
-  if (typeof window !== "undefined") window.setTimeout(apply, 30)
+  if (!writeSessionDraft(actions, text)) throw new Error("当前会话输入框尚未就绪。")
 }
-export { writeDraft as writeComposerDraft, composerTextarea }
+export { writeDraft as writeComposerDraft }
 
 const labelOf = (options: readonly ComposerOption[]) => (id: string): string | undefined => options.find(o => o.id === id)?.label
 
@@ -81,6 +66,13 @@ export function usePrevisitComposer(args: {
   const state = useSyncExternalStore(store.subscribe, () => store.get(sessionId), () => EMPTY_SESSION_STATE)
   const [error, setError] = useState<string>()
   const [submitting, setSubmitting] = useState(false)
+  const lifetime = useRef({ active: true })
+  const inFlight = useRef(false)
+  useEffect(() => {
+    const token = { active: true }
+    lifetime.current = token
+    return () => { token.active = false }
+  }, [sessionId])
   const draft = args.readDraft()
   const synced = updateManualText(state.composer, draft)
   const manual = synced.mode === "manual" && draft.trim() !== ""
@@ -110,15 +102,19 @@ export function usePrevisitComposer(args: {
   }
   const reset = () => {
     args.writeDraft("")
-    store.update(sessionId, s => ({ ...EMPTY_SESSION_STATE, task: s.task, panel: s.panel, view: s.view, dismissedTaskIds: s.dismissedTaskIds }))
+    store.update(sessionId, s => ({ ...EMPTY_SESSION_STATE, task: s.task, panel: s.panel, view: s.view, dismissedTaskIds: s.dismissedTaskIds, minimumNodeBaseline: s.minimumNodeBaseline }))
     setError(undefined)
   }
   const startTask = async () => {
+    if (inFlight.current) return
+    const lifetimeToken = lifetime.current
     const text = args.readDraft().trim()
     const invalid = validateComposerText(text)
     if (invalid !== undefined) { setError(invalid); return }
     const id = createTaskId()
     const prompt = serializePrevisitRequest(text, id)
+    const selection = { ...state.selection, focus: [...state.selection.focus] }
+    inFlight.current = true
     setSubmitting(true)
     setError(undefined)
     try {
@@ -126,14 +122,14 @@ export function usePrevisitComposer(args: {
       store.update(sessionId, s => ({
         ...s,
         composer: { ...s.composer, text: "", lastGenerated: "", mode: "generated" },
-        task: { id, prompt, createdAt: new Date().toISOString(), nodeBaseline, seenRunning: false, selection: s.selection },
+        task: { id, prompt, createdAt: new Date().toISOString(), nodeBaseline, seenRunning: false, selection },
       }))
-      args.writeDraft("")
-      args.onStarted?.()
+      if (lifetimeToken.active) args.onStarted?.()
     } catch {
-      setError("发送失败，请检查当前会话后重试")
+      if (lifetimeToken.active) setError("发送失败，请检查当前会话后重试")
     } finally {
-      setSubmitting(false)
+      inFlight.current = false
+      if (lifetimeToken.active) setSubmitting(false)
     }
   }
   const summary = summarizeSelection(state, {
@@ -176,7 +172,7 @@ export function PrevisitDock(props: PrevisitDockProps): JSX.Element {
   const draft = props.useInput(s => s.draft)
   const hasHistory = props.useSession === undefined ? false : props.useSession(s => (s.nodes?.length ?? 0) > 0)
   const nodeCount = props.useSession === undefined ? 0 : props.useSession(s => s.nodes?.length ?? 0)
-  const adoptedId = props.useSession === undefined ? null : props.useSession(s => adoptTaskFromSnapshot(s)?.id ?? null)
+  const adoptedId = props.useSession === undefined ? null : props.useSession(s => adoptTaskFromSnapshot(s, sessionId)?.id ?? null)
   const sessionSnap = props.useSession === undefined ? undefined : props.useSession(s => s)
   const [open, setOpen] = useState(false)
   const actions = usePrevisitComposer({
@@ -190,7 +186,7 @@ export function PrevisitDock(props: PrevisitDockProps): JSX.Element {
   // 会话里已经在跑尽调（不管从哪发起）：认领为任务，两边状态一致
   useEffect(() => {
     if (state.task !== undefined || adoptedId === null || sessionSnap === undefined) return
-    const adopted = adoptTaskFromSnapshot(sessionSnap)
+    const adopted = adoptTaskFromSnapshot(sessionSnap, sessionId)
     if (adopted === null) return
     store.update(sessionId, s => s.task !== undefined ? s : ({ ...s, task: { ...adopted, createdAt: new Date().toISOString(), seenRunning: true, selection: s.selection } }))
     setOpen(false)

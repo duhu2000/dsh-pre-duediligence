@@ -1,6 +1,7 @@
+import type { ToolOutcome } from "./tool-outcome.js";
 export type ToolEvent = {
     name: string;
-    status: "running" | "done" | "failed";
+    status: ToolOutcome;
 };
 export type StepState = "done" | "active" | "idle";
 export type Step = {
@@ -10,7 +11,7 @@ export type Step = {
 };
 export type Dimension = {
     label: string;
-    status: "done" | "running" | "failed";
+    status: ToolOutcome;
 };
 export declare function opportunityDimensions(events: ToolEvent[]): Dimension[];
 export declare function riskDimensions(events: ToolEvent[]): Dimension[];

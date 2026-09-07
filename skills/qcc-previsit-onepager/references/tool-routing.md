@@ -1,6 +1,25 @@
 # 五类 MCP 工具路由
 
-工具名以当前会话实际暴露的企查查能力为准。语义完全相同但名称略有差异时使用已暴露工具，禁止臆造。
+以下原始工具名用于解释业务路由，执行必须通过 `previsit_query`，不能直接调用原始 MCP。
+
+| dimension | 业务查询 |
+| --- | --- |
+| entity_search | get_company_by_query |
+| registration / profile | get_company_registration_info / get_company_profile |
+| annual_reports / changes | get_annual_reports / get_change_records |
+| shareholders / beneficiaries | get_shareholder_info / get_beneficial_owners |
+| personnel / contacts | get_key_personnel / get_contact_info |
+| investments / branches | get_external_investments / get_branches |
+| risk_scan | get_company_risk_scan |
+| dishonest / enforcement / terminated_cases | get_dishonest_info / get_judgment_debtor_info / get_terminated_cases |
+| equity_freeze / business_exception | get_equity_freeze / get_business_exception |
+| administrative_penalty / tax_abnormal / judicial_documents | get_administrative_penalty / get_tax_abnormal / get_judicial_documents |
+| patents / software_copyright | get_patent_info / get_software_copyright_info |
+| financing / bidding / recruitment | get_financing_records / get_bidding_info / get_recruitment_info |
+| qualifications / licenses / land | get_qualifications / get_administrative_license / get_land_grant_info |
+| executive_risk | get_executive_risk_scan（必须带实际关键人员姓名 personName） |
+
+未列入固定维度的增量工具在当前版本标记“未覆盖（业务适配未提供）”，不得通过动态 MCP 或其它传输绕过。Provider 名称、参数或返回字段变化必须先补适配和契约测试。
 
 ## 硬门与基础集
 

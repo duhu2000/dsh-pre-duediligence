@@ -80,11 +80,13 @@ describe("阶段步骤", () => {
     const risk = riskSteps(events, parseCardInsights(null), false)
     expect(risk.map(s => s.state)).toEqual(["done", "done", "idle", "active"])
   })
-  it("完成后：全部完成并带结论备注", () => {
+  it("报告生成后：保留未执行步骤，展示已捕获的结论", () => {
     const steps = opportunitySteps(events, parseCardInsights(card), true)
-    expect(steps.every(s => s.state === "done")).toBe(true)
+    expect(steps.map(s => s.state)).toEqual(["done", "idle", "done", "done"])
     expect(steps[2]?.note).toBe("资本运作期")
     expect(steps[3]?.note).toBe("2 条")
-    expect(riskSteps(events, parseCardInsights(card), true)[3]?.note).toBe("3 项")
+    const risks = riskSteps(events, parseCardInsights(card), true)
+    expect(risks[3]?.note).toBe("3 项")
+    expect(risks[2]?.state).toBe("idle")
   })
 })

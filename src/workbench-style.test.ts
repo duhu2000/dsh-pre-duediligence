@@ -6,7 +6,7 @@ import { WORKBENCH_CSS } from "./workbench-style.js"
 const workbenchSource = readFileSync(new URL("workbench-v2.tsx", import.meta.url), "utf8")
 
 describe("访前工作台企查查蓝主题", () => {
-  it("包含 DSH-UX-001 v1.1.2 的完整浅色与深色 Token", () => {
+  it("包含 DSH-UX-001 v1.1.3 的完整浅色与深色 Token", () => {
     for (const token of [
       "--qcc-brand:#128BED", "--qcc-action:#0875D1", "--qcc-action-hover:#0666B7",
       "--qcc-selected:#E6F4FF", "--qcc-table-head:#F2F9FC", "--qcc-page:#F6F8FA",
@@ -36,5 +36,15 @@ describe("访前工作台企查查蓝主题", () => {
     for (const description of ["主体与拜访目的", "角色、重点与深度", "工商与经营画像", "风险、反证与边界", "一页纸与行动问题"]) {
       expect(workbenchSource).not.toContain(description)
     }
+  })
+
+  it("首页快捷菜单采用数据清洗补全式纵向描边卡片", () => {
+    expect(WORKBENCH_CSS).toContain("justify-content:safe center")
+    expect(WORKBENCH_CSS).toContain("overflow-x:auto;scrollbar-width:none")
+    expect(WORKBENCH_CSS).toContain("flex-direction:column;gap:5px;flex:0 0 auto;min-width:108px;min-height:54px")
+    expect(WORKBENCH_CSS).toContain("border:1px solid var(--qcc-border);border-radius:8px")
+    expect(WORKBENCH_CSS).toContain(".qccPrevisitCapabilityLabel")
+    expect(WORKBENCH_CSS).toContain(".qccPrevisitCapabilities{justify-content:flex-start;padding-inline:12px}")
+    expect(WORKBENCH_CSS).not.toContain(".qccPrevisitCapabilities{display:grid")
   })
 })

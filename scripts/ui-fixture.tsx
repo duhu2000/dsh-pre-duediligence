@@ -140,6 +140,18 @@ window.setTimeout(() => {
         const title = document.querySelector<HTMLElement>('[data-previsit-hero-row="true"] [data-previsit-hero-title="true"]')
         document.body.dataset.brand = shell === null ? "missing" : getComputedStyle(shell).getPropertyValue("--qcc-brand").trim()
         document.body.dataset.menuPlaced = String(composerCard?.nextElementSibling?.querySelector(".qccPrevisitCapabilities") !== null)
+        const capabilities = document.querySelector<HTMLElement>(".qccPrevisitCapabilities")
+        const capabilityItems = [...document.querySelectorAll<HTMLElement>(".qccPrevisitCapability")]
+        const firstCapability = capabilityItems[0]
+        const capabilityRect = capabilities?.getBoundingClientRect()
+        const firstCapabilityStyle = firstCapability === undefined ? undefined : getComputedStyle(firstCapability)
+        document.body.dataset.capabilityCount = String(capabilityItems.length)
+        document.body.dataset.capabilityDirection = firstCapabilityStyle?.flexDirection ?? "missing"
+        document.body.dataset.capabilityMinHeight = firstCapabilityStyle?.minHeight ?? "missing"
+        document.body.dataset.capabilityBorder = firstCapabilityStyle?.borderTopStyle ?? "missing"
+        document.body.dataset.capabilityOverflow = capabilities === null ? "missing" : getComputedStyle(capabilities).overflowX
+        document.body.dataset.capabilitySingleRow = String(capabilityItems.length > 0 && capabilityItems.every(item => Math.abs(item.getBoundingClientRect().top - capabilityItems[0].getBoundingClientRect().top) < 1))
+        document.body.dataset.capabilityFitsViewport = String(capabilityRect !== undefined && capabilityRect.left >= -0.5 && capabilityRect.right <= window.innerWidth + 0.5)
         document.body.dataset.stageCount = String(document.querySelectorAll(".qccPwStage").length)
         const stages = document.querySelector<HTMLElement>(".qccPwStages")
         const firstStage = document.querySelector<HTMLElement>(".qccPwStage")

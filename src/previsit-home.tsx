@@ -30,9 +30,9 @@ function CapabilityBar(props: { onNavigate(view: PrevisitView): void }): JSX.Ele
   return (
     <nav className="qccPrevisitCapabilities" aria-label="访前尽调能力菜单">
       {CAPABILITIES.map(item => (
-        <button key={item.view} type="button" className="qccPrevisitCapability" onClick={() => props.onNavigate(item.view)}>
+        <button key={item.view} type="button" className="qccPrevisitCapability" aria-label={item.label} title={item.label} onClick={() => props.onNavigate(item.view)}>
           <CapabilityIcon>{item.icon}</CapabilityIcon>
-          <span>{item.label}</span>
+          <span className="qccPrevisitCapabilityLabel">{item.label}</span>
         </button>
       ))}
     </nav>

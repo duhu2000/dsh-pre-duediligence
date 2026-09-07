@@ -1,4 +1,4 @@
-/** DSH-UX-001 v1.1.2：所有变量和组件选择器均限定在本插件拥有的节点内。 */
+/** DSH-UX-001 v1.1.3：所有变量和组件选择器均限定在本插件拥有的节点内。 */
 export const WORKBENCH_CSS = String.raw`
 .qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent{
   --qcc-brand:#128BED;
@@ -65,11 +65,13 @@ export const WORKBENCH_CSS = String.raw`
 html[data-theme="dark"] .qccPrevisitHeroLogo,html.dark .qccPrevisitHeroLogo{color:#55ADFF}
 .qccPrevisitExperience{width:100%;box-sizing:border-box;text-align:center}
 .qccPrevisitHomeSummary{max-width:620px;margin:0 auto 18px;color:var(--qcc-secondary);font-size:14px;line-height:1.7}
-.qccPrevisitCapabilityMount{width:100%;box-sizing:border-box;margin-top:12px}
-.qccPrevisitCapabilities{display:flex;align-items:stretch;justify-content:center;gap:8px;width:100%;max-width:720px;margin:0 auto;padding:0 8px;box-sizing:border-box}
-.qccPrevisitCapability{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:38px;padding:8px 12px;border:1px solid var(--qcc-border);border-radius:10px;background:var(--qcc-surface);color:var(--qcc-secondary);font:inherit;font-size:13px;cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease}
+.qccPrevisitCapabilityMount{width:100%;padding:8px 0;box-sizing:border-box;flex:none}
+.qccPrevisitCapabilities{display:flex;align-items:center;justify-content:safe center;gap:8px;width:100%;max-width:var(--dsh-composer-card-max-width,780px);margin:0 auto;padding:2px 16px 0;box-sizing:border-box;overflow-x:auto;scrollbar-width:none}
+.qccPrevisitCapabilities::-webkit-scrollbar{display:none}
+.qccPrevisitCapability{display:inline-flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;flex:0 0 auto;min-width:108px;min-height:54px;padding:7px 12px;border:1px solid var(--qcc-border);border-radius:8px;background:var(--qcc-surface);color:var(--qcc-secondary);font:inherit;font-size:12px;cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease}
 .qccPrevisitCapability svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.qccPrevisitCapability:hover{border-color:var(--qcc-brand);background:var(--qcc-selected);color:var(--qcc-action)}
+.qccPrevisitCapabilityLabel{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qccPrevisitCapability:hover,.qccPrevisitCapability:focus-visible{border-color:var(--qcc-border);background:var(--qcc-selected);color:var(--qcc-action)}
 .qccPrevisitCapability:focus-visible,.qccPromptTrigger:focus-visible,.qccPromptPanel button:focus-visible,.qccPromptPanel input:focus-visible,.qccPwShell button:focus-visible{outline:2px solid var(--qcc-brand);outline-offset:2px}
 .qccPrevisitLauncherContent{display:inline-flex;align-items:center;gap:9px;color:inherit}
 .qccPrevisitLauncherContent svg{color:var(--qcc-brand);flex:none}
@@ -144,10 +146,10 @@ html[data-theme="dark"] .qccPrevisitHeroLogo,html.dark .qccPrevisitHeroLogo{colo
 .qccDockBody{display:grid;gap:12px}.qccDockRow{display:grid;grid-template-columns:68px 1fr;align-items:start;gap:10px}.qccDockLabel{padding-top:7px;color:var(--qcc-secondary);font-size:12px}.qccDockCompany{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--qcc-border);border-radius:8px;background:var(--qcc-surface);color:var(--qcc-text);font:inherit;font-size:16px;box-sizing:border-box}.qccDockChips{display:flex;flex-wrap:wrap;gap:7px}.qccDockChip{min-height:32px;padding:0 10px;border:1px solid var(--qcc-border);border-radius:8px;background:var(--qcc-surface);color:var(--qcc-secondary);font:inherit;font-size:11px;cursor:pointer}.qccDockChip[data-selected="true"]{border-color:var(--qcc-brand);background:var(--qcc-selected);color:var(--qcc-action)}.qccDockFoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:4px}.qccDockHint{color:var(--qcc-secondary);font-size:10px;line-height:1.45}.qccDockHint[data-tone="error"]{color:var(--qcc-danger)}.qccDockActions{display:flex;gap:7px;flex:none}.qccDockBtn{min-height:34px;padding:0 11px;border:1px solid var(--qcc-border);border-radius:8px;background:var(--qcc-surface);color:var(--qcc-text);font:inherit;font-size:11px;cursor:pointer}.qccDockPrimary{border-color:var(--qcc-action);background:var(--qcc-action);color:var(--qcc-action-text)}
 
 @media(max-width:760px){
-  .qccPrevisitCapabilities{display:grid;grid-template-columns:repeat(3,1fr)}.qccPrevisitCapability{padding-inline:7px}
+  .qccPrevisitCapabilities{justify-content:flex-start;padding-inline:12px}.qccPrevisitCapability{min-width:92px;padding-inline:10px}
   .qccPromptBackdrop{padding:0;overflow:hidden}.qccPromptPanel{width:100%;max-width:100vw;max-height:100dvh;height:100dvh;border:0;border-radius:0}.qccPromptHead,.qccPromptBody,.qccPromptActions{min-width:0;width:100%;padding-inline:16px;box-sizing:border-box}.qccPromptHead>div{min-width:0}.qccPromptChoices{grid-template-columns:repeat(2,minmax(0,1fr))}.qccPromptSteps button{justify-content:center}.qccPromptSteps button span{display:none}
   .qccPwHeader{align-items:flex-start}.qccPwSession{display:none}.qccPwStage{min-height:66px;gap:5px;padding:7px 3px}.qccPwStageIcon{width:25px;height:25px;flex-basis:25px}.qccPwStageCopy strong{font-size:10px}.qccPwStage[data-selected="true"]::after{right:6px;left:6px}.qccPwBody{padding:12px}.qccPwSteps{grid-template-columns:repeat(2,1fr)}.qccPwFooter{align-items:flex-end}.qccPwFooterHint{display:none}.qccPwDeliverables{grid-template-columns:1fr}.qccDockRow{grid-template-columns:1fr}.qccDockLabel{padding:0}.qccDockFoot{align-items:stretch;flex-direction:column}.qccDockActions{justify-content:flex-end}
 }
-@media(max-width:430px){.qccPrevisitCapabilities{grid-template-columns:repeat(2,1fr)}.qccPromptChoices{grid-template-columns:1fr}.qccPwRiskTiles,.qccPwCoverage,.qccPwStateStrip{grid-template-columns:repeat(2,1fr)}.qccPwSubtitle{max-width:190px}}
+@media(max-width:430px){.qccPromptChoices{grid-template-columns:1fr}.qccPwRiskTiles,.qccPwCoverage,.qccPwStateStrip{grid-template-columns:repeat(2,1fr)}.qccPwSubtitle{max-width:190px}}
 @media(prefers-reduced-motion:reduce){.qccPwShell *,.qccPromptPanel *,.qccPrevisitCapabilities *{animation:none!important;transition:none!important}}
 `

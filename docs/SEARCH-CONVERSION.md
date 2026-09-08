@@ -19,7 +19,7 @@ npm keywords 已在包清单内更新。GitHub description 建议使用上述英
 访前尽调智能体：面向拜访前调查，提供企业尽调、客户尽调、客户背景调查、工商核验与风险信息整理；使用企查查 MCP，设有调用预算授权和主体确认。
 
 ```sh
-dsh plugin --profile web add dsh-pre-duediligence@0.1.9
+dsh plugin --profile web add dsh-pre-duediligence@0.1.10
 ```
 
 请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。

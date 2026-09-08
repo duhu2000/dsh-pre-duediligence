@@ -1,6 +1,6 @@
 {
   "name": "dsh-pre-duediligence",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Pre-visit due diligence and company research in DeepSeek Harness for customer background checks and risk briefs, with Qichacha MCP tool-call budget approval and entity confirmation.",
   "license": "MIT",
   "repository": {

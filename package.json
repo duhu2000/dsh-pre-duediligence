@@ -1,7 +1,7 @@
 {
   "name": "dsh-pre-duediligence",
   "version": "0.1.9",
-  "description": "Session 级 DeepSeek Harness 访前尽调工作台，使用企查查 MCP 生成可追溯的访前尽调报告。",
+  "description": "Pre-visit due diligence and company research in DeepSeek Harness for customer background checks and risk briefs, with Qichacha MCP tool-call budget approval and entity confirmation.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -102,6 +102,20 @@
     "qichacha",
     "qcc",
     "mcp",
-    "previsit"
+    "previsit",
+    "访前尽调",
+    "企业尽调",
+    "客户尽调",
+    "拜访前调查",
+    "客户背景调查",
+    "工商核验",
+    "pre-visit due diligence",
+    "company research",
+    "企查查MCP",
+    "企查查 MCP",
+    "pre-visit",
+    "due-diligence",
+    "company-research",
+    "customer-research"
   ]
 }

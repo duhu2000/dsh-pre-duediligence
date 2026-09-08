@@ -24,7 +24,7 @@ describe("installer transaction preflight", () => {
   it("installs fixed versions in order into the chosen Profile", () => {
     const result = install({})
     expect(result.status, result.stderr).toBe(0)
-    expect(result.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.17.1", "dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.9"])
+    expect(result.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.17.1", "dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.10"])
     expect(result.calls.every(args => args[2] === "synthetic-profile")).toBe(true)
   })
   it("refuses to downgrade any shared dependency before making a single install", () => {

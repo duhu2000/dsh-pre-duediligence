@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { createPrevisitSession, isPrevisitSession, type PrevisitSessionHost } from "./previsit-session.js"
-import { PREVISIT_HOME_SUMMARY, PREVISIT_HOME_TITLE, PrevisitHome, setPrevisitHeadline } from "./previsit-home.js"
+import { PREVISIT_HOME_FLOWS, PREVISIT_HOME_SUMMARY, PREVISIT_HOME_TITLE, PrevisitHome, setPrevisitHeadline } from "./previsit-home.js"
 
 const id = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 function host() {
@@ -57,13 +57,22 @@ describe("session-specific previsit home", () => {
   it("renders the concise home and navigation only in the owned Session", () => {
     expect(render(id, "blank")).toContain(PREVISIT_HOME_SUMMARY)
     expect(render(id, "blank")).toContain("访前尽调能力菜单")
-    expect(render(id, "blank")).toContain("企业核验")
+    expect(render(id, "blank")).toContain("对象与目标")
     expect(render(id, "blank")).not.toContain("打开尽调设定")
     for (const foreign of ["ordinary", id.replace("pre-duediligence", "tender-workbench"), id.replace("pre-duediligence", "data-cleaning-agent")]) {
       expect(render(foreign, "blank")).toBe("")
     }
     expect(render(id, "active")).toContain("任务历史")
     expect(render(id, "active")).not.toContain(PREVISIT_HOME_SUMMARY)
+  })
+  it("maps each v1.5.0 flow button to one view in the same business Tab", () => {
+    expect(PREVISIT_HOME_FLOWS.map(({ view, label }) => ({ view, label }))).toEqual([
+      { view: "target", label: "对象与目标" },
+      { view: "scope", label: "范围确认" },
+      { view: "collect", label: "资料采集" },
+      { view: "verify", label: "证据核验" },
+      { view: "history", label: "任务历史" },
+    ])
   })
   it("restores the native headline and never overwrites the next owner's title", () => {
     const title = { textContent: "探索未至之境", dataset: {}, parentElement: null }

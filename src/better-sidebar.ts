@@ -21,6 +21,7 @@ type RevealTarget = {
 export type RevealController = {
   attach(sessionId: string, target: RevealTarget): () => void
   request(sessionId: string): void
+  dispose(): void
 }
 
 function treeContainsTab(node: SidebarState["splits"], tabId: string): boolean {
@@ -46,8 +47,10 @@ function revealState(state: SidebarState, tabId: string): SidebarState {
 export function createRevealController(): RevealController {
   const targets = new Map<string, RevealTarget>()
   const pending = new Set<string>()
+  let disposed = false
   return {
     attach(sessionId, target) {
+      if (disposed) return () => {}
       targets.set(sessionId, target)
       if (pending.delete(sessionId)) {
         target.store.reduce(state => revealState(state, target.tabId))
@@ -59,12 +62,18 @@ export function createRevealController(): RevealController {
       }
     },
     request(sessionId) {
+      if (disposed) return
       const target = targets.get(sessionId)
       if (target === undefined) {
         pending.add(sessionId)
         return
       }
       target.store.reduce(state => revealState(state, target.tabId))
+    },
+    dispose() {
+      disposed = true
+      targets.clear()
+      pending.clear()
     },
   }
 }
@@ -87,7 +96,8 @@ export function assertBetterSidebar(service: BetterSidebarService): void {
     throw new Error("访前工作台支持 Better Sidebar 0.17.x / 0.18.x，请核对兼容矩阵。")
   }
   if (!Array.isArray(service.features) || !service.features.includes("targetedOpen") || !service.features.includes("stateSubscription")
-    || typeof service.registerTab !== "function" || typeof service.openTab !== "function" || typeof service.isTabEnabled !== "function") {
+    || typeof service.registerTab !== "function" || typeof service.openTab !== "function" || typeof service.isTabEnabled !== "function"
+    || typeof service.getSnapshot !== "function" || typeof service.subscribeState !== "function") {
     throw new Error("dsh-better-sidebar is missing required targetedOpen/stateSubscription capabilities")
   }
 }

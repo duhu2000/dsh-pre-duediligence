@@ -56,6 +56,8 @@ const ctx: any = {
     features: ["targetedOpen", "stateSubscription"],
     isTabEnabled: () => true,
     openTab: () => {},
+    getSnapshot: () => ({ sessionId, state: sidebarState }),
+    subscribeState: () => () => {},
     registerTab(options: any) {
       workbenchComponent = options.component
       return () => {}
@@ -152,6 +154,7 @@ window.setTimeout(() => {
         const capabilityRect = capabilities?.getBoundingClientRect()
         const firstCapabilityStyle = firstCapability === undefined ? undefined : getComputedStyle(firstCapability)
         document.body.dataset.capabilityCount = String(capabilityItems.length)
+        document.body.dataset.capabilityLabels = capabilityItems.map(item => item.textContent?.trim() ?? "").join("|")
         document.body.dataset.capabilityDirection = firstCapabilityStyle?.flexDirection ?? "missing"
         document.body.dataset.capabilityMinHeight = firstCapabilityStyle?.minHeight ?? "missing"
         document.body.dataset.capabilityBorder = firstCapabilityStyle?.borderTopStyle ?? "missing"
@@ -164,6 +167,8 @@ window.setTimeout(() => {
         document.body.dataset.stageDescriptionCount = String(document.querySelectorAll(".qccPwStageCopy small").length)
         document.body.dataset.stageFits = String(stages !== null && stages.scrollWidth <= stages.clientWidth + 1)
         document.body.dataset.stageDirection = firstStage === null ? "missing" : getComputedStyle(firstStage).flexDirection
+        document.body.dataset.businessContainerControlCount = String(document.querySelectorAll('.qccPwClose,[aria-label="关闭访前尽调工作台"]').length)
+        document.body.dataset.businessReturnControlCount = String([...document.querySelectorAll<HTMLButtonElement>(".qccPwShell button")].filter(button => button.textContent?.includes("返回会话")).length)
         document.body.dataset.logoCount = String(document.querySelectorAll(`path[d="${PREVISIT_LOGO_PATH}"]`).length)
         document.body.dataset.heroTitle = title?.textContent ?? "missing"
         document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)

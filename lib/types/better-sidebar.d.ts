@@ -10,6 +10,7 @@ type RevealTarget = {
 export type RevealController = {
     attach(sessionId: string, target: RevealTarget): () => void;
     request(sessionId: string): void;
+    dispose(): void;
 };
 export declare function createRevealController(): RevealController;
 export declare function useWorkbenchReveal(controller: RevealController, props: Pick<BetterSidebarTabProps, "scope" | "store" | "tab">): void;

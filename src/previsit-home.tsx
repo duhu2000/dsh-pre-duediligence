@@ -14,11 +14,11 @@ export type PrevisitHomeProps = {
   openWorkbench?: (view?: PrevisitView) => void
 }
 
-const CAPABILITIES: ReadonlyArray<{ view: PrevisitView; label: string; icon: ReactNode }> = [
-  { view: "target", label: "企业核验", icon: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 4 4M10.5 7.5v6M7.5 10.5h6" /></> },
-  { view: "collect", label: "经营画像", icon: <><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18" /></> },
-  { view: "verify", label: "风险核查", icon: <><path d="M12 3 3.5 7v5c0 4.6 3.1 7.5 8.5 9 5.4-1.5 8.5-4.4 8.5-9V7z" /><path d="M12 8v5M12 17h.01" /></> },
-  { view: "output", label: "访前材料", icon: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></> },
+export const PREVISIT_HOME_FLOWS: ReadonlyArray<{ view: PrevisitView; label: string; icon: ReactNode }> = [
+  { view: "target", label: "对象与目标", icon: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 4 4M10.5 7.5v6M7.5 10.5h6" /></> },
+  { view: "scope", label: "范围确认", icon: <><path d="M4 5h16l-6 7v6l-4 2v-8z" /></> },
+  { view: "collect", label: "资料采集", icon: <><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18" /></> },
+  { view: "verify", label: "证据核验", icon: <><path d="M12 3 3.5 7v5c0 4.6 3.1 7.5 8.5 9 5.4-1.5 8.5-4.4 8.5-9V7z" /><path d="M12 8v5M12 17h.01" /></> },
   { view: "history", label: "任务历史", icon: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></> },
 ]
 
@@ -29,7 +29,7 @@ function CapabilityIcon({ children }: { children: ReactNode }): JSX.Element {
 function CapabilityBar(props: { onNavigate(view: PrevisitView): void }): JSX.Element {
   return (
     <nav className="qccPrevisitCapabilities" aria-label="访前尽调能力菜单">
-      {CAPABILITIES.map(item => (
+      {PREVISIT_HOME_FLOWS.map(item => (
         <button key={item.view} type="button" className="qccPrevisitCapability" aria-label={item.label} title={item.label} onClick={() => props.onNavigate(item.view)}>
           <CapabilityIcon>{item.icon}</CapabilityIcon>
           <span className="qccPrevisitCapabilityLabel">{item.label}</span>

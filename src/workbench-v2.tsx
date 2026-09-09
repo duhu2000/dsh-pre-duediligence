@@ -7,7 +7,7 @@ import { resolveSessionInput, clearSubmittedDraft, type SessionInput } from "./s
 import { isPrevisitSession } from "./previsit-session.js"
 import { toolEvent, TOOL_OUTCOME_LABELS } from "./tool-outcome.js"
 import { PrevisitPromptGenerator } from "./previsit-prompt.js"
-import { createPrevisitStore, type ActiveTask, type PrevisitSessionState, type PrevisitStore, type PrevisitView } from "./previsit-store.js"
+import { createPrevisitStore, locatePrevisitView, type ActiveTask, type PrevisitSessionState, type PrevisitStore, type PrevisitView } from "./previsit-store.js"
 import {
   createRevealController,
   registerWorkbenchTab,
@@ -405,7 +405,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const task = shared.task
   const setTask = (fn: (current: ActiveTask | undefined) => ActiveTask | undefined) => props.shared.update(sessionId, s => ({ ...s, task: fn(s.task) }))
   const phase: PrevisitPhase = shared.view === "history" ? "target" : shared.view
-  const setView = (view: PrevisitView) => props.shared.update(sessionId, state => ({ ...state, view }))
+  const setView = (view: PrevisitView) => { locatePrevisitView(props.shared, sessionId, view) }
   const setPhase = (next: PrevisitPhase) => setView(next)
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
   const [completedTaskId, setCompletedTaskId] = useState<string>()
@@ -484,9 +484,6 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     setRuntime(EMPTY_RUNTIME)
     setCapturedReport(null)
   }
-  const returnToConversation = () => {
-    props.store.reduce(state => ({ ...state, panelOpen: false, bottomOpen: false }))
-  }
   const downloadReport = () => {
     if (cardText === null || status !== "ready") {
       setDownloadNote("当前任务的报告尚未就绪，请等待会话生成符合输出结构的报告。")
@@ -516,7 +513,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
           <span className="qccPwBrandIcon"><PrevisitLogo size={24} /></span>
           <div className="qccPwBrandCopy"><div className="qccPwTitleRow"><h1 className="qccPwTitle">访前尽调</h1><span className="qccPwLiveDot" data-status={status} /></div><p className="qccPwSubtitle">企查查事实驱动 · 机会与风险双引擎</p></div>
         </div>
-        <div className="qccPwMeta"><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span><span className="qccPwSession">当前 Session · {sessionId.slice(0, 12)}</span><button type="button" className="qccPwClose" aria-label="关闭访前尽调工作台" title="关闭工作台（不会取消任务）" onClick={returnToConversation}>×</button></div>
+        <div className="qccPwMeta"><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span><span className="qccPwSession">当前 Session · {sessionId.slice(0, 12)}</span></div>
       </header>
       <nav className="qccPwTabs" aria-label="工作台视图">
         <button type="button" data-selected={shared.view !== "history"} onClick={() => setView("target")}>当前任务</button>
@@ -543,13 +540,12 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         {shared.view === "history" ? <HistoryPanel task={task} status={status} /> : null}
       </div>
       <footer className="qccPwFooter">
-        <span className="qccPwFooterHint" data-tone={downloadNote === undefined ? undefined : "error"}>{downloadNote !== undefined ? downloadNote : shared.view === "target" ? "" : "工作台绑定当前会话，关闭只隐藏界面，不会取消正在执行的任务。"}</span>
+        <span className="qccPwFooterHint" data-tone={downloadNote === undefined ? undefined : "error"}>{downloadNote !== undefined ? downloadNote : "宿主收起侧拉或关闭本 Tab 不会取消任务，也不会删除历史或制品。"}</span>
         <div className="qccPwFooterActions">
-
           {shared.view !== "target" && task !== undefined ? <button type="button" className="qccPwSecondary" onClick={newTask}>新的尽调</button> : null}
           {shared.view === "output"
             ? <button type="button" className="qccPwPrimary" disabled={status !== "ready" || cardText === null} title="下载为 HTML 文件，可直接打开或打印" onClick={downloadReport}>下载报告<span>↓</span></button>
-            : shared.view !== "target" ? <button type="button" className="qccPwPrimary" onClick={returnToConversation}>返回会话<span>→</span></button> : null}
+            : null}
         </div>
       </footer>
     </section>
@@ -571,9 +567,12 @@ export function apply(ctx: ClientContext): void {
   let service: BetterSidebarService | undefined
   let unavailable = "工作台需要安装或启用 Better Sidebar 0.17.x / 0.18.x；当前会话仍可使用原生输入框。"
   let active = true
-  ctx.effect(() => () => { active = false })
   const shared = createPrevisitStore()
   const reveal = createRevealController()
+  ctx.effect(() => () => {
+    active = false
+    reveal.dispose()
+  })
   const startPrompt = async (sessionId: string, prompt: string): Promise<number> => {
     if (!active || !isPrevisitSession(sessionId)) throw new Error("访前会话不可用")
     const input = resolveSessionInput(ctx, sessionId)
@@ -589,7 +588,7 @@ export function apply(ctx: ClientContext): void {
     if (!active || !isPrevisitSession(sessionId)) return
     if (service === undefined) throw new Error(unavailable)
     if (!openWorkbench(service, { sessionId }, reveal)) throw new Error("访前工作台已禁用，请在 Sidebar 设置中启用。")
-    if (view !== undefined) shared.update(sessionId, state => ({ ...state, view }))
+    if (view !== undefined) locatePrevisitView(shared, sessionId, view)
   }
   ctx.effect(() => installStyles(), "dsh-pre-duediligence: QCC blue UI styles")
   ctx.inject(["betterSidebar"], sidebarCtx => {

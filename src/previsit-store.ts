@@ -64,6 +64,16 @@ export function createPrevisitStore(): PrevisitStore {
   }
 }
 
+/**
+ * 流程入口和工作台导航只定位当前 Session 的既有业务视图。
+ * 已在目标视图时严格 no-op，避免重复通知被误解成任务推进或再次执行。
+ */
+export function locatePrevisitView(store: PrevisitStore, sessionId: string, view: PrevisitView): boolean {
+  if (store.get(sessionId).view === view) return false
+  store.update(sessionId, state => ({ ...state, view }))
+  return true
+}
+
 // 选择摘要：给折叠态的一行小标签用
 export function summarizeSelection(state: PrevisitSessionState, labels: {
   role: (id: string) => string | undefined

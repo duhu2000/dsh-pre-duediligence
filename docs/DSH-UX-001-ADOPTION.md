@@ -1,5 +1,29 @@
 # DSH-UX-001 采纳与验收记录
 
+## 0.1.11 整改：v1.5.0 容器控件收敛
+
+日期：2026-09-10。权威规范为 `DSH智能体开发交互规范方案.md` v1.5.0 第 7、13.4、14、15、15.1 节；交互参考为 `DSH智能体_企查查蓝_UI_Mockup_v1.5.0.html`。本轮发布 `dsh-pre-duediligence@0.1.11`；插件市场投稿保持独立流程，不以 npm 发布替代真实 DSH 或 Provider 验收。
+
+### 实现映射
+
+| v1.5.0 要求 | 本仓实现 |
+| --- | --- |
+| 唯一容器 | 保留 `dsh-pre-duediligence:agent`、`registerTab` / `openTab`、`single: true`、Session scope；不新增 fixed 抽屉、分隔条或私有宽度状态 |
+| 容器控件归宿主 | 删除内容头 `qccPwClose` /“关闭访前尽调工作台”和页脚“返回会话”；业务内容不再写 `panelOpen` / `bottomOpen`，宿主负责收起、宽度、停靠、浮窗和 Tab X |
+| 流程定位 | 对话区五个按钮映射对象与目标、范围确认、资料采集、证据核验、任务历史；历史是同一 Tab 内一级视图，材料输出仍可由同一 Tab 的阶段导航进入 |
+| 幂等与隔离 | 每次按钮点击都以目标 Session 调用 type-only `openTab` 聚焦单例 Tab；相同内部视图严格 no-op，不创建/替换任务，不调用 MCP；非前台 Session 的 reveal 只排队或修改目标 Session store，不改变前台几何 |
+| 兼容与降级 | 仅接受 Better Sidebar 0.17.x / 0.18.x，同时探测 `targetedOpen`、`stateSubscription`、注册、定向打开、启用状态、快照和订阅方法；缺失或不兼容时保留纯对话并显示安装/升级提示，不生成备用侧拉 |
+| 卸载 | 使用宿主 `registerTab` disposer 注销 descriptor；React effect 返回会话快照订阅 disposer；插件根 effect 令入口失效并清空 reveal target / pending 队列，不关闭、移动或清空其它 Tab |
+
+### 本轮证据与边界
+
+- 定向单元/契约测试覆盖：内容区无重复 X/返回控件、Tab 单例 descriptor、流程映射、定位幂等、Session 状态隔离、非前台 Session 不改变前台几何、浮窗不改几何、缺依赖/缺能力降级、注销 disposer 和 pending reveal 清理。
+- 使用受支持的 Node 24.19.0 执行 `pnpm check` 已通过：17 个测试文件 / 111 项测试、类型检查和 Host/Client 构建全部成功。系统默认 Node 25.9.0 会被安装器按声明的 Node 22/24 边界拒绝，未为通过测试而扩大引擎范围。
+- `pnpm test:ui` 已通过浅色/深色 × 1440×900 / 390×700 共 4 个隔离 Chrome 场景；除原有布局、焦点和 Session 隔离外，新增五项流程标签及业务内容无重复容器 X/返回按钮断言。
+- `npm pack --dry-run --ignore-scripts --json` 使用隔离缓存通过，共 42 个发布文件；生成后的 `lib/client.js` 与类型声明已纳入本轮发布，未把 `_scratch` 测试产物加入发布清单。
+- 真实 DSH 层尚未执行。本轮不能证明宿主 0.17/0.18 的真实 Tab X、右/底/浮窗几何、后台 Session 定向打开或四插件组合行为；也未连接真实企查查 Provider。
+- 后续组合回归：在隔离 Profile 分别使用 Sidebar 0.17.x / 0.18.x，与数据清洗补全、AI 填表、招投标同装；覆盖初始关闭、五入口重复点击、前后台 Session、宿主收起/恢复、Tab X/重开、右侧/底部/浮窗迁移、任务运行中操作、单包卸载和完整重启。验证两类宿主关闭动作都不改变 taskId、历史或制品。
+
 ## 0.1.9 整改：目标 v1.2.0，全文核验待完成
 
 日期：2026-09-07。根据团队同步邮件 DSH-AGENT-SYNC-001 中的 v1.2.0 摘要实施；邮件所列权威文件在当前机器对应路径不存在，故不声明已完成 v1.2.0 全文采纳。仓库仅记录采用版本、业务差异、例外和证据，不复制权威规范。

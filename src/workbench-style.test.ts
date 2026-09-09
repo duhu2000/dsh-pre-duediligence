@@ -6,7 +6,7 @@ import { WORKBENCH_CSS } from "./workbench-style.js"
 const workbenchSource = readFileSync(new URL("workbench-v2.tsx", import.meta.url), "utf8")
 
 describe("访前工作台企查查蓝主题", () => {
-  it("包含 DSH-UX-001 v1.1.3 的完整浅色与深色 Token", () => {
+  it("包含 DSH-UX-001 v1.5.0 的完整浅色与深色 Token", () => {
     for (const token of [
       "--qcc-brand:#128BED", "--qcc-action:#0875D1", "--qcc-action-hover:#0666B7",
       "--qcc-selected:#E6F4FF", "--qcc-table-head:#F2F9FC", "--qcc-page:#F6F8FA",
@@ -46,5 +46,15 @@ describe("访前工作台企查查蓝主题", () => {
     expect(WORKBENCH_CSS).toContain(".qccPrevisitCapabilityLabel")
     expect(WORKBENCH_CSS).toContain(".qccPrevisitCapabilities{justify-content:flex-start;padding-inline:12px}")
     expect(WORKBENCH_CSS).not.toContain(".qccPrevisitCapabilities{display:grid")
+  })
+
+  it("把侧拉几何和 Tab 关闭完全交给 Better Sidebar 宿主", () => {
+    expect(WORKBENCH_CSS).not.toContain(".qccPwClose")
+    expect(workbenchSource).not.toContain("qccPwClose")
+    expect(workbenchSource).not.toContain("关闭访前尽调工作台")
+    expect(workbenchSource).not.toContain("returnToConversation")
+    expect(workbenchSource).not.toContain(">返回会话<")
+    expect(workbenchSource).not.toContain("panelOpen: false")
+    expect(workbenchSource).not.toContain("bottomOpen: false")
   })
 })

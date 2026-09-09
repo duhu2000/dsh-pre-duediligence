@@ -1,5 +1,13 @@
 # 访前尽调 0.1.9 兼容与验收记录
 
+## 0.1.11 / v1.5.0 容器收敛补充（2026-09-10）
+
+- 发布版本为 `dsh-pre-duediligence@0.1.11`。仍维持 Better Sidebar `>=0.17.1 <0.19.0`，不因消除 peer warning 扩大范围。
+- 运行时除版本范围外，明确探测 `targetedOpen`、`stateSubscription`、`registerTab`、`openTab`、`isTabEnabled`、`getSnapshot` 和 `subscribeState`。任一缺失时工作台局部降级，原生会话与输入区流程按钮保留并给出可行动提示。
+- 宿主侧拉是唯一容器。业务内容不再包含工作台关闭 X、“返回会话”或其它同义容器控制，也不写宿主宽度、停靠或开合状态；宿主收起和 Tab X 均不触碰业务任务状态。
+- Reveal controller 按 Session 保存目标和 pending intent；非前台请求不读取或修改当前 Session store。卸载时注销 Tab descriptor、释放会话订阅，并显式清空 target / pending reveal。
+- 本地单元/契约、类型、构建和隔离 UI 证据不替代真实 DSH。Sidebar 0.17/0.18、四插件共装、右/底/浮窗、后台 Session、运行中 Tab X/恢复、卸载/重启仍待隔离 Profile 回归。
+
 日期：2026-09-07。本文为 0.1.9 发布与验收记录；发布前已回读 npm 0.1.8，本次发布结果以 Registry / GitHub Release 回读为准。公开旧版本和 tag 保持不变；npm 发布不代表真实组合验收通过。
 
 | 组合 | DSH | Sidebar | Connector | 证据级别 / 状态 |

@@ -48,13 +48,13 @@ function sidebarStore(initial: SidebarState) {
   }
 }
 describe("optional sidebar adapter", () => {
-  it.each(["0.17.1", "0.18.0"])("registers using the public %s contract", version => {
+  it.each(["0.17.1", "0.18.1"])("registers using the public %s contract", version => {
     const sidebar = service(version)
     expect(() => registerWorkbenchTab(sidebar, () => null)).not.toThrow()
     expect(sidebar.registerTab).toHaveBeenCalledWith(expect.objectContaining({ hidden: true, single: true }))
   })
   it("returns the host unregister disposer for plugin unload", () => {
-    const sidebar = service("0.18.0")
+    const sidebar = service("0.18.1")
     const unregister = vi.fn()
     vi.mocked(sidebar.registerTab).mockReturnValue(unregister)
     const dispose = registerWorkbenchTab(sidebar, () => null)
@@ -62,8 +62,8 @@ describe("optional sidebar adapter", () => {
     expect(unregister).toHaveBeenCalledTimes(1)
   })
   it("checks methods and capabilities rather than trusting a version string alone", () => {
-    expect(() => assertBetterSidebar({ ...service("0.18.0"), features: [] })).toThrow("capabilities")
-    expect(() => assertBetterSidebar({ ...service("0.18.0"), subscribeState: undefined } as unknown as BetterSidebarService)).toThrow("capabilities")
+    expect(() => assertBetterSidebar({ ...service("0.18.1"), features: [] })).toThrow("capabilities")
+    expect(() => assertBetterSidebar({ ...service("0.18.1"), subscribeState: undefined } as unknown as BetterSidebarService)).toThrow("capabilities")
     expect(() => assertBetterSidebar(service("0.19.0"))).toThrow("支持")
   })
   it("opens and reveals the same single tab on repeated requests", () => {
@@ -79,7 +79,7 @@ describe("optional sidebar adapter", () => {
     expect(state.current().panelOpen).toBe(true)
   })
   it("queues a background Session reveal without changing the foreground geometry", () => {
-    const sidebar = service("0.18.0")
+    const sidebar = service("0.18.1")
     const controller = createRevealController()
     const foreground = sidebarStore(stateWith("right"))
     const background = sidebarStore(stateWith("bottom"))
@@ -105,7 +105,7 @@ describe("optional sidebar adapter", () => {
     expect(state.reduce).not.toHaveBeenCalled()
   })
   it("preserves the Session task when the host collapses or the Tab unmounts and reopens", () => {
-    const sidebar = service("0.18.0")
+    const sidebar = service("0.18.1")
     const controller = createRevealController()
     const geometry = sidebarStore(stateWith("right"))
     const business = createPrevisitStore()

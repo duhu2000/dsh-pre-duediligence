@@ -1,6 +1,6 @@
 # 访前尽调兼容与验收记录
 
-## Unreleased：可选 Sidebar 第一阶段
+## 0.1.13：可选 Sidebar 第一阶段
 
 目标是让基础智能体在没有 Better Sidebar 时独立安装和运行，同时保留兼容 Sidebar 的现有工作台；不在本阶段重写工作台容器。
 
@@ -15,7 +15,7 @@
 
 ### 隔离 tarball 三场景实测（2026-09-10）
 
-- 发布候选物：由本分支源码生成的 `dsh-pre-duediligence-0.1.12.tgz`，打包清单为 43 个文件。版本号仅沿用于本地候选验收，没有重新发布或移动 `v0.1.12` 标签；最终完整性摘要记入本次分支回报。
+- 发布候选物：由本分支源码生成的 `dsh-pre-duediligence-0.1.13.tgz`，最终文件数、完整性和 Registry 摘要按本次发布回读记录。不重用或移动既有 `v0.1.12` 标签。
 - 默认无 Sidebar：干净临时 Profile 通过 `install.sh` 安装后只有 Connector `0.2.37` 和候选包。DSH `0.1.2-rc.1` 真实 Web Host 稳定启动，插件图包含 Connector 和访前尽调、不包含 Better Sidebar，浏览器 `error` / `warn` 为 0。左侧入口、原生 composer 和提示词生成器可用；在 composer 中输入 `retain-no-sidebar-draft` 后点击“对象与目标”，页面显示可执行的可选安装提示，草稿仍原样保留，没有空白页、伪成功或自建替代抽屉。
 - 兼容 Sidebar：干净临时 Profile 以 `DSH_PREVISIT_WORKBENCH=on` 从脚本完整安装成功，得到 Sidebar `0.18.1` / Connector `0.2.37` / 候选包。真实 Host 中点击“对象与目标”由 Better Sidebar 打开唯一“访前尽调”Tab 并定位对应阶段，五阶段工作台渲染正常，浏览器 `error` / `warn` 为 0。
 - 已知不兼容：在 DSH `0.1.2-rc.1` + 已安装 Sidebar `0.17.1` 的临时 Profile 上，即使使用默认基础模式，脚本仍在任何写入前拒绝。失败后清单仍只有 Sidebar `0.17.1`，未安装 Connector 或访前包。

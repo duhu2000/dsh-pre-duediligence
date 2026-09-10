@@ -1,6 +1,11 @@
 # 更新日志
 ## [Unreleased]
 
+- 将候选组合收敛为 DSH `0.1.2-rc.1` / Better Sidebar `0.18.1` / MCP Connector `0.2.37`，可选 Context 共存版本为 `0.48.0`。
+- 安装器在写入 Profile 前阻止新旧 DSH / Sidebar 双向混装，并阻止候选组合与未验证 Context 版本共存；Context 仍非必装依赖。
+- CI 改为成对的 stable/candidate SDK 矩阵，不再测试或暗示支持跨基线笛卡尔组合。
+- 记录候选组合在临时 `DSH_HOME` 的真实宿主无付费交互验收；真实企查查 Provider 与四款业务插件共装仍待验证。
+
 ## [0.1.11] - 2026-09-10
 
 - 采纳 DSH-UX-001 v1.5.0：Better Sidebar Session 单例 Tab 成为唯一工作台容器，移除内容头关闭 X 及页脚“返回会话”容器控制。

@@ -1,4 +1,29 @@
-# 访前尽调 0.1.9 兼容与验收记录
+# 访前尽调兼容与验收记录
+
+## 0.1.11 候选宿主组合补验（2026-09-10）
+
+本次只验证访前尽调及其运行时共存组合，不把页面能打开写成真实业务成功，也不外推到其它版本。测试全程使用临时 `DSH_HOME`、独立 Profile 和随机本地端口，没有读取或修改用户 `~/.dsh`，没有配置模型密钥，也没有调用付费 MCP。
+
+| 组合 | DSH | Sidebar | Connector | 可选 Context | 结论 |
+| --- | --- | --- | --- | --- | --- |
+| stable（既有固定基线） | 0.1.1-rc.2 | 0.17.1 | 0.2.32 | 不声明 | 本轮未重跑；保留既有基线，不以候选结果替代 |
+| candidate（本轮目标） | 0.1.2-rc.1 | 0.18.1 | 0.2.37 | 缺失或 0.48.0 | 隔离真实宿主无付费交互通过；真实 Provider 待验收 |
+| 禁止混装 | 0.1.2-rc.1 | 0.17.1 | 任意 | 任意 | 已知不兼容组合；安装器在写入前拒绝 |
+| 禁止混装 | 0.1.1-rc.2 | 0.18.1 | 任意 | 任意 | 不属于验证矩阵；安装器在写入前拒绝 |
+| candidate + 旧 Context | 0.1.2-rc.1 | 0.18.1 | 0.2.37 | 0.36.0 | 已知不兼容；安装器要求先升级到 0.48.0 |
+| 缺失 Sidebar | 两个目标基线 | 无 | 同基线 | 同上 | 自动化验证保留原生入口；打开工作台时局部提示 |
+
+安装预检按完整基线判断，不能只看宽泛的 peer range。它会同时核对 DSH、Sidebar、Connector；candidate Profile 若已有 Context，还会要求精确为 0.48.0。Context 不是访前尽调依赖，脚本不会主动安装。新 Host + 旧 Sidebar 的失败来自共享组合验收记录；反向组合由包的宿主契约和本仓 fail-closed 策略阻止，不将其写成已执行的真实宿主失败。
+
+### 本轮真实宿主证据
+
+- 环境：Node 24.19.0、`@deepseek-ai/dsh@0.1.2-rc.1`、`dsh-better-sidebar@0.18.1`、`dsh-mcp-connector@0.2.37`、可选 `dsh-context@0.48.0`，以及由当前 0.1.11 源码生成的 npm tarball。
+- 启动与装载：真实 DSH Web 在隔离端口稳定启动；SSE 插件图同时包含 Better Sidebar、Context、MCP Connector 和访前尽调，访前客户端进入 application batch。浏览器控制台 `error` / `warn` 为 0。
+- 首页与容器：左侧“访前尽调”可见；首次进入仅显示原生会话、提示词生成器和五项流程按钮，右/底工作台默认关闭。点击“对象与目标”后由 Better Sidebar 打开唯一业务 Tab。
+- 定位与恢复：切换到“任务历史”定位同一 Tab；重复点击无可见状态变化。使用宿主 Tab X 关闭后，再点同一流程按钮可恢复并定位目标视图。
+- 草稿回填：用合成主体“兼容测试企业”走完四步提示词生成器，生成“准备拜访兼容测试企业。”并回填宿主原生输入框；未自动发送。
+- 未覆盖：未配置模型或企查查授权，未发送消息，未生成真实报告，未验证 Provider 工具调用、预算扣减、真实数据/下载结果，也未执行数据清洗补全、AI 填表、招投标三款业务插件的同宿主共装回归。
+- 测试环境说明：临时 Profile 的默认 live patch reload 在此机器触发文件监听 `EMFILE`；将该临时 Profile 切到 startup reload 后，裸 Host 与完整目标组合均稳定。此为隔离测试环境设置，没有修改产品配置或用户 Profile，也不作为插件兼容结论。
 
 ## 0.1.11 / v1.5.0 容器收敛补充（2026-09-10）
 
@@ -6,19 +31,19 @@
 - 运行时除版本范围外，明确探测 `targetedOpen`、`stateSubscription`、`registerTab`、`openTab`、`isTabEnabled`、`getSnapshot` 和 `subscribeState`。任一缺失时工作台局部降级，原生会话与输入区流程按钮保留并给出可行动提示。
 - 宿主侧拉是唯一容器。业务内容不再包含工作台关闭 X、“返回会话”或其它同义容器控制，也不写宿主宽度、停靠或开合状态；宿主收起和 Tab X 均不触碰业务任务状态。
 - Reveal controller 按 Session 保存目标和 pending intent；非前台请求不读取或修改当前 Session store。卸载时注销 Tab descriptor、释放会话订阅，并显式清空 target / pending reveal。
-- 本地单元/契约、类型、构建和隔离 UI 证据不替代真实 DSH。Sidebar 0.17/0.18、四插件共装、右/底/浮窗、后台 Session、运行中 Tab X/恢复、卸载/重启仍待隔离 Profile 回归。
+- 本地单元/契约、类型、构建和隔离 UI 证据不替代真实 DSH。Sidebar 0.18.1 的候选宿主基础流程已有上节证据；四款业务插件共装、右/底/浮窗迁移、后台 Session、运行中任务、卸载/重启及真实 Provider 仍待隔离 Profile 回归。
 
 日期：2026-09-07。本文为 0.1.9 发布与验收记录；发布前已回读 npm 0.1.8，本次发布结果以 Registry / GitHub Release 回读为准。公开旧版本和 tag 保持不变；npm 发布不代表真实组合验收通过。
 
 | 组合 | DSH | Sidebar | Connector | 证据级别 / 状态 |
 | --- | --- | --- | --- | --- |
 | stable（共同复现基线） | 0.1.1-rc.2 | 0.17.1 | 0.2.32 | 既有文档基线；0.1.9 真实宿主、Provider 待验收 |
-| candidate（隔离联调） | 0.1.2-rc.1 | 0.18.0 | 0.2.37 | Sidebar 公开接口已读取；0.1.9 真实宿主、Provider 待验收 |
+| candidate（隔离联调） | 0.1.2-rc.1 | 0.18.1 | 0.2.37 | 0.1.11 隔离真实宿主无付费交互通过；Provider 待验收 |
 | 缺失 Sidebar | 两个目标基线 | 无 | 同上 | 自动化验证保留原生入口；工作台局部提示；真实 Loader 待验收 |
 | 未知 Sidebar / 能力缺失 | 两个目标基线 | 非 0.17/0.18 或缺少公共方法 | 同上 | 局部禁用工作台，不声明兼容 |
 | 旧包共存 | 任意 | 任意 | 任意 | 不支持；安装器拒绝 qcc-previsit-dsh 共存 |
 
-Node：22.19+（22 LTS）或 24 LTS。CI 新增两组 Node × 两组 Sidebar × 两组 DSH 客户端 SDK（primitives / invariants）构建/类型/测试矩阵；配置存在不等于远端结果通过。客户端 SDK 契约测试不等于启动真实 DSH，也不替代候选版 Host ToolRuntime 验收。
+Node：22.19+（22 LTS）或 24 LTS。CI 使用四组有效配对：两个 Node 分别验证 stable（Sidebar 0.17.1 + DSH SDK 0.1.1-rc.2）和 candidate（Sidebar 0.18.1 + DSH SDK 0.1.2-rc.1）；不再生成跨基线笛卡尔组合。配置存在不等于远端结果通过，客户端 SDK 契约测试也不替代真实 DSH 或 Provider 验收。
 
 ## 实现边界
 

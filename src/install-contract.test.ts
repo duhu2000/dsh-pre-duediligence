@@ -16,10 +16,14 @@ describe("npm 与 DSH 安装契约", () => {
   it("安装 MCP 连接器与 npm 发布的访前插件，不再新装旧 OAuth 插件", () => {
     expect(installScript).toContain('CONNECTOR_VERSION="0.2.32"')
     expect(installScript).toContain('CONNECTOR_VERSION="0.2.37"')
+    expect(installScript).toContain('SIDEBAR_VERSION="0.18.1"')
+    expect(installScript).toContain('CONTEXT_VERSION="0.48.0"')
     expect(installScript).toContain(`dsh-pre-duediligence@${packageJson.version}`)
     expect(installScript).not.toContain('readonly QCC_OAUTH_SPEC=')
     expect(readme).toContain("dsh plugin --profile web add dsh-mcp-connector@0.2.32")
     expect(readme).toContain(`dsh plugin --profile web add dsh-pre-duediligence@${packageJson.version}`)
+    expect(readme).toContain("DSH `0.1.2-rc.1` / Sidebar `0.18.1` / Connector `0.2.37`")
+    expect(readme).toContain("`dsh-context@0.48.0`")
     expect(readme).not.toContain("dsh plugin --profile web add qcc-dsh-mcp-oauth@")
   })
 

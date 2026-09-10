@@ -34,10 +34,32 @@ describe("installer transaction preflight", () => {
     expect(result.stderr).toContain("未修改 Profile")
   })
   it("skips already matching dependencies and supports an explicit candidate baseline", () => {
-    const result = install({ "dsh-better-sidebar": { version: "0.18.0" }, "dsh-mcp-connector": { version: "0.2.37" } }, { DSH_PREVISIT_BASELINE: "candidate", TEST_DSH_VERSION: "0.1.2-rc.1" })
+    const result = install({ "dsh-better-sidebar": { version: "0.18.1" }, "dsh-mcp-connector": { version: "0.2.37" } }, { DSH_PREVISIT_BASELINE: "candidate", TEST_DSH_VERSION: "0.1.2-rc.1" })
     expect(result.status, result.stderr).toBe(0)
     expect(result.calls).toHaveLength(1)
-    expect(result.stdout).toContain("尚不代表")
+    expect(result.stdout).toContain("隔离真实宿主")
+  })
+  it("refuses both directions of a mixed DSH and Sidebar pair before mutation", () => {
+    const newHostOldSidebar = install({ "dsh-better-sidebar": { version: "0.17.1" } }, { DSH_PREVISIT_BASELINE: "candidate", TEST_DSH_VERSION: "0.1.2-rc.1" })
+    const oldHostNewSidebar = install({ "dsh-better-sidebar": { version: "0.18.1" } })
+    for (const result of [newHostOldSidebar, oldHostNewSidebar]) {
+      expect(result.status).not.toBe(0)
+      expect(result.calls).toEqual([])
+      expect(result.stderr).toContain("不可与 DSH")
+      expect(result.stderr).toContain("未修改 Profile")
+    }
+  })
+  it("requires the verified optional context version for candidate coexistence", () => {
+    const mismatch = install({ "dsh-context": { version: "0.36.0" } }, { DSH_PREVISIT_BASELINE: "candidate", TEST_DSH_VERSION: "0.1.2-rc.1" })
+    expect(mismatch.status).not.toBe(0)
+    expect(mismatch.calls).toEqual([])
+    expect(mismatch.stderr).toContain("dsh-context 0.36.0")
+    expect(mismatch.stderr).toContain("0.48.0")
+
+    const matching = install({ "dsh-context": { version: "0.48.0" } }, { DSH_PREVISIT_BASELINE: "candidate", TEST_DSH_VERSION: "0.1.2-rc.1" })
+    expect(matching.status, matching.stderr).toBe(0)
+    expect(matching.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.18.1", "dsh-mcp-connector@0.2.37", "dsh-pre-duediligence@0.1.11"])
+    expect(matching.calls.some(args => args.some(value => value.startsWith("dsh-context@")))).toBe(false)
   })
   it("fails closed on unreadable inventory, wrong DSH or legacy duplicate plugin", () => {
     for (const result of [install({}, { TEST_LIST_FAIL: "1" }), install({}, { TEST_DSH_VERSION: "0.1.2-rc.1" }), install({ "qcc-previsit-dsh": { version: "0.4.14" } })]) {

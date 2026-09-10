@@ -18,11 +18,11 @@ fail() {
 }
 
 case "$BASELINE" in
-  stable) DSH_VERSION="0.1.1-rc.2"; SIDEBAR_VERSION="0.17.1"; CONNECTOR_VERSION="0.2.32" ;;
-  candidate) DSH_VERSION="0.1.2-rc.1"; SIDEBAR_VERSION="0.18.0"; CONNECTOR_VERSION="0.2.37" ;;
-  *) fail "未知基线 ${BASELINE}，可选 stable 或 candidate（尚待真实宿主验收）。" ;;
+  stable) DSH_VERSION="0.1.1-rc.2"; SIDEBAR_VERSION="0.17.1"; CONNECTOR_VERSION="0.2.32"; CONTEXT_VERSION="" ;;
+  candidate) DSH_VERSION="0.1.2-rc.1"; SIDEBAR_VERSION="0.18.1"; CONNECTOR_VERSION="0.2.37"; CONTEXT_VERSION="0.48.0" ;;
+  *) fail "未知基线 ${BASELINE}，可选 stable 或 candidate。" ;;
 esac
-readonly DSH_VERSION SIDEBAR_VERSION CONNECTOR_VERSION
+readonly DSH_VERSION SIDEBAR_VERSION CONNECTOR_VERSION CONTEXT_VERSION
 command -v node >/dev/null 2>&1 || fail "请安装 Node.js 22.19+（22 LTS）或 24 LTS。"
 command -v pnpm >/dev/null 2>&1 || fail "未找到 pnpm。请先执行 corepack enable，或安装 pnpm。"
 command -v dsh >/dev/null 2>&1 || fail "未找到 dsh。请先安装 DeepSeek Harness。"
@@ -43,6 +43,7 @@ readonly LEGACY_PREVISIT="$(installed_version "$LEGACY_PREVISIT_NAME")"
 readonly LEGACY_OAUTH="$(installed_version "$LEGACY_QCC_OAUTH_NAME")"
 readonly CURRENT_SIDEBAR="$(installed_version dsh-better-sidebar)"
 readonly CURRENT_CONNECTOR="$(installed_version dsh-mcp-connector)"
+readonly CURRENT_CONTEXT="$(installed_version dsh-context)"
 if [[ -n "$LEGACY_PREVISIT" ]]; then
   fail "检测到旧包 ${LEGACY_PREVISIT_NAME}。为避免重复注册智能体，请先执行：dsh plugin --profile ${PROFILE_NAME} remove ${LEGACY_PREVISIT_NAME}"
 fi
@@ -52,10 +53,13 @@ else
   readonly LEGACY_QCC_OAUTH_PRESENT=false
 fi
 
-[[ -z "$CURRENT_SIDEBAR" || "$CURRENT_SIDEBAR" == "$SIDEBAR_VERSION" ]] || fail "现有 Sidebar ${CURRENT_SIDEBAR} 与 ${BASELINE} 基线 ${SIDEBAR_VERSION} 不同；未修改 Profile，请先明确升级/回滚方案。"
+[[ -z "$CURRENT_SIDEBAR" || "$CURRENT_SIDEBAR" == "$SIDEBAR_VERSION" ]] || fail "现有 Sidebar ${CURRENT_SIDEBAR} 与 ${BASELINE} 成套基线 ${SIDEBAR_VERSION} 不匹配；不可与 DSH ${DSH_VERSION} 单组件混装。未修改 Profile，请先停止 DSH 并按完整组合升级/回滚。"
 [[ -z "$CURRENT_CONNECTOR" || "$CURRENT_CONNECTOR" == "$CONNECTOR_VERSION" ]] || fail "现有 Connector ${CURRENT_CONNECTOR} 与 ${BASELINE} 基线 ${CONNECTOR_VERSION} 不同；未修改 Profile，请先明确升级/回滚方案。"
+if [[ "$BASELINE" == candidate && -n "$CURRENT_CONTEXT" && "$CURRENT_CONTEXT" != "$CONTEXT_VERSION" ]]; then
+  fail "检测到 dsh-context ${CURRENT_CONTEXT}；candidate 组合仅验证可选共存版本 ${CONTEXT_VERSION}。未修改 Profile，请先停止 DSH，升级 dsh-context@${CONTEXT_VERSION} 后再重试；本插件不会自动安装 dsh-context。"
+fi
 info "安装前请停止目标 Profile 的 DSH Web。"
-[[ "$BASELINE" != candidate ]] || info "候选矩阵仅供隔离联调，尚不代表四插件组合已通过验收。"
+[[ "$BASELINE" != candidate ]] || info "候选矩阵已通过隔离真实宿主启动与无付费交互验收；真实企查查 Provider 仍待验收。"
 if [[ -z "$CURRENT_SIDEBAR" ]]; then
   info "1/3 安装 Better Sidebar（工作台容器）"
   dsh plugin --profile "$PROFILE_NAME" add "dsh-better-sidebar@${SIDEBAR_VERSION}" --allow-build=node-pty

@@ -23,7 +23,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.11
 相关智能体：[数据清洗补全](https://github.com/duhu2000/dsh-data-cleaning-agent) · [AI填表](https://github.com/duhu2000/dsh-form-fill-agent) · [访前尽调](https://github.com/duhu2000/dsh-pre-duediligence) · [招投标](https://github.com/duhu2000/dsh-tender-workbench)
 
 
-版本：**0.1.11**。本版按 DSH-UX-001 v1.5.0 收敛 Better Sidebar 容器与流程定位，已通过本地自动化门禁；尚未完成真实 DSH 四插件组合及企查查 Provider 验收。npm 发布与组合验收是独立状态，候选环境请隔离测试。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
+版本：**0.1.11**。本版按 DSH-UX-001 v1.5.0 收敛 Better Sidebar 容器与流程定位，已通过本地自动化门禁；DSH `0.1.2-rc.1` / Sidebar `0.18.1` 的候选组合已完成隔离真实宿主无付费交互验收，企查查 Provider 和四款业务插件共装仍待验收。npm 发布与组合验收是独立状态。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
@@ -79,7 +79,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.11
 
 ## 安装
 
-前置条件：Node.js 22.19+（22 LTS）或 24 LTS、固定版本 DeepSeek Harness、可用的 `pnpm`，以及已经配置好的模型。默认安装基线为 DSH `0.1.1-rc.2` / Sidebar `0.17.1` / Connector `0.2.32`；候选基线为 `0.1.2-rc.1` / `0.18.0` / `0.2.37`，尚待真实四插件组合验收。
+前置条件：Node.js 22.19+（22 LTS）或 24 LTS、固定版本 DeepSeek Harness、可用的 `pnpm`，以及已经配置好的模型。默认安装基线为 DSH `0.1.1-rc.2` / Sidebar `0.17.1` / Connector `0.2.32`；候选基线为 DSH `0.1.2-rc.1` / Sidebar `0.18.1` / Connector `0.2.37`。若候选 Profile 已安装可选的 `dsh-context`，已验证共存版本为 `0.48.0`；访前尽调本身不要求也不会自动安装 Context。
 
 ### 一键安装（推荐）
 
@@ -93,7 +93,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligenc
 2. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
 3. `dsh-pre-duediligence@0.1.11`：提供左侧智能体入口、访前工作台、提示词生成器、Host 执行门和 Skill。
 
-脚本先读取 JSON 插件清单并检查全部共同依赖；已有版本不匹配会在安装前停止，不自动降级或覆盖。现有匹配依赖跳过安装。隔离联调可设置 `DSH_PREVISIT_BASELINE=candidate`；开发包路径通过 `DSH_PRE_DUEDILIGENCE_SPEC` 指定。安装前完整停止对应 Profile 的 DSH Web。
+脚本先读取 JSON 插件清单并检查全部共同依赖；已有版本不匹配会在安装前停止，不自动降级或覆盖。现有匹配依赖跳过安装。候选组合使用 `DSH_PREVISIT_BASELINE=candidate`；开发包路径通过 `DSH_PRE_DUEDILIGENCE_SPEC` 指定。安装前完整停止对应 Profile 的 DSH Web。
+
+两套基线必须成套使用：不要把 DSH `0.1.2-rc.1` 与 Sidebar `0.17.1` 混装，也不要把 DSH `0.1.1-rc.2` 与 Sidebar `0.18.1` 混装。升级到候选组合时，先停止 DSH，再升级完整 DSH Host；若 Profile 已有 Context，则同步升级到 `dsh-context@0.48.0`，最后安装 Sidebar `0.18.1`、Connector `0.2.37` 和访前插件并完整重启。脚本会在任何写入前阻止双向错配以及候选组合中的旧 Context。
+
+~~~bash
+DSH_PREVISIT_BASELINE=candidate bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligence/main/install.sh)
+~~~
 
 安装完成后停止旧的 DSH Web 进程并重新运行：
 
@@ -112,7 +118,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.11 --allow-build=dsh-pre-d
 dsh web
 ~~~
 
-工作台检查 Better Sidebar 的 `targetedOpen`、`stateSubscription` 及注册/打开接口；已读取 0.18.0 发布包对应公开接口，真实宿主兼容结论仍以验收矩阵为准。安装命令显式允许插件构建；Better Sidebar 使用的 `node-pty` 也需要允许构建。
+工作台检查 Better Sidebar 的 `targetedOpen`、`stateSubscription` 及注册/打开接口；Sidebar `0.18.1` 已通过隔离真实宿主的入口、Tab 恢复、视图定位与草稿回填验收，真实企查查 Provider 结论仍以验收矩阵为准。安装命令显式允许插件构建；Better Sidebar 使用的 `node-pty` 也需要允许构建。
 
 如果 pnpm 仍提示 `Ignored build scripts`，请按终端提示在 `~/.dsh/profiles/web/pnpm-workspace.yaml` 的 `allowBuilds` 中允许对应包，然后重新执行失败的安装命令。
 

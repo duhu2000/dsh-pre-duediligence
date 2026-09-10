@@ -33,6 +33,7 @@ import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsi
 export const inject = ["slots", "sessions", "workspaces", "conversation"] as const
 
 const STYLE_ID = "dsh-pre-duediligence-workbench"
+export const OPTIONAL_WORKBENCH_MESSAGE = "未安装可选 Better Sidebar；当前草稿和业务状态已保留。基础会话、提示词生成、原生发送及会话报告阅读仍可使用。如需可视化工作台，请停止 DSH 后按 README 设置 DSH_PREVISIT_WORKBENCH=on 并重跑安装脚本。"
 const PHASE_LABELS: Record<PrevisitPhase, string> = {
   target: "对象与目标",
   scope: "范围确认",
@@ -565,7 +566,7 @@ function installStyles(): () => void {
 
 export function apply(ctx: ClientContext): void {
   let service: BetterSidebarService | undefined
-  let unavailable = "工作台需要安装或启用 Better Sidebar 0.17.x / 0.18.x；当前会话仍可使用原生输入框。"
+  let unavailable = OPTIONAL_WORKBENCH_MESSAGE
   let active = true
   const shared = createPrevisitStore()
   const reveal = createRevealController()
@@ -587,7 +588,7 @@ export function apply(ctx: ClientContext): void {
   const openForSession = (sessionId: string, view?: PrevisitView) => {
     if (!active || !isPrevisitSession(sessionId)) return
     if (service === undefined) throw new Error(unavailable)
-    if (!openWorkbench(service, { sessionId }, reveal)) throw new Error("访前工作台已禁用，请在 Sidebar 设置中启用。")
+    if (!openWorkbench(service, { sessionId }, reveal)) throw new Error("访前工作台已在 Sidebar 设置中禁用；当前草稿和业务状态已保留，请启用后重试。")
     if (view !== undefined) locatePrevisitView(shared, sessionId, view)
   }
   ctx.effect(() => installStyles(), "dsh-pre-duediligence: QCC blue UI styles")
@@ -600,7 +601,8 @@ export function apply(ctx: ClientContext): void {
         service = candidate
         return () => { if (service === candidate) service = undefined; dispose() }
       } catch (cause) {
-        unavailable = cause instanceof Error ? cause.message : "工作台接口不兼容"
+        const detail = cause instanceof Error ? cause.message : "工作台接口不兼容"
+        unavailable = `${detail}；当前草稿和业务状态已保留，基础会话仍可使用。`
       }
     })
   })

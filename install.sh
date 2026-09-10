@@ -4,6 +4,7 @@ set -euo pipefail
 
 readonly PROFILE_NAME="${DSH_PROFILE:-web}"
 readonly BASELINE="${DSH_PREVISIT_BASELINE:-stable}"
+readonly WORKBENCH_MODE="${DSH_PREVISIT_WORKBENCH:-off}"
 readonly PREVISIT_SPEC="${DSH_PRE_DUEDILIGENCE_SPEC:-dsh-pre-duediligence@0.1.12}"
 readonly LEGACY_PREVISIT_NAME="qcc-previsit-dsh"
 readonly LEGACY_QCC_OAUTH_NAME="qcc-dsh-mcp-oauth"
@@ -23,6 +24,10 @@ case "$BASELINE" in
   *) fail "未知基线 ${BASELINE}，可选 stable 或 candidate。" ;;
 esac
 readonly DSH_VERSION SIDEBAR_VERSION CONNECTOR_VERSION CONTEXT_VERSION
+case "$WORKBENCH_MODE" in
+  off|on) ;;
+  *) fail "未知工作台模式 ${WORKBENCH_MODE}，可选 off（默认，仅基础智能体）或 on（安装 Better Sidebar 工作台）。" ;;
+esac
 command -v node >/dev/null 2>&1 || fail "请安装 Node.js 22.19+（22 LTS）或 24 LTS。"
 command -v pnpm >/dev/null 2>&1 || fail "未找到 pnpm。请先执行 corepack enable，或安装 pnpm。"
 command -v dsh >/dev/null 2>&1 || fail "未找到 dsh。请先安装 DeepSeek Harness。"
@@ -60,18 +65,20 @@ if [[ "$BASELINE" == candidate && -n "$CURRENT_CONTEXT" && "$CURRENT_CONTEXT" !=
 fi
 info "安装前请停止目标 Profile 的 DSH Web。"
 [[ "$BASELINE" != candidate ]] || info "候选矩阵已通过隔离真实宿主启动与无付费交互验收；真实企查查 Provider 仍待验收。"
-if [[ -z "$CURRENT_SIDEBAR" ]]; then
-  info "1/3 安装 Better Sidebar（工作台容器）"
+if [[ "$WORKBENCH_MODE" == on && -z "$CURRENT_SIDEBAR" ]]; then
+  info "按显式选择安装 Better Sidebar（可选工作台容器）"
   dsh plugin --profile "$PROFILE_NAME" add "dsh-better-sidebar@${SIDEBAR_VERSION}" --allow-build=node-pty
+elif [[ "$WORKBENCH_MODE" == off && -z "$CURRENT_SIDEBAR" ]]; then
+  info "未安装可选 Better Sidebar；保留基础智能体、原生会话、提示词生成与报告阅读能力。"
 fi
 
 if [[ -z "$CURRENT_CONNECTOR" ]]; then
-  info "2/3 安装 MCP 连接器（通过市场连接企查查等 MCP）"
-  dsh plugin --profile "$PROFILE_NAME" add "dsh-mcp-connector@${CONNECTOR_VERSION}"
+  info "安装 MCP 连接器（通过市场连接企查查等 MCP）"
+  dsh plugin --profile "$PROFILE_NAME" add "dsh-mcp-connector@${CONNECTOR_VERSION}" --allow-build=node-pty
 fi
 
-info "3/3 安装访前尽调工作台"
-dsh plugin --profile "${PROFILE_NAME}" add "${PREVISIT_SPEC}" --allow-build=dsh-pre-duediligence
+info "安装访前尽调基础智能体"
+dsh plugin --profile "${PROFILE_NAME}" add "${PREVISIT_SPEC}" --allow-build=node-pty,dsh-pre-duediligence
 
 dsh plugin --profile "$PROFILE_NAME" list --depth 0
 info "安装完成。请完整重启：dsh --profile ${PROFILE_NAME} --no-open"
@@ -85,4 +92,10 @@ else
     "重启后打开左侧“🧩 MCP连接器”，选择“企查查·企业工商”并完成 OAuth 授权。" \
     "该连接会提供企业、风险、知产、经营、历史和董监高 MCP。"
 fi
-printf '%s\n' "在 DSH 左侧菜单点击“访前尽调”进入初始会话；右侧工作台默认关闭，点击输入框下方业务按钮后才打开。"
+if [[ -n "$CURRENT_SIDEBAR" || "$WORKBENCH_MODE" == on ]]; then
+  printf '%s\n' "在 DSH 左侧菜单点击“访前尽调”进入初始会话；右侧工作台默认关闭，点击输入框下方业务按钮后才打开。"
+else
+  printf '%s\n' \
+    "在 DSH 左侧菜单点击“访前尽调”进入原生会话；可使用提示词生成、原生输入/发送、Skill 与企查查工具链。" \
+    "五项流程按钮会提示工作台未安装，不会清空草稿或业务状态。需要可视化工作台时，停止 DSH 后设置 DSH_PREVISIT_WORKBENCH=on 并重跑本脚本。"
+fi

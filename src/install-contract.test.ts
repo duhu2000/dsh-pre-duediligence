@@ -5,9 +5,16 @@ import { describe, expect, it } from "vitest"
 const root = new URL("../", import.meta.url)
 const installScript = readFileSync(new URL("install.sh", root), "utf8")
 const readme = readFileSync(new URL("README.md", root), "utf8")
-const packageJson = JSON.parse(readFileSync(new URL("package.json", root), "utf8")) as { name: string; version: string }
+const packageJson = JSON.parse(readFileSync(new URL("package.json", root), "utf8")) as {
+  name: string
+  version: string
+  dsh: { client: { inject: string[] } }
+  peerDependencies: Record<string, string>
+  peerDependenciesMeta: Record<string, { optional?: boolean }>
+}
 const skill = readFileSync(new URL("skills/qcc-previsit-onepager/SKILL.md", root), "utf8")
 const host = readFileSync(new URL("src/index.ts", root), "utf8")
+const clientBundle = readFileSync(new URL("lib/client.js", root), "utf8")
 const client = readFileSync(new URL("src/workbench-v2.tsx", root), "utf8")
 const leftSidebar = readFileSync(new URL("src/left-sidebar.tsx", root), "utf8")
 const betterSidebar = readFileSync(new URL("src/better-sidebar.ts", root), "utf8")
@@ -18,12 +25,17 @@ describe("npm 与 DSH 安装契约", () => {
     expect(installScript).toContain('CONNECTOR_VERSION="0.2.37"')
     expect(installScript).toContain('SIDEBAR_VERSION="0.18.1"')
     expect(installScript).toContain('CONTEXT_VERSION="0.48.0"')
+    expect(installScript).toContain('DSH_PREVISIT_WORKBENCH:-off')
+    expect(installScript).toContain('"$WORKBENCH_MODE" == on')
+    expect(installScript).toContain('--allow-build=node-pty,dsh-pre-duediligence')
     expect(installScript).toContain(`dsh-pre-duediligence@${packageJson.version}`)
     expect(installScript).not.toContain('readonly QCC_OAUTH_SPEC=')
     expect(readme).toContain("dsh plugin --profile web add dsh-mcp-connector@0.2.32")
     expect(readme).toContain(`dsh plugin --profile web add dsh-pre-duediligence@${packageJson.version}`)
-    expect(readme).toContain("DSH `0.1.2-rc.1` / Sidebar `0.18.1` / Connector `0.2.37`")
+    expect(readme).toContain("candidate 基线为 DSH `0.1.2-rc.1` / Connector `0.2.37`")
+    expect(readme).toContain("candidate 配对 Sidebar `0.18.1`")
     expect(readme).toContain("`dsh-context@0.48.0`")
+    expect(readme).toContain("DSH_PREVISIT_WORKBENCH=on")
     expect(readme).not.toContain("dsh plugin --profile web add qcc-dsh-mcp-oauth@")
   })
 
@@ -31,6 +43,13 @@ describe("npm 与 DSH 安装契约", () => {
     expect(packageJson.name).toBe("dsh-pre-duediligence")
     expect(host).toContain(`version: "${packageJson.version}"`)
     expect(skill).toContain(`version: ${packageJson.version}`)
+  })
+
+  it("Sidebar is an optional peer and is not a client loader dependency", () => {
+    expect(packageJson.peerDependencies["dsh-better-sidebar"]).toBe(">=0.17.1 <0.19.0")
+    expect(packageJson.peerDependenciesMeta["dsh-better-sidebar"]?.optional).toBe(true)
+    expect(packageJson.dsh.client.inject).not.toContain("dsh-better-sidebar")
+    expect(clientBundle).not.toMatch(/(?:from|require\()\s*["']dsh-better-sidebar/u)
   })
 
   it("入口位于左侧菜单，工作台不出现在右侧标签菜单", () => {

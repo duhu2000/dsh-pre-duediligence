@@ -1,5 +1,27 @@
 # 访前尽调兼容与验收记录
 
+## Unreleased：可选 Sidebar 第一阶段
+
+目标是让基础智能体在没有 Better Sidebar 时独立安装和运行，同时保留兼容 Sidebar 的现有工作台；不在本阶段重写工作台容器。
+
+| 场景 | 安装行为 | 预期能力与边界 |
+| --- | --- | --- |
+| 无 Sidebar（默认） | 只安装基线 Connector 与访前插件 | 原生入口/Session、提示词、草稿、发送、Skill/工具链、会话报告可用；五阶段可视化、工作台历史、HTML 下载不可用 |
+| 兼容 Sidebar 已存在 | 不重复安装 | 基础能力与现有工作台均可用 |
+| 显式工作台模式 | `DSH_PREVISIT_WORKBENCH=on` 才安装基线对应 Sidebar | stable 用 0.17.1，candidate 用 0.18.1 |
+| 已知错误组合已存在 | 无论工作台模式均在写入前停止 | 防止把“可选”误解为可以忽略会阻断宿主启动的旧 Sidebar |
+
+无 Sidebar 的“工具链可用”是架构与激活边界，不等于真实企查查调用已成功；模型、Connector、OAuth、产品权限和额度仍是独立条件。
+
+### 隔离 tarball 三场景实测（2026-09-10）
+
+- 发布候选物：由本分支源码生成的 `dsh-pre-duediligence-0.1.12.tgz`，打包清单为 43 个文件。版本号仅沿用于本地候选验收，没有重新发布或移动 `v0.1.12` 标签；最终完整性摘要记入本次分支回报。
+- 默认无 Sidebar：干净临时 Profile 通过 `install.sh` 安装后只有 Connector `0.2.37` 和候选包。DSH `0.1.2-rc.1` 真实 Web Host 稳定启动，插件图包含 Connector 和访前尽调、不包含 Better Sidebar，浏览器 `error` / `warn` 为 0。左侧入口、原生 composer 和提示词生成器可用；在 composer 中输入 `retain-no-sidebar-draft` 后点击“对象与目标”，页面显示可执行的可选安装提示，草稿仍原样保留，没有空白页、伪成功或自建替代抽屉。
+- 兼容 Sidebar：干净临时 Profile 以 `DSH_PREVISIT_WORKBENCH=on` 从脚本完整安装成功，得到 Sidebar `0.18.1` / Connector `0.2.37` / 候选包。真实 Host 中点击“对象与目标”由 Better Sidebar 打开唯一“访前尽调”Tab 并定位对应阶段，五阶段工作台渲染正常，浏览器 `error` / `warn` 为 0。
+- 已知不兼容：在 DSH `0.1.2-rc.1` + 已安装 Sidebar `0.17.1` 的临时 Profile 上，即使使用默认基础模式，脚本仍在任何写入前拒绝。失败后清单仍只有 Sidebar `0.17.1`，未安装 Connector 或访前包。
+- Host 执行链审计：本插件不读取 `session.events` 或 `snapshotEvents()`，不存在 Tender 所述的同类直接用户请求检查分支。付费调用仍受 DSH approval service、Agent/Session/cwd 归属、固定路由、预算与一次性 permit 链约束；不因无 Sidebar 放宽。
+- 未覆盖：本轮没有配置模型密钥或企查查 OAuth，没有发送消息、调用付费 MCP、生成真实企业报告或验证额度扣减。所有运行均使用临时 `DSH_HOME` 和随机本地端口，没有读写生产 `~/.dsh`。
+
 ## 0.1.12 候选宿主组合补验（2026-09-10）
 
 本次只验证访前尽调及其运行时共存组合，不把页面能打开写成真实业务成功，也不外推到其它版本。测试全程使用临时 `DSH_HOME`、独立 Profile 和随机本地端口，没有读取或修改用户 `~/.dsh`，没有配置模型密钥，也没有调用付费 MCP。

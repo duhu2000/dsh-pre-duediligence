@@ -12,7 +12,7 @@
 | 许可证 | MIT |
 | Topic | `dsh-plugin` |
 | Manifest | `package.json` 的 `dsh.bundle.patch` 指向 `./cordis.patch.yml` |
-| 兼容声明 | DSH `>=0.1.1-rc.2`；Node `^22.19.0 || ^24.0.0`；Better Sidebar `>=0.17.1 <0.19.0` |
+| 兼容声明 | DSH `>=0.1.1-rc.2`；Node `^22.19.0 || ^24.0.0`；Better Sidebar 为可选工作台 peer，启用时支持 `>=0.17.1 <0.19.0` 并须按 Host 成套配对 |
 | 上游分类 | `workflow` |
 
 英文简介：

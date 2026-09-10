@@ -1,6 +1,14 @@
 # 更新日志
 ## [Unreleased]
 
+## [0.1.13] - 2026-09-10
+
+- 基础安装不再默认安装 Better Sidebar；仅在 `DSH_PREVISIT_WORKBENCH=on` 时安装成套工作台版本。
+- 无 Sidebar 时保留左侧入口、专属原生会话、提示词生成/草稿回填、原生发送、bundled Skill/工具链和会话报告阅读；流程按钮给出可执行提示且不改写业务状态。
+- 安装预检继续阻断当前 DSH 与已安装 Sidebar 的已知跨基线冲突，即使本次选择基础模式也不会忽略会导致宿主启动失败的现有插件。
+- 连接器与产品增量安装均保留 `node-pty` 构建批准，避免已存在兼容 Sidebar 时更换本地候选包被 pnpm 的 ignored-builds 门禁中断。
+- 新增 optional peer、客户端无 Sidebar 运行时导入、基础/工作台安装分支及缺失服务提示的契约测试。
+
 ## [0.1.12] - 2026-09-10
 
 - 将候选组合收敛为 DSH `0.1.2-rc.1` / Better Sidebar `0.18.1` / MCP Connector `0.2.37`，可选 Context 共存版本为 `0.48.0`。

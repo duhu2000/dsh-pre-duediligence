@@ -1,16 +1,16 @@
 # dsh-pre-duediligence
 
-0.1.12 固化 DSH 0.1.2-rc.1 / Better Sidebar 0.18.1 候选组合及安装前兼容预检。发布内容与验证边界见 [发布说明](docs/RELEASE-0.1.12.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)和[兼容矩阵](docs/COMPATIBILITY.md)。
+0.1.13 将 Better Sidebar 改为显式选装的可视化工作台；默认基础安装仅需 DSH 和 MCP Connector，并保留无侧栏的原生会话、提示词和 Host 工具链。发布内容与验证边界见 [发布说明](docs/RELEASE-0.1.13.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)和[兼容矩阵](docs/COMPATIBILITY.md)。
 
 ## 安装与三分钟上手
 
 访前尽调智能体：面向拜访前调查，提供企业尽调、客户尽调、客户背景调查、工商核验与风险信息整理；使用企查查 MCP，设有调用预算授权和主体确认。
 
 ```sh
-dsh plugin --profile web add dsh-pre-duediligence@0.1.12
+dsh plugin --profile web add dsh-pre-duediligence@0.1.13
 ```
 
-请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。
+请先满足下文的 DSH 与连接器要求；Better Sidebar 仅在需要可视化工作台时选装。安装后完整停止并重启对应 Profile。
 
 进入“访前尽调”，在提示词生成器填写拜访对象、角色和目标，核对范围与输出要求后回填草稿。准备调用时授权预算，确认唯一主体后继续采集，核对报告的事实来源和未覆盖项。
 
@@ -23,7 +23,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.12
 相关智能体：[数据清洗补全](https://github.com/duhu2000/dsh-data-cleaning-agent) · [AI填表](https://github.com/duhu2000/dsh-form-fill-agent) · [访前尽调](https://github.com/duhu2000/dsh-pre-duediligence) · [招投标](https://github.com/duhu2000/dsh-tender-workbench)
 
 
-版本：**0.1.12**。本版在 DSH-UX-001 v1.5.0 容器实现基础上，固定并验证 DSH `0.1.2-rc.1` / Sidebar `0.18.1` 候选组合，加强跨基线与可选 Context 的安装前阻断；企查查 Provider 和四款业务插件共装仍待验收。npm 发布与组合验收是独立状态。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
+版本：**0.1.13**。本版采用 DSH-UX-001 v1.5.1：保留 Better Sidebar 作为可选工作台增强，基础安装与运行不再以它为前置；不抢占 DSH `details`、不用 `shell.overlay` / 自建 fixed 侧栏降级，也不把尚未进入验证基线的原生右栏、dockkit 或 file-upload 引入本轮依赖。企查查 Provider 和四款业务插件共装仍待验收。npm 发布与组合验收是独立状态。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
@@ -33,7 +33,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.12
 
 ### 工作台
 
-- Better Sidebar 为可选工作台依赖，适配 0.17.x / 0.18.x 的公开能力；缺失或不兼容时保留原生会话，并在打开工作台时提示
+- Better Sidebar 为可选工作台依赖，不是基础安装前置；缺失时保留原生会话、提示词生成、原生发送、Skill/工具链和会话报告阅读，点击工作台流程按钮时明确提示且不清空草稿或任务状态
 - 只在 DSH 左侧菜单增加“访前尽调”入口；对应工作台标签在 Better Sidebar 的右侧“+”菜单中隐藏
 - 菜单、首页与工作台统一使用企查查蓝 Mockup 的线性建筑 LOGO；初始页面为“访前尽调一页纸智能体”
 - 点击左侧入口只创建并进入访前 Session，初始页不打开右侧工作台；点击输入框下方五项业务按钮后才打开对应视图
@@ -79,7 +79,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.12
 
 ## 安装
 
-前置条件：Node.js 22.19+（22 LTS）或 24 LTS、固定版本 DeepSeek Harness、可用的 `pnpm`，以及已经配置好的模型。默认安装基线为 DSH `0.1.1-rc.2` / Sidebar `0.17.1` / Connector `0.2.32`；候选基线为 DSH `0.1.2-rc.1` / Sidebar `0.18.1` / Connector `0.2.37`。若候选 Profile 已安装可选的 `dsh-context`，已验证共存版本为 `0.48.0`；访前尽调本身不要求也不会自动安装 Context。
+前置条件：Node.js 22.19+（22 LTS）或 24 LTS、固定版本 DeepSeek Harness、可用的 `pnpm`，以及已经配置好的模型。基础 stable 基线为 DSH `0.1.1-rc.2` / Connector `0.2.32`，基础 candidate 基线为 DSH `0.1.2-rc.1` / Connector `0.2.37`。Better Sidebar 不默认安装；启用可视化工作台时，stable 配对 Sidebar `0.17.1`，candidate 配对 Sidebar `0.18.1`。若 candidate Profile 已安装可选的 `dsh-context`，已验证共存版本为 `0.48.0`；访前尽调本身不要求也不会自动安装 Context。
 
 ### 一键安装（推荐）
 
@@ -87,15 +87,20 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.12
 bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligence/main/install.sh)
 ~~~
 
-安装脚本会按顺序向 DSH Web profile 安装三个 Bundle：
+安装脚本默认向 DSH Web profile 安装两个基础 Bundle：
 
-1. `dsh-better-sidebar@0.17.1`：提供 Session 级右侧工作台容器。
-2. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-3. `dsh-pre-duediligence@0.1.12`：提供左侧智能体入口、访前工作台、提示词生成器、Host 执行门和 Skill。
+1. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
+2. `dsh-pre-duediligence@0.1.13`：提供左侧智能体入口、原生会话首页、提示词生成器、Host 执行门和 Skill。
+
+默认不会安装 Better Sidebar。需要 Session 级可视化工作台时显式开启：
+
+~~~bash
+DSH_PREVISIT_WORKBENCH=on bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligence/main/install.sh)
+~~~
 
 脚本先读取 JSON 插件清单并检查全部共同依赖；已有版本不匹配会在安装前停止，不自动降级或覆盖。现有匹配依赖跳过安装。候选组合使用 `DSH_PREVISIT_BASELINE=candidate`；开发包路径通过 `DSH_PRE_DUEDILIGENCE_SPEC` 指定。安装前完整停止对应 Profile 的 DSH Web。
 
-两套基线必须成套使用：不要把 DSH `0.1.2-rc.1` 与 Sidebar `0.17.1` 混装，也不要把 DSH `0.1.1-rc.2` 与 Sidebar `0.18.1` 混装。升级到候选组合时，先停止 DSH，再升级完整 DSH Host；若 Profile 已有 Context，则同步升级到 `dsh-context@0.48.0`，最后安装 Sidebar `0.18.1`、Connector `0.2.37` 和访前插件并完整重启。脚本会在任何写入前阻止双向错配以及候选组合中的旧 Context。
+两套工作台配对必须成套使用：不要把 DSH `0.1.2-rc.1` 与 Sidebar `0.17.1` 混装，也不要把 DSH `0.1.1-rc.2` 与 Sidebar `0.18.1` 混装。即使本次只安装基础智能体，只要 Profile 已存在会阻断宿主启动的不兼容 Sidebar，脚本仍会在任何写入前停止。升级到 candidate 时，先停止 DSH，再升级完整 DSH Host；若 Profile 已有 Context，则同步升级到 `dsh-context@0.48.0`，最后安装 Connector、访前插件及显式选择的 Sidebar 并完整重启。
 
 ~~~bash
 DSH_PREVISIT_BASELINE=candidate bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligence/main/install.sh)
@@ -112,11 +117,12 @@ dsh web
 ### 手动安装
 
 ~~~bash
-dsh plugin --profile web add dsh-better-sidebar@0.17.1 --allow-build=node-pty
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add dsh-pre-duediligence@0.1.12 --allow-build=dsh-pre-duediligence
+dsh plugin --profile web add dsh-pre-duediligence@0.1.13 --allow-build=node-pty,dsh-pre-duediligence
 dsh web
 ~~~
+
+如需 stable 工作台，停止 DSH 后另行安装 `dsh-better-sidebar@0.17.1 --allow-build=node-pty`；candidate 对应 `dsh-better-sidebar@0.18.1`。不要跨基线混装。
 
 工作台检查 Better Sidebar 的 `targetedOpen`、`stateSubscription` 及注册/打开接口；Sidebar `0.18.1` 已通过隔离真实宿主的入口、Tab 恢复、视图定位与草稿回填验收，真实企查查 Provider 结论仍以验收矩阵为准。安装命令显式允许插件构建；Better Sidebar 使用的 `node-pty` 也需要允许构建。
 
@@ -128,7 +134,19 @@ dsh web
 dsh plugin --profile web list --depth 0
 ~~~
 
-应能看到所选基线的 Sidebar、Connector 和 `dsh-pre-duediligence@0.1.12`。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”只进入初始会话；右侧工作台保持关闭，点击输入框下方业务按钮后才打开对应视图。Better Sidebar 的右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
+应始终看到所选基线的 Connector 和 `dsh-pre-duediligence@0.1.13`；仅在显式启用或原本已安装时看到 Sidebar。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”进入初始原生会话。无 Sidebar 时可继续生成提示词、回填/发送草稿并在会话中阅读报告；五项流程按钮会提示安装可选工作台。安装 Sidebar 时，右侧工作台仍默认关闭，点击业务按钮后才打开对应视图；其右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
+
+### 无 Sidebar 功能边界
+
+| 能力 | 无 Sidebar | 安装兼容 Sidebar |
+| --- | --- | --- |
+| 左侧入口与专属原生 Session | 可用 | 可用 |
+| 提示词生成、草稿回填、原生发送 | 可用 | 可用 |
+| bundled Skill、预算/主体确认与企查查工具链 | 可用；仍取决于模型、Connector、OAuth、权限和额度 | 可用；条件相同 |
+| 原生会话中的执行过程与最终报告 | 可用 | 可用 |
+| 五阶段可视化、工作台任务历史与 HTML 下载 | 不可用；点击流程按钮给出安装提示，状态不丢失 | 可用 |
+
+无 Sidebar 不等于已完成业务验收：未配置模型或企查查连接时只能验证入口、提示词和草稿流程，不能声明数据查询或报告成功。
 
 ### 从旧访前尽调包迁移
 

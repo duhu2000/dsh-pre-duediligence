@@ -1,5 +1,14 @@
 # DSH-UX-001 采纳与验收记录
 
+## 0.1.13：DSH-UX-001 v1.5.1 可选工作台第一阶段
+
+- Better Sidebar 继续作为唯一可视化工作台容器，但不再是基础安装前置；本阶段不新增自有抽屉，也不开始原生容器替换。
+- 无 Sidebar 时，客户端不等待或运行时导入第三方包；左侧入口、专属 Session、首页、提示词生成器和原生 composer 保持注册。用户点击五项工作台流程按钮时收到可执行提示，当前草稿、任务和会话不被修改。
+- 基础路径仍装 MCP Connector 与访前插件；Skill、Host 预算/主体确认工具和原生会话报告不依赖 Sidebar。五阶段可视化、工作台历史和 HTML 下载仍需兼容 Sidebar。
+- 安装器默认 `DSH_PREVISIT_WORKBENCH=off`，只有显式设为 `on` 才安装成套 Sidebar；已安装但与当前 Host 冲突的 Sidebar 仍在任何 Profile 写入前被拒绝。
+- 本阶段不抢占 DSH `details`，不用 `shell.overlay` 或 `position: fixed` 自建侧栏，不通过 DOM 点击模拟宿主导航；不引入未进入 DSH `0.1.2-rc.1` 验证安装树的 `ui-sidebar-right`、dockkit 或 file-upload。
+- 业务状态与报告投影继续以 Session / Host 数据为事实源，Better Sidebar 调用集中在独立 adapter。本轮只清理后续 `WorkbenchSurfacePort` 适配边界，不实现或发布 DSH 原生容器迁移。
+
 ## 0.1.11 整改：v1.5.0 容器控件收敛
 
 日期：2026-09-10。权威规范为 `DSH智能体开发交互规范方案.md` v1.5.0 第 7、13.4、14、15、15.1 节；交互参考为 `DSH智能体_企查查蓝_UI_Mockup_v1.5.0.html`。本轮发布 `dsh-pre-duediligence@0.1.11`；插件市场投稿保持独立流程，不以 npm 发布替代真实 DSH 或 Provider 验收。

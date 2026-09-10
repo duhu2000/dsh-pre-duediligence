@@ -11,7 +11,7 @@ import {
   type SidebarStore,
 } from "./better-sidebar.js"
 import { createPrevisitStore } from "./previsit-store.js"
-import { apply } from "./workbench-v2.js"
+import { OPTIONAL_WORKBENCH_MESSAGE, apply } from "./workbench-v2.js"
 
 function service(version: string) {
   return {
@@ -161,5 +161,30 @@ describe("optional sidebar adapter", () => {
     finally { vi.stubGlobal("document", originalDocument) }
     expect(slots).toContain("dsh-pre-duediligence-launcher")
     expect(slots).toContain("dsh-pre-duediligence:home")
+  })
+  it("keeps the base flow active and returns an actionable message without Sidebar", () => {
+    let injectHome: ((sessionId: string) => { openWorkbench(view: "target"): void }) | undefined
+    const ctx = {
+      effect: (setup: () => unknown) => setup(),
+      inject: () => undefined,
+      slots: {
+        inject: (_name: string, setup: () => unknown) => setup(),
+        register: (descriptor: { id: string; inject?: typeof injectHome }) => {
+          if (descriptor.id === "dsh-pre-duediligence:home") injectHome = descriptor.inject
+          return () => {}
+        },
+      },
+      sessions: {},
+    }
+    const originalDocument = globalThis.document
+    vi.stubGlobal("document", { getElementById: () => ({}), head: {} })
+    try { apply(ctx as unknown as Parameters<typeof apply>[0]) }
+    finally { vi.stubGlobal("document", originalDocument) }
+
+    expect(injectHome).toBeTypeOf("function")
+    const props = injectHome?.("session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc")
+    expect(() => props?.openWorkbench("target")).toThrow(OPTIONAL_WORKBENCH_MESSAGE)
+    expect(OPTIONAL_WORKBENCH_MESSAGE).toContain("草稿和业务状态已保留")
+    expect(OPTIONAL_WORKBENCH_MESSAGE).toContain("DSH_PREVISIT_WORKBENCH=on")
   })
 })

@@ -1,6 +1,8 @@
 # 更新日志
 ## [Unreleased]
 
+## [0.1.12] - 2026-09-10
+
 - 将候选组合收敛为 DSH `0.1.2-rc.1` / Better Sidebar `0.18.1` / MCP Connector `0.2.37`，可选 Context 共存版本为 `0.48.0`。
 - 安装器在写入 Profile 前阻止新旧 DSH / Sidebar 双向混装，并阻止候选组合与未验证 Context 版本共存；Context 仍非必装依赖。
 - CI 改为成对的 stable/candidate SDK 矩阵，不再测试或暗示支持跨基线笛卡尔组合。

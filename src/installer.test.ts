@@ -24,7 +24,7 @@ describe("installer transaction preflight", () => {
   it("installs fixed versions in order into the chosen Profile", () => {
     const result = install({})
     expect(result.status, result.stderr).toBe(0)
-    expect(result.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.17.1", "dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.11"])
+    expect(result.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.17.1", "dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.12"])
     expect(result.calls.every(args => args[2] === "synthetic-profile")).toBe(true)
   })
   it("refuses to downgrade any shared dependency before making a single install", () => {
@@ -58,7 +58,7 @@ describe("installer transaction preflight", () => {
 
     const matching = install({ "dsh-context": { version: "0.48.0" } }, { DSH_PREVISIT_BASELINE: "candidate", TEST_DSH_VERSION: "0.1.2-rc.1" })
     expect(matching.status, matching.stderr).toBe(0)
-    expect(matching.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.18.1", "dsh-mcp-connector@0.2.37", "dsh-pre-duediligence@0.1.11"])
+    expect(matching.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.18.1", "dsh-mcp-connector@0.2.37", "dsh-pre-duediligence@0.1.12"])
     expect(matching.calls.some(args => args.some(value => value.startsWith("dsh-context@")))).toBe(false)
   })
   it("fails closed on unreadable inventory, wrong DSH or legacy duplicate plugin", () => {

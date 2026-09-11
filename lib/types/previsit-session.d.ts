@@ -8,7 +8,7 @@ export type PrevisitSessionHost = {
             };
         };
         create?(options: {
-            cwd: string;
+            workspaceId: string;
             sessionId: string;
         }): Promise<string>;
         open?(sessionId: string): void;
@@ -26,4 +26,5 @@ export type PrevisitSessionHost = {
         };
     };
 };
+export declare function resolvePrevisitWorkspaceId(ctx: PrevisitSessionHost): string | undefined;
 export declare function createPrevisitSession(ctx: PrevisitSessionHost): Promise<string>;

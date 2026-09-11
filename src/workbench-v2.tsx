@@ -18,6 +18,7 @@ import {
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import { PrevisitHome } from "./previsit-home.js"
 import { openWorkbench } from "./better-sidebar.js"
+import { installOrdinarySessionGuard, type WorkspaceNavigation } from "./ordinary-session-guard.js"
 import {
   PREVISIT_PHASES,
   derivePhaseStates,
@@ -86,6 +87,7 @@ type ClientContext = LeftSidebarHost & {
     binding?(sessionId: string): { session: SnapshotStore<ConversationSnapshot> } | undefined
     scope?(sessionId: string): { get(name: string): unknown } | undefined
   }
+  uiWorkspace?: WorkspaceNavigation
   betterSidebar?: BetterSidebarService
   inject(deps: string[], setup: (ctx: ClientContext) => void): unknown
   effect(setup: () => void | (() => void), label?: string): unknown
@@ -592,6 +594,20 @@ export function apply(ctx: ClientContext): void {
     if (view !== undefined) locatePrevisitView(shared, sessionId, view)
   }
   ctx.effect(() => installStyles(), "dsh-pre-duediligence: QCC blue UI styles")
+  ctx.effect(
+    () => installOrdinarySessionGuard(ctx, ctx.workspaces ?? {}),
+    "dsh-pre-duediligence: ordinary Session reuse (DSH 0.1.1)",
+  )
+  ctx.inject(["uiWorkspace"], workspaceCtx => {
+    const navigation = workspaceCtx.uiWorkspace
+      ?? (workspaceCtx.get?.("uiWorkspace") as WorkspaceNavigation | undefined)
+    if (navigation !== undefined) {
+      workspaceCtx.effect(
+        () => installOrdinarySessionGuard(workspaceCtx, navigation),
+        "dsh-pre-duediligence: ordinary Session reuse",
+      )
+    }
+  })
   ctx.inject(["betterSidebar"], sidebarCtx => {
     sidebarCtx.effect(() => {
       const candidate = sidebarCtx.betterSidebar

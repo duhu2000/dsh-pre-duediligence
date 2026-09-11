@@ -45,7 +45,10 @@ const ctx: any = {
     binding: () => ({ session: conversationStore }),
     scope: () => ({ get: () => ({ send: async () => {} }) }),
     list: { getSnapshot: () => ({ current: sessionId }) },
-    create: async ({ sessionId: id }: { sessionId: string }) => id,
+    create: async ({ workspaceId, sessionId: id }: { workspaceId: string; sessionId: string }) => {
+      if (workspaceId !== "fixture") throw new Error("fixture Session 未归属当前 Workspace")
+      return id
+    },
     open: () => {},
   },
   workspaces: {

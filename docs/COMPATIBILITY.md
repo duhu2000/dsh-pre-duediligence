@@ -1,5 +1,17 @@
 # 访前尽调兼容与验收记录
 
+## 0.1.14：Workspace 归组与普通会话隔离（2026-09-11）
+
+| 路径 | 组合 | Workspace / Session 结论 | 容器结论 |
+| --- | --- | --- | --- |
+| 无 Sidebar | DSH `0.1.2-rc.1` / Connector `0.2.37` / 候选包 `0.1.14` | 业务 Session 写入所选 Workspace；只有业务空 Session 时，原生新会话创建并归组普通 `session-*` | 入口初始只显示原生会话与五项流程按钮；点流程显示可选 Sidebar 提示，无伪工作台 |
+| candidate Sidebar | DSH `0.1.2-rc.1` / Sidebar `0.18.1` / Connector `0.2.37` / 候选包 `0.1.14` | 使用 `uiWorkspace.connectWorkspace` 返回过滤；业务与普通 Session 均归属选中 Workspace | 初始关闭；流程按钮单例 Tab；Tab X 重开、宿主折叠恢复均通过 |
+| stable Sidebar | DSH `0.1.1-rc.2` / Sidebar `0.17.1` / Connector `0.2.32` / 候选包 `0.1.14` | 使用 `workspaces.connectWorkspace` 返回过滤；在只有业务空 Session 时新建并归组普通 `session-*` | 初始关闭；流程按钮单例 Tab；Tab X 重开、宿主折叠恢复均通过 |
+
+实现仅使用公开客户端能力：业务入口通过 `sessions.create({ workspaceId, sessionId })` 创建命名空间 Session；原生新会话在导航服务选到任一四款业务命名空间时，复用同 Workspace / 同 `cwd` / 未归档的普通空 Session，或通过 `sessions.create({ workspaceId })` 新建。没有 DOM 点击模拟、存储文件直接改写或跨 Workspace 复用。
+
+自动化：Node 24 的 `pnpm check` 通过 18 个测试文件 / 125 项断言、类型检查和构建；`pnpm test:ui` 通过 4 个隔离 Chrome 场景。真实 Host 回归使用三个临时 `DSH_HOME` 和临时 Workspace；stable Profile 的旧版 live patch watcher 在当前机器上遇到 `EMFILE`，回归时仅对该临时 Profile 启用 chokidar polling，不改产品配置与用户 Profile。本轮未配置模型/OAuth，未发送消息、调用付费 MCP 或生成真实报告，也未读写生产 `~/.dsh`。
+
 ## 0.1.13：可选 Sidebar 第一阶段
 
 目标是让基础智能体在没有 Better Sidebar 时独立安装和运行，同时保留兼容 Sidebar 的现有工作台；不在本阶段重写工作台容器。

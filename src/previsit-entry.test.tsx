@@ -1,38 +1,74 @@
 import { describe, expect, it, vi } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
-import { createPrevisitSession, isPrevisitSession, type PrevisitSessionHost } from "./previsit-session.js"
+import { createPrevisitSession, isPrevisitSession, resolvePrevisitWorkspaceId, type PrevisitSessionHost } from "./previsit-session.js"
 import { PREVISIT_HOME_FLOWS, PREVISIT_HOME_SUMMARY, PREVISIT_HOME_TITLE, PrevisitHome, setPrevisitHeadline } from "./previsit-home.js"
 
 const id = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
-function host() {
+function host(expectedWorkspaceId = "current") {
+  const workspaceSnapshot = {
+    recentWorkspaceId: "recent",
+    items: [
+      { workspaceId: "recent", path: "/recent", sessionIds: [] as string[] },
+      { workspaceId: "current", path: "/current", sessionIds: ["cleaning"] },
+    ],
+  }
+  const workspaces = { list: { getSnapshot: () => workspaceSnapshot } }
   const sessions = {
     manager: { calls: 0 },
     list: { getSnapshot: () => ({ current: "cleaning" }) },
-    async create(this: { manager: { calls: number } }, options: { cwd: string; sessionId: string }) {
+    async create(this: { manager: { calls: number } }, options: { workspaceId: string; sessionId: string }) {
       this.manager.calls += 1
-      expect(options.cwd).toBe("/current")
-      expect(options).not.toHaveProperty("workspaceId")
+      expect(options.workspaceId).toBe(expectedWorkspaceId)
+      expect(options).not.toHaveProperty("cwd")
+      const target = workspaces.list.getSnapshot().items.find(item => item.workspaceId === options.workspaceId)
+      if (target === undefined) throw new Error("unknown workspace")
+      target.sessionIds.unshift(options.sessionId)
       return options.sessionId
     },
     open: vi.fn(),
   }
-  return {
-    sessions,
-    workspaces: { list: { getSnapshot: () => ({
-      recentWorkspaceId: "recent",
-      items: [
-        { workspaceId: "recent", path: "/recent", sessionIds: [] },
-        { workspaceId: "current", path: "/current", sessionIds: ["cleaning"] },
-      ],
-    }) } },
-  }
+  return { sessions, workspaces }
 }
 describe("previsit entry", () => {
-  it("calls the real receiver and prioritizes the current session workspace", async () => {
+  it("creates an owned Session in the current Session workspace using the real receiver", async () => {
     const ctx = host()
-    expect(isPrevisitSession(await createPrevisitSession(ctx))).toBe(true)
+    const created = await createPrevisitSession(ctx)
+    expect(isPrevisitSession(created)).toBe(true)
+    expect(ctx.workspaces.list.getSnapshot().items.find(item => item.workspaceId === "current")?.sessionIds).toContain(created)
+    expect(ctx.workspaces.list.getSnapshot().items.some(item => item.sessionIds.includes(created))).toBe(true)
     expect(ctx.sessions.manager.calls).toBe(1)
     expect(ctx.sessions.open).not.toHaveBeenCalled()
+  })
+  it("resolves the recent workspace then the first snapshot workspace", async () => {
+    const recent = host("recent")
+    recent.sessions.list.getSnapshot = () => ({ current: "session-dsh-data-cleaning-agent-foreign" })
+    expect(resolvePrevisitWorkspaceId(recent)).toBe("recent")
+    await createPrevisitSession(recent)
+    expect(recent.sessions.manager.calls).toBe(1)
+
+    const first = host("first")
+    first.sessions.list.getSnapshot = () => ({ current: "foreign" })
+    first.workspaces.list.getSnapshot = () => ({
+      recentWorkspaceId: "missing",
+      items: [
+        { workspaceId: "first", path: "/first", sessionIds: [] },
+        { workspaceId: "other", path: "/other", sessionIds: [] },
+      ],
+    })
+    expect(resolvePrevisitWorkspaceId(first)).toBe("first")
+    await createPrevisitSession(first)
+    expect(first.sessions.manager.calls).toBe(1)
+  })
+  it("creates a fresh namespaced Session instead of reusing an ordinary blank Session", async () => {
+    const ctx = host()
+    ctx.sessions.list.getSnapshot = () => ({ current: "ordinary-blank" })
+    ctx.workspaces.list.getSnapshot = () => ({
+      recentWorkspaceId: "recent",
+      items: [{ workspaceId: "current", path: "/current", sessionIds: ["ordinary-blank"] }],
+    })
+    const created = await createPrevisitSession(ctx)
+    expect(created).not.toBe("ordinary-blank")
+    expect(isPrevisitSession(created)).toBe(true)
   })
   it("does not navigate on failure or a returned foreign id", async () => {
     const ctx = host()

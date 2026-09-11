@@ -1,6 +1,13 @@
 # 更新日志
 ## [Unreleased]
 
+## [0.1.14] - 2026-09-11
+
+- 业务入口改用 DSH 公开 `sessions.create({ workspaceId, sessionId })` 契约，将新建的命名空间 Session 直接归属当前、最近或首个可用 Workspace，不再落入“未分组”。
+- 为 DSH 0.1.1 的 `workspaces.connectWorkspace` 和 0.1.2 的 `uiWorkspace.connectWorkspace` 增加普通新会话隔离；如宿主候选到访前尽调、数据清洗补全、AI 填表或招投标的业务空 Session，改用同 Workspace 中可复用的普通空 Session 或新建普通 Session。
+- 普通会话复用排除已归档、跨目录、跨 Workspace 和其它业务命名空间；并发新会话请求按 Workspace 合并，失败不导航、不污染当前页。
+- 无 Sidebar、Sidebar `0.18.1` 和 `0.17.1` 的隔离真实 Host 回归均通过；初始关闭、流程按钮单例 Tab、Tab X 与宿主折叠恢复行为保持不变。
+
 ## [0.1.13] - 2026-09-10
 
 - 基础安装不再默认安装 Better Sidebar；仅在 `DSH_PREVISIT_WORKBENCH=on` 时安装成套工作台版本。

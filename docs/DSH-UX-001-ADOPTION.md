@@ -1,5 +1,18 @@
 # DSH-UX-001 采纳与验收记录
 
+## 0.1.14：DSH-UX-001 v1.5.2 Workspace 归组与普通会话隔离
+
+日期：2026-09-11。本轮延续 v1.5.1 的可选工作台边界，只修正 Workspace / Session 所有权和原生新会话的隔离语义；不改页面信息架构、容器选择或业务状态真实性规则。
+
+| v1.5.2 要求 | 本仓实现 | 保护边界 |
+| --- | --- | --- |
+| 业务 Session 归属当前 Workspace | 按当前 Session 所属 Workspace、`recentWorkspaceId`、首个可用 Workspace 的顺序解析 `workspaceId`；通过 `sessions.create({ workspaceId, sessionId })` 创建 | 保留 `session-dsh-pre-duediligence-*` 命名空间和严格返回 id 校验；无 Workspace 或创建失败时不导航 |
+| 普通“新建会话”不复用业务空 Session | 同时适配 DSH 0.1.1 的 `workspaces.connectWorkspace` 与 DSH 0.1.2 的 `uiWorkspace.connectWorkspace` | 统一排除访前尽调、数据清洗补全、AI 填表、招投标四个命名空间；不改普通 Session 的宿主返回 |
+| 可复用候选不跨边界 | 仅选择同 Workspace 的 `sessionIds` 成员、同 `cwd`、`blank === true`、且未归档的普通 Session | 无合法候选时以 `sessions.create({ workspaceId })` 新建；并发请求按 Workspace 合并，失败原样向上抛出 |
+| 保留已有容器交互 | 入口只进入业务 Session，初始不打开 Sidebar；五项流程按钮定位同一 Session 单例 Tab | 无 Sidebar 只给可执行提示；Tab X 和宿主折叠后从原流程按钮恢复，不变更任务/历史/制品 |
+
+自动化证据：Node 24 下 18 个测试文件 / 125 项断言、类型检查和构建通过；浅/深色 × 1440×900 / 390×700 的 4 个隔离 Chrome UI 场景通过。真实 Host 在三个临时 `DSH_HOME` 路径验证无 Sidebar、Sidebar `0.18.1`、Sidebar `0.17.1`；两个 DSH 基线均覆盖只有业务空 Session 时的普通新会话创建与归组。未配置模型/OAuth，未调用付费 MCP，未读写生产 `~/.dsh`。
+
 ## 0.1.13：DSH-UX-001 v1.5.1 可选工作台第一阶段
 
 - Better Sidebar 继续作为唯一可视化工作台容器，但不再是基础安装前置；本阶段不新增自有抽屉，也不开始原生容器替换。

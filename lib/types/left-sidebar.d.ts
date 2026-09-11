@@ -8,6 +8,15 @@ type WorkspaceSnapshot = {
         sessionIds?: string[];
     }>;
     recentWorkspaceId?: string;
+    archivedSessionIds?: string[];
+};
+type SessionListSnapshot = {
+    current?: string;
+    ids?: string[];
+    byId?: Record<string, {
+        blank?: boolean;
+        cwd?: string;
+    } | undefined>;
 };
 type SlotsService = {
     inject(name: string, setup: () => void | (() => void)): unknown;
@@ -21,11 +30,9 @@ type SlotsService = {
 export type LeftSidebarHost = {
     slots: SlotsService;
     sessions: {
-        list?: SnapshotStore<{
-            current?: string;
-        }>;
+        list?: SnapshotStore<SessionListSnapshot>;
         create?(options: {
-            cwd: string;
+            workspaceId: string;
             sessionId: string;
         }): Promise<string>;
         open?(sessionId: string): void;

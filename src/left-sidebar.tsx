@@ -15,6 +15,13 @@ type SnapshotStore<T> = {
 type WorkspaceSnapshot = {
   items?: Array<{ workspaceId: string; path?: string; sessionIds?: string[] }>
   recentWorkspaceId?: string
+  archivedSessionIds?: string[]
+}
+
+type SessionListSnapshot = {
+  current?: string
+  ids?: string[]
+  byId?: Record<string, { blank?: boolean; cwd?: string } | undefined>
 }
 
 type SlotsService = {
@@ -37,8 +44,8 @@ type UiWorkspaceService = {
 export type LeftSidebarHost = {
   slots: SlotsService
   sessions: {
-    list?: SnapshotStore<{ current?: string }>
-    create?(options: { cwd: string; sessionId: string }): Promise<string>
+    list?: SnapshotStore<SessionListSnapshot>
+    create?(options: { workspaceId: string; sessionId: string }): Promise<string>
     open?(sessionId: string): void
   }
   workspaces?: {

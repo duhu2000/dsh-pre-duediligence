@@ -37,6 +37,8 @@ describe("previsit navigation commit", () => {
     const f = fixture()
     await f.launch()
     expect(f.events).toEqual(["create", "select"])
+    expect(f.ctx.sessions.create).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "w" }))
+    expect(f.ctx.sessions.create).toHaveBeenCalledWith(expect.not.objectContaining({ cwd: expect.anything() }))
     expect(f.ctx.sessions.open).toHaveBeenCalledOnce()
     expect(f.service.openTab).not.toHaveBeenCalled()
   })

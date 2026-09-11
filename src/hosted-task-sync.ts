@@ -10,8 +10,10 @@ export type HostedTask = Omit<PrevisitTaskRecord, "reportMarkdown"> & {
 export const HOSTED_TERMINAL = new Set(["completed", "partial", "failed"])
 
 export function hostedStatus(task: HostedTask): WorkbenchStatus {
-  if ((task.state === "completed" || task.state === "partial") && task.reportReady) return "ready"
   if (task.state === "failed") return "failed"
+  // reportReady is a durable product artifact. It also heals records written by
+  // older builds that allowed a post-finalize query to regress state.
+  if (task.reportReady) return "ready"
   if (task.state === "needs-entity-confirmation") return "waiting-agent"
   if (task.state === "needs-entity-search" && task.runs.some(run => run.dimension === "entity_search" && run.status !== "running")) return "waiting-agent"
   return "running"

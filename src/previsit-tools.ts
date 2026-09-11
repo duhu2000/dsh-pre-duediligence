@@ -222,10 +222,12 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
     if (selected.parameters?.required?.some(key => !(key in parameters))) return skipped("Provider 需要额外参数，请补对应业务适配")
     task.busy = true
     const callId = `previsit-${randomUUID()}`
+    let runStarted = false
     permits.set(callId, { owner: task.owner, name: selected.name, parent: exec.token })
     try {
       exec.signal.throwIfAborted()
       await workflow.startRun(task.id, { runId: callId, dimension, toolName: selected.name, quotaUsed: true })
+      runStarted = true
       task.used += 1
       const result = await ctx.tools.execute({ callId, rootCallId: exec.rootCallId, parent: exec.token, name: selected.name, arguments: parameters, agent, signal: exec.signal })
       for (const context of result.additionalContexts ?? []) exec.deferContext?.(context)
@@ -240,7 +242,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       await workflow.finishRun(task.id, callId, outcome, result.isError ? result.error?.message ?? "查询失败" : undefined)
       return { taskId: task.id, dimension, ...(requestedDimension === dimension ? {} : { requestedDimension }), toolName: selected.name, outcome, used: task.used, limit: task.limit, data: result.isError ? { message: result.error?.message ?? "查询失败" } : data }
     } catch (error) {
-      await workflow.finishRun(task.id, callId, "failed", error instanceof Error ? error.message : String(error)).catch(() => {})
+      if (runStarted) await workflow.finishRun(task.id, callId, "failed", error instanceof Error ? error.message : String(error)).catch(() => {})
       throw error
     } finally { permits.delete(callId); task.busy = false }
   })

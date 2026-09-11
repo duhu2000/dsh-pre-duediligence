@@ -1,5 +1,15 @@
 # 访前尽调兼容与验收记录
 
+## 0.1.17：报告终态与进度状态色（2026-09-11）
+
+| 实测问题 | 0.1.17 修复契约 | 验证 |
+| --- | --- | --- |
+| 报告已生成，历史仍显示“正在尽调” | `completed / partial / failed` 为不可回退终态；报告制品可兼容收敛旧版回退记录 | 回归覆盖 finalize 后再 query、重复 finalize 和 `finalizing + reportReady` 历史映射 |
+| 资料采集、证据核验仍为灰色 | 阶段聚合区分执行中、完成、待核验、失败和未执行 | 回归校验报告已生成时 `unknown` 阶段为 `review`，而非 `idle` |
+| 已锚定主体、已返回子项不变色 | `previsit_confirm_entity` 直接驱动主体锚定绿色；步骤与维度标签按真实 outcome 变色 | 纯函数和 CSS 契约覆盖 `done / no-data / unknown / no-permission / failed / not-executed / running` |
+
+该版本不将“报告已生成”等同于全量数据覆盖：`done / no-data` 为绿色，无法从 Provider 结构中确认语义的 `unknown` 保留黄色“待核验”。本轮使用合成 Host/Provider 记录，未调用真实企查查额度。
+
 ## 0.1.16：原生对话任务接管与输入区隔离（2026-09-11）
 
 | 实测问题 | 0.1.16 修复契约 | 验证 |

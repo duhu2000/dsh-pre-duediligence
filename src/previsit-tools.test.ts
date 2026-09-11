@@ -151,6 +151,9 @@ describe("Agent-owned paid-query boundary", () => {
     const report = "# 访前尽调报告 · 合成甲公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map((section, index) => `## ${index + 1}、${section}\n合成内容`).join("\n")
     await expect(f.call("previsit_finalize", { taskId, reportMarkdown: "## 核心研判\n不完整" })).rejects.toThrow("完整报告")
     await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).resolves.toMatchObject({ taskId, status: "completed", used: 1 })
+    const calls = f.dispatch.mock.calls.length
+    await expect(f.call("previsit_query", { taskId, dimension: "profile" })).rejects.toThrow("任务已结束")
+    expect(f.dispatch).toHaveBeenCalledTimes(calls)
   })
   it("forwards nested conclusion using the original ToolRuntime execution identity", async () => {
     const f = fixture(), taskId = await f.begin()

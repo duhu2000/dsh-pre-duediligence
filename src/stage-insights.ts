@@ -3,7 +3,7 @@
 
 import type { ToolOutcome } from "./tool-outcome.js"
 export type ToolEvent = { name: string; status: ToolOutcome }
-export type StepState = "done" | "active" | "idle"
+export type StepState = "done" | "active" | "review" | "failed" | "idle"
 export type Step = { label: string; state: StepState; note?: string | undefined }
 export type Dimension = { label: string; status: ToolOutcome }
 
@@ -156,38 +156,55 @@ export function parseCardInsights(md: string | null): CardInsights {
 const has = (events: ToolEvent[], fragments: string[], status?: ToolEvent["status"]): boolean =>
   events.some(e => fragments.some(f => e.name.includes(f)) && (status === undefined || e.status === status))
 
+const completed = (events: ToolEvent[], fragments: string[]): boolean =>
+  events.some(e => fragments.some(f => e.name.includes(f)) && (e.status === "done" || e.status === "no-data"))
+
+const reviewing = (events: ToolEvent[], fragments: string[]): boolean =>
+  events.some(e => fragments.some(f => e.name.includes(f)) && (e.status === "unknown" || e.status === "no-permission"))
+
+const failed = (events: ToolEvent[], fragments: string[]): boolean =>
+  events.some(e => fragments.some(f => e.name.includes(f)) && e.status === "failed")
+
+const running = (events: ToolEvent[], fragments: string[]): boolean =>
+  events.some(e => fragments.some(f => e.name.includes(f)) && e.status === "running")
+
 const BASIC = ["get_company_registration_info", "get_company_profile", "get_annual_reports", "get_shareholder_info", "get_key_personnel", "get_change_records", "get_beneficial_owners"]
 const STATE_TOOLS = ["get_bidding_info", "get_financing_records", "get_recruitment_info", "get_administrative_license", "get_patent_info", "get_land_grant_info", "get_external_investments", "get_qualifications", "get_software_copyright_info", "get_financial_data", "get_company_announcement"]
 const DRILL = ["get_dishonest_info", "get_judgment_debtor_info", "get_terminated_cases", "get_equity_freeze", "get_business_exception", "get_administrative_penalty", "get_tax_abnormal", "get_judicial_documents", "get_court_"]
 
-function stepOf(done: boolean, active: boolean, finished: boolean): Step["state"] {
+function stepOf(done: boolean, active: boolean, review: boolean, hasFailed: boolean): Step["state"] {
   if (done) return "done"
-  if (finished) return "idle"
-  return active ? "active" : "idle"
+  if (hasFailed) return "failed"
+  if (active) return "active"
+  return review ? "review" : "idle"
 }
 
 export function opportunitySteps(events: ToolEvent[], insights: CardInsights, finished: boolean): Step[] {
-  const anchorDone = has(events, ["get_company_by_query"], "done")
-  const basicDone = BASIC.filter(f => has(events, [f], "done")).length
+  const anchorTools = ["get_company_by_query", "previsit_confirm_entity"]
+  const anchorDone = has(events, ["previsit_confirm_entity"], "done")
+  const basicDone = BASIC.filter(f => completed(events, [f])).length
+  const basicSeen = BASIC.filter(f => has(events, [f])).length
   const stateDone = insights.state !== null || insights.stateUndetermined
   const hypoDone = insights.hypotheses.length > 0
   return [
-    { label: "主体锚定", state: stepOf(anchorDone, has(events, ["get_company_by_query"]), finished) },
-    { label: "基础信号", state: stepOf(basicDone >= 3, basicDone > 0 || has(events, BASIC), finished), note: basicDone > 0 ? `${basicDone} 项` : undefined },
-    { label: "状态判定", state: stepOf(stateDone, has(events, STATE_TOOLS), finished), note: insights.stateUndetermined ? "状态未定" : insights.state ?? undefined },
-    { label: "假设反证", state: stepOf(hypoDone, stateDone || has(events, STATE_TOOLS, "done"), finished), note: hypoDone ? `${insights.hypotheses.length} 条` : undefined },
+    { label: "主体锚定", state: stepOf(anchorDone, running(events, anchorTools) || (!finished && completed(events, ["get_company_by_query"])), reviewing(events, anchorTools), failed(events, anchorTools)) },
+    { label: "基础信号", state: stepOf(basicDone >= 3, running(events, BASIC), reviewing(events, BASIC) || (finished && basicSeen > 0), failed(events, BASIC)), note: basicDone > 0 ? `${basicDone} 项完成` : basicSeen > 0 ? `${basicSeen} 项已返回` : undefined },
+    { label: "状态判定", state: stepOf(stateDone, running(events, STATE_TOOLS), reviewing(events, STATE_TOOLS), failed(events, STATE_TOOLS)), note: insights.stateUndetermined ? "状态未定" : insights.state ?? undefined },
+    { label: "假设反证", state: stepOf(hypoDone, !finished && stateDone, finished && stateDone, false), note: hypoDone ? `${insights.hypotheses.length} 条` : undefined },
   ]
 }
 
 export function riskSteps(events: ToolEvent[], insights: CardInsights, finished: boolean): Step[] {
-  const scanDone = has(events, ["get_company_risk_scan"], "done")
-  const drillDone = has(events, DRILL, "done")
-  const execDone = has(events, ["get_executive_risk_scan"], "done")
+  const scanTools = ["get_company_risk_scan"]
+  const executiveTools = ["get_executive_risk_scan"]
+  const scanDone = completed(events, scanTools)
+  const drillDone = completed(events, DRILL)
+  const execDone = completed(events, executiveTools)
   const judged = insights.sections.includes("红线提示")
   return [
-    { label: "风险扫描", state: stepOf(scanDone, has(events, ["get_company_risk_scan"]), finished) },
-    { label: "明细下钻", state: stepOf(drillDone, has(events, DRILL), finished), note: !drillDone && finished ? "未见明细查询完成证据" : undefined },
-    { label: "董监高", state: stepOf(execDone, has(events, ["get_executive_risk_scan"]), finished), note: !execDone && finished ? "未单独扫描" : undefined },
-    { label: "影响判断", state: stepOf(judged, scanDone, finished), note: judged ? `${insights.risks.length} 项` : undefined },
+    { label: "风险扫描", state: stepOf(scanDone, running(events, scanTools), reviewing(events, scanTools), failed(events, scanTools)) },
+    { label: "明细下钻", state: stepOf(drillDone, running(events, DRILL), reviewing(events, DRILL), failed(events, DRILL)), note: !drillDone && finished ? "未见明细查询完成证据" : undefined },
+    { label: "董监高", state: stepOf(execDone, running(events, executiveTools), reviewing(events, executiveTools), failed(events, executiveTools)), note: !execDone && finished ? "未单独扫描" : undefined },
+    { label: "影响判断", state: stepOf(judged, !finished && scanDone, finished && scanDone, false), note: judged ? `${insights.risks.length} 项` : undefined },
   ]
 }

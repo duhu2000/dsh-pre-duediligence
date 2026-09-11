@@ -16,6 +16,8 @@ export const PREVISIT_TASK_STATES = [
 export type PrevisitTaskState = (typeof PREVISIT_TASK_STATES)[number]
 export type PrevisitTaskStage = "target" | "scope" | "collect" | "verify" | "output"
 
+export const PREVISIT_TERMINAL_STATES: ReadonlySet<PrevisitTaskState> = new Set(["completed", "partial", "failed"])
+
 export type PrevisitRun = {
   id: string
   dimension: string
@@ -96,6 +98,23 @@ function isRecord(value: unknown): value is PrevisitTaskRecord {
     && PREVISIT_TASK_STATES.includes(record.state as PrevisitTaskState)
 }
 
+function normalizeTerminalRecord(record: PrevisitTaskRecord): PrevisitTaskRecord {
+  const reportReady = typeof record.reportMarkdown === "string" && record.reportMarkdown.trim() !== ""
+  if (PREVISIT_TERMINAL_STATES.has(record.state) || !reportReady) return record
+  return {
+    ...record,
+    state: record.runs.some(run => run.status === "failed") ? "partial" : "completed",
+    stage: "output",
+    completedAt: record.completedAt ?? record.artifact?.createdAt ?? record.updatedAt,
+  }
+}
+
+function assertTaskOpen(record: PrevisitTaskRecord): void {
+  if (PREVISIT_TERMINAL_STATES.has(record.state) || (record.reportMarkdown?.trim() ?? "") !== "") {
+    throw new Error("访前任务已结束；请新建尽调后再查询")
+  }
+}
+
 export function normalizePrevisitRequestId(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined
   const id = value.trim().toUpperCase()
@@ -143,7 +162,7 @@ export class PrevisitWorkflowStore {
     if (this.attachPromise !== undefined) return this.attachPromise
     this.attachPromise = storageDomain.open(DOMAIN_SPEC).then(async access => {
       this.table = access.table("tasks")
-      for (const [id, value] of this.table.entries()) if (isRecord(value)) this.records.set(id, value)
+      for (const [id, value] of this.table.entries()) if (isRecord(value)) this.records.set(id, normalizeTerminalRecord(value))
       for (const [id, record] of this.records) await this.table.put(id, record)
       logger.info?.("[dsh-pre-duediligence] persistent task state ready")
     }).catch(error => {
@@ -154,18 +173,29 @@ export class PrevisitWorkflowStore {
   }
 
   async list(sessionId?: string): Promise<PrevisitTaskRecord[]> {
-    const records = [...this.records.values()].filter(record => sessionId === undefined || record.sessionId === sessionId)
+    const records: PrevisitTaskRecord[] = []
+    for (const cached of this.records.values()) {
+      const record = normalizeTerminalRecord(cached)
+      if (record !== cached) await this.put(record)
+      if (sessionId === undefined || record.sessionId === sessionId) records.push(record)
+    }
     return records.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
   }
 
   async get(id: string): Promise<PrevisitTaskRecord | undefined> {
     const cached = this.records.get(id)
-    if (cached !== undefined) return cached
+    if (cached !== undefined) {
+      const normalized = normalizeTerminalRecord(cached)
+      if (normalized !== cached) await this.put(normalized)
+      return normalized
+    }
     if (this.table === undefined) return undefined
     const value = await this.table.get(id)
     if (!isRecord(value)) return undefined
-    this.records.set(id, value)
-    return value
+    const normalized = normalizeTerminalRecord(value)
+    if (normalized !== value) await this.put(normalized)
+    else this.records.set(id, normalized)
+    return normalized
   }
 
   async put(record: PrevisitTaskRecord): Promise<PrevisitTaskRecord> {
@@ -187,6 +217,7 @@ export class PrevisitWorkflowStore {
     const existing = await this.get(id)
     if (existing !== undefined && existing.sessionId !== input.sessionId) throw new Error("任务标识已属于其他会话")
     if (existing !== undefined) {
+      assertTaskOpen(existing)
       return this.update(id, current => {
         const { entity: _entity, lastError: _lastError, reportMarkdown: _report, artifact: _artifact, completedAt: _completedAt, ...retained } = current
         return {
@@ -234,6 +265,7 @@ export class PrevisitWorkflowStore {
   async startRun(id: string, input: { runId: string; dimension: string; toolName?: string; quotaUsed: boolean }): Promise<PrevisitTaskRecord> {
     const timestamp = nowIso()
     return this.update(id, current => {
+      assertTaskOpen(current)
       const { lastError: _lastError, ...retained } = current
       return {
         ...retained,
@@ -262,6 +294,9 @@ export class PrevisitWorkflowStore {
         ...(message === undefined ? {} : { message: message.slice(0, 500) }),
       } : run)
       const run = runs.find(item => item.id === runId)
+      if (PREVISIT_TERMINAL_STATES.has(current.state) || (current.reportMarkdown?.trim() ?? "") !== "") {
+        return { ...current, runs }
+      }
       const nextState = run?.dimension === "entity_search"
         ? (status === "done" || status === "unknown" ? "needs-entity-confirmation" : "needs-entity-search")
         : current.used >= current.limit ? "finalizing" : current.state
@@ -277,6 +312,7 @@ export class PrevisitWorkflowStore {
 
   async confirmEntity(id: string, entity: { fullName: string; creditCode: string }): Promise<PrevisitTaskRecord> {
     return this.update(id, current => {
+      assertTaskOpen(current)
       const { lastError: _lastError, ...retained } = current
       return { ...retained, entity, state: "entity-confirmed", stage: "scope" }
     })
@@ -286,6 +322,7 @@ export class PrevisitWorkflowStore {
     const timestamp = nowIso()
     const current = await this.get(id)
     if (current === undefined) throw new Error("访前任务不存在")
+    if (PREVISIT_TERMINAL_STATES.has(current.state) && current.reportMarkdown !== undefined) return current
     const report = validatePrevisitReport(reportMarkdown, current.entity?.fullName)
     const artifact = reportArtifactFor(current, timestamp)
     return this.update(id, record => {

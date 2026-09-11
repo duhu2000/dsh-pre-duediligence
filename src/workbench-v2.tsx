@@ -236,7 +236,7 @@ function Steps(props: { steps: Step[] }): JSX.Element {
     <ol className="qccPwSteps">
       {props.steps.map((step, index) => (
         <li key={step.label} className="qccPwStep" data-state={step.state}>
-          <span className="qccPwStepDot">{step.state === "done" ? <Icon name="check" /> : index + 1}</span>
+          <span className="qccPwStepDot">{step.state === "done" ? <Icon name="check" /> : step.state === "review" || step.state === "failed" ? <Icon name="warning" /> : index + 1}</span>
           <span className="qccPwStepCopy"><b>{step.label}</b>{step.note === undefined ? null : <small>{step.note}</small>}</span>
         </li>
       ))}
@@ -245,10 +245,11 @@ function Steps(props: { steps: Step[] }): JSX.Element {
 }
 
 function Dimensions(props: { title: string; items: Dimension[]; empty: string }): JSX.Element {
-  const done = props.items.filter(d => d.status === "done").length
+  const done = props.items.filter(d => d.status === "done" || d.status === "no-data").length
+  const review = props.items.filter(d => d.status === "unknown" || d.status === "no-permission").length
   return (
     <div className="qccPwCard">
-      <div className="qccPwCardHeader"><div><h3>{props.title}</h3></div>{done === 0 ? null : <span className="qccPwMode">{done} 项</span>}</div>
+      <div className="qccPwCardHeader"><div><h3>{props.title}</h3></div>{done > 0 ? <span className="qccPwMode">{done} 项完成</span> : review > 0 ? <span className="qccPwMode" data-tone="review">{review} 项待核验</span> : null}</div>
       {props.items.length === 0 ? <p className="qccPwEmpty">{props.empty}</p> : (
         <div className="qccPwDims">
           {props.items.map(item => <span key={item.label} className="qccPwDim" data-status={item.status}>{item.label} · {TOOL_OUTCOME_LABELS[item.status]}</span>)}
@@ -475,7 +476,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         } else {
           lastHostedLocation.current = undefined
         }
-        if (record === null || !HOSTED_TERMINAL.has(record.state)) timer = setTimeout(refresh, 1000)
+        if (record === null || (!record.reportReady && !HOSTED_TERMINAL.has(record.state))) timer = setTimeout(refresh, 1000)
       } catch (error) {
         if (!disposed) {
           setHostError(error instanceof Error ? error.message : String(error))
@@ -497,7 +498,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         if (disposed) return
         setHostedHistory(records)
         setHostError(undefined)
-        if (records.some(record => !HOSTED_TERMINAL.has(record.state))) timer = setTimeout(refresh, 2000)
+        if (records.some(record => !record.reportReady && !HOSTED_TERMINAL.has(record.state))) timer = setTimeout(refresh, 2000)
       } catch (error) {
         if (!disposed) setHostError(error instanceof Error ? error.message : String(error))
       }

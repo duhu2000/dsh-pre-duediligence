@@ -3,7 +3,7 @@ export type ToolEvent = {
     name: string;
     status: ToolOutcome;
 };
-export type StepState = "done" | "active" | "idle";
+export type StepState = "done" | "active" | "review" | "failed" | "idle";
 export type Step = {
     label: string;
     state: StepState;

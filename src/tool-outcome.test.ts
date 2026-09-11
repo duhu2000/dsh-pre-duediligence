@@ -27,7 +27,7 @@ describe("provider outcome facts", () => {
     expect(steps.every(s => s.state !== "done")).toBe(true)
     expect(steps[1]?.note).not.toContain("零记录")
   })
-  it("does not count a risk scan or a superseded successful retry as opportunity coverage", () => {
+  it("不隐藏最新失败，并将已生成报告中的部分阶段标记待处理", () => {
     const phases = derivePhaseStates({
       hasTask: true, running: false, seenRunning: true, lastAgentError: null, partial: false,
       toolNames: [], reportReady: true,
@@ -37,7 +37,7 @@ describe("provider outcome facts", () => {
         { name: "get_company_risk_scan", status: "done" },
       ],
     })
-    expect(phases.find(p => p.id === "collect")?.progress).toBe("idle")
+    expect(phases.find(p => p.id === "collect")?.progress).toBe("review")
     expect(phases.find(p => p.id === "verify")?.progress).toBe("done")
   })
 })

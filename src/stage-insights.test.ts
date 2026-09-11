@@ -4,6 +4,7 @@ import { opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensi
 
 const events: ToolEvent[] = [
   { name: "mcp__company__get_company_by_query", status: "done" },
+  { name: "previsit_confirm_entity", status: "done" },
   { name: "mcp__company__get_company_registration_info", status: "done" },
   { name: "mcp__company__get_company_profile", status: "done" },
   { name: "mcp__company__get_annual_reports", status: "failed" },
@@ -76,17 +77,26 @@ describe("parseCardInsights", () => {
 describe("阶段步骤", () => {
   it("运行中：按事件推进", () => {
     const steps = opportunitySteps(events, parseCardInsights(null), false)
-    expect(steps.map(s => s.state)).toEqual(["done", "active", "active", "idle"])
+    expect(steps.map(s => s.state)).toEqual(["done", "failed", "active", "idle"])
     const risk = riskSteps(events, parseCardInsights(null), false)
     expect(risk.map(s => s.state)).toEqual(["done", "done", "idle", "active"])
   })
   it("报告生成后：保留未执行步骤，展示已捕获的结论", () => {
     const steps = opportunitySteps(events, parseCardInsights(card), true)
-    expect(steps.map(s => s.state)).toEqual(["done", "idle", "done", "done"])
+    expect(steps.map(s => s.state)).toEqual(["done", "failed", "done", "done"])
     expect(steps[2]?.note).toBe("资本运作期")
     expect(steps[3]?.note).toBe("2 条")
     const risks = riskSteps(events, parseCardInsights(card), true)
     expect(risks[3]?.note).toBe("3 项")
     expect(risks[2]?.state).toBe("idle")
+  })
+  it("已返回但未归一的结果显示待核验，不再回落为未执行", () => {
+    const pending: ToolEvent[] = [
+      { name: "previsit_confirm_entity", status: "done" },
+      { name: "mcp__company__get_company_profile", status: "unknown" },
+      { name: "mcp__risk__get_company_risk_scan", status: "unknown" },
+    ]
+    expect(opportunitySteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["done", "review", "done", "done"])
+    expect(riskSteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["review", "idle", "idle", "done"])
   })
 })

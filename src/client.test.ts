@@ -140,6 +140,21 @@ describe("session workbench state", () => {
     expect(phases.at(-1)?.progress).toBe("idle")
   })
 
+  it("报告已生成时优先收敛终态，待核验阶段保留独立颜色", () => {
+    const input = {
+      hasTask: true, running: true, seenRunning: true, lastAgentError: null, partial: false,
+      toolNames: [], reportReady: true,
+      toolEvents: [
+        { name: "previsit_begin", status: "done" as const },
+        { name: "previsit_confirm_entity", status: "done" as const },
+        { name: "mcp__qcc-company__get_company_profile", status: "unknown" as const },
+        { name: "mcp__qcc-risk__get_company_risk_scan", status: "unknown" as const },
+      ],
+    }
+    expect(deriveWorkbenchStatus(input)).toBe("ready")
+    expect(derivePhaseStates(input).map(phase => phase.progress)).toEqual(["done", "done", "review", "review", "done"])
+  })
+
   it("does not treat report completion or tool names as proof of full coverage", () => {
     const phases = derivePhaseStates({
       hasTask: true,

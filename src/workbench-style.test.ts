@@ -38,6 +38,17 @@ describe("访前工作台企查查蓝主题", () => {
     }
   })
 
+  it("阶段、子步骤与维度标签共享完成、待核验和失败颜色", () => {
+    expect(WORKBENCH_CSS).toContain('.qccPwStage[data-progress="review"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwStep[data-state="active"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwStep[data-state="review"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwStep[data-state="failed"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwDim[data-status="no-data"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwDim[data-status="unknown"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwDim[data-status="failed"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwDim[data-status="not-executed"]')
+  })
+
   it("首页快捷菜单采用数据清洗补全式纵向描边卡片", () => {
     expect(WORKBENCH_CSS).toContain("justify-content:safe center")
     expect(WORKBENCH_CSS).toContain("overflow-x:auto;scrollbar-width:none")

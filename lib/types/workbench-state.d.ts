@@ -1,7 +1,7 @@
 import type { ToolEvent } from "./stage-insights.js";
 export declare const PREVISIT_PHASES: readonly ["target", "scope", "collect", "verify", "output"];
 export type PrevisitPhase = (typeof PREVISIT_PHASES)[number];
-export type PhaseProgress = "idle" | "active" | "done" | "failed";
+export type PhaseProgress = "idle" | "active" | "review" | "done" | "failed";
 export type WorkbenchStatus = "empty" | "waiting-agent" | "running" | "ready" | "failed";
 export type SessionProgressInput = {
     hasTask: boolean;

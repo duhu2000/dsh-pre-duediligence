@@ -2,6 +2,7 @@ import type { ToolOutcome } from "./tool-outcome.js";
 export declare const PREVISIT_TASK_STATES: readonly ["needs-entity-search", "needs-entity-confirmation", "entity-confirmed", "running", "finalizing", "completed", "partial", "failed"];
 export type PrevisitTaskState = (typeof PREVISIT_TASK_STATES)[number];
 export type PrevisitTaskStage = "target" | "scope" | "collect" | "verify" | "output";
+export declare const PREVISIT_TERMINAL_STATES: ReadonlySet<PrevisitTaskState>;
 export type PrevisitRun = {
     id: string;
     dimension: string;

@@ -1,6 +1,6 @@
 {
   "name": "dsh-pre-duediligence",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Pre-visit due diligence and company research in DeepSeek Harness with Host-tracked progress, bounded Qichacha MCP calls, entity confirmation, and downloadable reports.",
   "license": "MIT",
   "repository": {

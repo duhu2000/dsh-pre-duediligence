@@ -25,10 +25,27 @@ describe("PrevisitWorkflowStore", () => {
     task = await first.finalize(task.id, report, "completed")
     expect(task).toMatchObject({ id: "PV-20260911-ABCD", used: 1, state: "completed", stage: "output", reportMarkdown: report })
     expect(task.artifact?.fileName).toContain("合成公司股份有限公司")
+    const artifact = task.artifact
+    await expect(first.startRun(task.id, { runId: "late-run", dimension: "profile", quotaUsed: false })).rejects.toThrow("任务已结束")
+    await expect(first.finalize(task.id, report, "completed")).resolves.toMatchObject({ artifact, completedAt: task.completedAt })
 
     const restored = new PrevisitWorkflowStore()
     await restored.attach(storage.domain)
     await expect(restored.get(task.id)).resolves.toMatchObject({ entity: { fullName: "合成公司股份有限公司" }, reportMarkdown: report })
+  })
+
+  it("自愈旧版本中已有报告却回退到进行中的任务", async () => {
+    const store = new PrevisitWorkflowStore()
+    let task = await store.create({ id: "PV-20260911-LEGACY", sessionId: "session-dsh-pre-duediligence-test", workspace: "/synthetic", query: "合成公司", depth: "fast", limit: 8 })
+    task = await store.confirmEntity(task.id, { fullName: "合成公司股份有限公司", creditCode: "913200000000000001" })
+    const report = "# 访前尽调报告 · 合成公司股份有限公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map((section, index) => `## ${index + 1}、${section}\n合成内容`).join("\n")
+    task = await store.finalize(task.id, report, "completed")
+    const { completedAt: _completedAt, ...legacy } = task
+    await store.put({ ...legacy, state: "finalizing", stage: "output" })
+
+    await expect(store.list(task.sessionId)).resolves.toEqual([
+      expect.objectContaining({ state: "completed", stage: "output", reportMarkdown: report, completedAt: task.artifact?.createdAt }),
+    ])
   })
 
   it("retargets the same visible task without resetting consumed quota", async () => {

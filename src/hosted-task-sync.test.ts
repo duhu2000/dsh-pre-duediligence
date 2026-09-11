@@ -52,6 +52,7 @@ describe("Host 任务接管", () => {
     expect(hostedTaskView(makeHosted({ state: "finalizing", stage: "output" }))).toBe("output")
     expect(hostedStatus(makeHosted({ state: "running", stage: "collect" }))).toBe("running")
     expect(hostedStatus(makeHosted({ state: "needs-entity-confirmation", stage: "target" }))).toBe("waiting-agent")
+    expect(hostedStatus(makeHosted({ state: "finalizing", stage: "output", reportReady: true, completedAt: "2026-09-11T12:05:00.000Z" }))).toBe("ready")
   })
 
   it("同步 PVT 任务、已锭定主体全称和资料采集视图", () => {

@@ -147,6 +147,11 @@ window.setTimeout(() => {
       flushSync(() => trigger?.click())
       window.setTimeout(() => {
         const composerCard = document.querySelector<HTMLElement>("[data-composer-card]")
+        const draft = composerCard?.querySelector<HTMLTextAreaElement>("textarea")
+        const triggerRect = trigger?.getBoundingClientRect()
+        const draftRect = draft?.getBoundingClientRect()
+        document.body.dataset.promptClearOfDraft = String(triggerRect !== undefined && draftRect !== undefined && triggerRect.bottom <= draftRect.top)
+        document.body.dataset.composerPaddingTop = composerCard === null || composerCard === undefined ? "missing" : getComputedStyle(composerCard).paddingTop
         const shell = document.querySelector<HTMLElement>(".qccPwShell")
         const title = document.querySelector<HTMLElement>('[data-previsit-hero-row="true"] [data-previsit-hero-title="true"]')
         document.body.dataset.brand = shell === null ? "missing" : getComputedStyle(shell).getPropertyValue("--qcc-brand").trim()

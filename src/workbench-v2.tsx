@@ -18,6 +18,7 @@ import {
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import { PrevisitHome } from "./previsit-home.js"
 import { openWorkbench } from "./better-sidebar.js"
+import { HOSTED_TERMINAL, hostedStatus, hostedTaskView, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import { installOrdinarySessionGuard, type WorkspaceNavigation } from "./ordinary-session-guard.js"
 import {
   PREVISIT_PHASES,
@@ -30,7 +31,6 @@ import {
 import { WORKBENCH_CSS } from "./workbench-style.js"
 import { adoptTaskFromSnapshot, buildPrevisitReportHtml, captureTaskReport } from "./report-export.js"
 import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
-import type { PrevisitTaskRecord } from "./previsit-workflow.js"
 
 export const inject = ["slots", "sessions", "workspaces", "conversation"] as const
 
@@ -67,7 +67,7 @@ type ConversationNode = {
   error?: { name?: string; code?: string }
   text?: string
   content?: unknown
-  message?: { content?: unknown } | null
+  message?: { role?: string; content?: unknown } | null
   parts?: Array<{ text?: string; type?: string } | string>
 }
 
@@ -79,23 +79,7 @@ type ConversationSnapshot = {
   lastAgentError?: string | null
 }
 
-type HostedTask = Omit<PrevisitTaskRecord, "reportMarkdown"> & {
-  reportReady: boolean
-  reportMarkdown?: string
-}
-
-const HOSTED_TERMINAL = new Set(["completed", "partial", "failed"])
-
-function hostedStatus(task: HostedTask): WorkbenchStatus {
-  if ((task.state === "completed" || task.state === "partial") && task.reportReady) return "ready"
-  if (task.state === "failed") return "failed"
-  if (task.state === "needs-entity-confirmation") return "waiting-agent"
-  if (task.state === "needs-entity-search" && task.runs.some(run => run.dimension === "entity_search" && run.status !== "running")) return "waiting-agent"
-  return "running"
-}
-
 async function fetchHostedTask(taskId: string, sessionId: string): Promise<HostedTask | null> {
-  if (!/^(?:PV-\d{8}-[A-Z0-9-]{4,40}|PVT-[a-f0-9-]{36})$/i.test(taskId)) return null
   const response = await fetch(`/previsit/api/tasks/${encodeURIComponent(taskId)}?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "application/json" } })
   if (response.status === 404) return null
   const payload = await response.json() as { ok?: boolean; task?: HostedTask; message?: string }
@@ -455,6 +439,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const [hostedHistory, setHostedHistory] = useState<HostedTask[]>([])
   const [hostError, setHostError] = useState<string>()
   const reconcilingReports = useRef(new Set<string>())
+  const lastHostedLocation = useRef<string>()
   const [completedTaskId, setCompletedTaskId] = useState<string>()
   const [capturedReport, setCapturedReport] = useState<{ taskId: string; text: string } | null>(null)
   const [downloadNote, setDownloadNote] = useState<string>()
@@ -462,35 +447,45 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   useWorkbenchReveal(props.reveal, props)
 
   useEffect(() => {
-    if (!props.visible || task === undefined) {
+    if (!props.visible) {
       setHostedTask(null)
+      lastHostedLocation.current = undefined
       return
     }
-    setHostedTask(null)
     let disposed = false
     let timer: ReturnType<typeof setTimeout> | undefined
     const refresh = async () => {
       try {
-        let record = await fetchHostedTask(task.id, sessionId)
-        if (record === null) {
-          const candidates = await fetchHostedHistory(sessionId)
-          const startedAfter = new Date(task.createdAt).getTime() - 60_000
-          record = candidates.find(candidate => new Date(candidate.createdAt).getTime() >= startedAfter) ?? null
-        }
+        const current = props.shared.get(sessionId)
+        const records = await fetchHostedHistory(sessionId)
+        const summary = selectHostedTask(records, current.task, current.dismissedTaskIds)
+        // 列表只传轻量状态；报告就绪后再按 ID 读取正文。
+        const record = summary?.reportReady === true ? (await fetchHostedTask(summary.id, sessionId) ?? summary) : summary
         if (disposed) return
         setHostedTask(record)
         setHostError(undefined)
-        if (record?.entity?.fullName !== undefined && record.entity.fullName !== props.shared.get(sessionId).company) {
-          props.shared.update(sessionId, state => ({ ...state, company: record.entity?.fullName ?? state.company }))
+        if (record !== null) {
+          const snapshot = props.ctx.sessions.binding?.(sessionId)?.session.getSnapshot()
+          const adopted = snapshot === undefined ? null : adoptTaskFromSnapshot(snapshot, sessionId, current.minimumNodeBaseline)
+          const desiredView = hostedTaskView(record)
+          const location = `${record.id}:${desiredView}`
+          const shouldLocate = lastHostedLocation.current !== location
+          props.shared.update(sessionId, state => syncHostedTaskState(state, record, adopted, shouldLocate))
+          lastHostedLocation.current = location
+        } else {
+          lastHostedLocation.current = undefined
         }
         if (record === null || !HOSTED_TERMINAL.has(record.state)) timer = setTimeout(refresh, 1000)
       } catch (error) {
-        if (!disposed) setHostError(error instanceof Error ? error.message : String(error))
+        if (!disposed) {
+          setHostError(error instanceof Error ? error.message : String(error))
+          timer = setTimeout(refresh, 2000)
+        }
       }
     }
     void refresh()
     return () => { disposed = true; if (timer !== undefined) clearTimeout(timer) }
-  }, [props.visible, sessionId, task?.id, props.shared])
+  }, [props.visible, sessionId, props.ctx, props.shared, shared.dismissedTaskIds.join("|")])
 
   useEffect(() => {
     if (!props.visible || shared.view !== "history") return
@@ -539,7 +534,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       if (snapshot.running === true) {
         setTask(current => current === undefined || current.seenRunning ? current : { ...current, seenRunning: true })
       }
-      const captured = task === undefined ? null : captureTaskReport(snapshot, sessionId, task)
+      const captureTask = task === undefined ? undefined : { ...task, id: task.captureId ?? task.id }
+      const captured = captureTask === undefined ? null : captureTaskReport(snapshot, sessionId, captureTask)
       setCapturedReport(captured === null || task === undefined ? null : { taskId: task.id, text: captured })
     }
     refresh()
@@ -602,7 +598,11 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       task: undefined,
       view: "target",
       minimumNodeBaseline: props.ctx.sessions.binding?.(sessionId)?.session.getSnapshot().nodes?.length ?? state.minimumNodeBaseline,
-      dismissedTaskIds: state.task === undefined ? state.dismissedTaskIds : [...new Set([...state.dismissedTaskIds, state.task.id])],
+      dismissedTaskIds: [...new Set([
+        ...state.dismissedTaskIds,
+        ...(state.task === undefined ? [] : [state.task.id, ...(state.task.captureId === undefined ? [] : [state.task.captureId])]),
+        ...(hostedTask === null ? [] : [hostedTask.id]),
+      ])],
     }))
     setRuntime(EMPTY_RUNTIME)
     setCapturedReport(null)

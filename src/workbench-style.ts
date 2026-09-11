@@ -76,8 +76,9 @@ html[data-theme="dark"] .qccPrevisitHeroLogo,html.dark .qccPrevisitHeroLogo{colo
 .qccPrevisitLauncherContent{display:inline-flex;align-items:center;gap:9px;color:inherit}
 .qccPrevisitLauncherContent svg{color:var(--qcc-brand);flex:none}
 
-.qccPromptLayer{position:absolute;z-index:4;top:10px;left:12px}
-.qccPromptTrigger{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;border:1px solid var(--qcc-border);border-radius:8px;background:var(--qcc-surface);color:var(--qcc-action);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+[data-composer-card]:has(.qccPromptTrigger){padding-top:48px}
+.qccPromptLayer{position:absolute;inset:0;z-index:40;pointer-events:none}
+.qccPromptTrigger{position:absolute;top:10px;left:16px;display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 10px;border:1px solid var(--qcc-border);border-radius:6px;background:var(--qcc-selected);color:var(--qcc-action);font:inherit;font-size:12px;font-weight:600;cursor:pointer;pointer-events:auto}
 .qccPromptTrigger:hover{background:var(--qcc-selected);border-color:var(--qcc-brand)}
 .qccPromptTrigger svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .qccPromptBackdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:rgba(15,24,32,.46);backdrop-filter:blur(2px)}

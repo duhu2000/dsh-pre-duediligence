@@ -28,7 +28,7 @@ await writeFile(resolve(output, "index.html"), `<!doctype html>
 body{background:#eef2f6;color:#202c3b}.fixtureLayout{display:grid;grid-template-columns:190px minmax(440px,1fr) minmax(520px,42vw);min-height:100vh}
 .fixtureSidebar{padding:18px 12px;border-right:1px solid #dce4ec;background:#fff}.fixtureSidebar button{display:flex;align-items:center;gap:9px;width:100%;padding:10px;border:0;border-radius:9px;background:#e6f4ff;color:#0875d1}
 .fixtureConversation{min-width:0;padding:40px 20px}.fixtureHeroRow{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 12px}.fixture_headlineText{font-size:25px;font-weight:650}.fixtureHeader{display:flex;justify-content:flex-end;max-width:720px;margin:0 auto 12px}
-[data-composer-seat]{max-width:720px;margin:0 auto}.fixtureComposerStack{display:flex;flex-direction:column;gap:8px}[data-composer-card]{position:relative;padding:48px 16px 14px;border:1px solid #dce4ec;border-radius:18px;background:#fff}
+[data-composer-seat]{max-width:720px;margin:0 auto}.fixtureComposerStack{display:flex;flex-direction:column;gap:8px}[data-composer-card]{position:relative;padding:14px 16px;border:1px solid #dce4ec;border-radius:18px;background:#fff}
 textarea{display:block;width:100%;height:100px;padding:8px;border:0;resize:none;background:transparent;color:inherit;font:16px system-ui}.fixtureNativeActions{display:flex;justify-content:space-between}.fixtureWorkbench{min-width:0;height:100vh;border-left:1px solid #dce4ec}
 html[data-theme=dark] body{background:#101820;color:#e7eef6}html[data-theme=dark] .fixtureSidebar,html[data-theme=dark] [data-composer-card]{background:#18232e;border-color:#344657}html[data-theme=dark] .fixtureSidebar{border-color:#344657}
 @media(max-width:760px){.fixtureLayout{display:block}.fixtureSidebar{display:none}.fixtureConversation{padding:18px 10px}.fixtureWorkbench{height:680px;border:0}.fixture_headlineText{font-size:21px}}
@@ -99,6 +99,8 @@ for (const [theme, width, height] of scenarios) {
   assert.equal(attr("prompt-actions-fit"), "true")
   assert.equal(attr("escape-closed"), "true")
   assert.equal(attr("focus-restored"), "true")
+  assert.equal(attr("prompt-clear-of-draft"), "true")
+  assert.equal(attr("composer-padding-top"), "48px")
   assert.equal(attr("no-horizontal-overflow"), "true")
   results.push({ theme, width, height, screenshot })
 }

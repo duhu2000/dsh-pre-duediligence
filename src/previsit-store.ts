@@ -3,6 +3,8 @@ import { EMPTY_COMPOSER_STATE, EMPTY_SELECTION, type ComposerSelection, type Com
 
 export type ActiveTask = {
   id: string
+  // Host 任务接管原生对话后，保留原会话任务 ID 用于精确截取报告边界。
+  captureId?: string
   prompt: string
   createdAt: string
   nodeBaseline: number

@@ -48,6 +48,14 @@ describe("访前工作台企查查蓝主题", () => {
     expect(WORKBENCH_CSS).not.toContain(".qccPrevisitCapabilities{display:grid")
   })
 
+  it("输入框顶部为提示词生成器预留独立空间", () => {
+    expect(WORKBENCH_CSS).toContain("[data-composer-card]:has(.qccPromptTrigger){padding-top:48px}")
+    expect(WORKBENCH_CSS).toContain(".qccPromptLayer{position:absolute;inset:0;z-index:40;pointer-events:none}")
+    expect(WORKBENCH_CSS).toContain("top:10px;left:16px")
+    expect(WORKBENCH_CSS).toContain("pointer-events:auto")
+    expect(WORKBENCH_CSS).toContain("background:var(--qcc-selected)")
+  })
+
   it("把侧拉几何和 Tab 关闭完全交给 Better Sidebar 宿主", () => {
     expect(WORKBENCH_CSS).not.toContain(".qccPwClose")
     expect(workbenchSource).not.toContain("qccPwClose")

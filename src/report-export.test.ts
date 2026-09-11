@@ -123,6 +123,10 @@ describe("adoptTaskFromSnapshot", () => {
     expect(adoptTaskFromSnapshot({ nodes: [{ kind: "assistant", text: "访前任务 ID：PV-FAKE" }] }, ownedSession)).toBeNull()
     expect(adoptTaskFromSnapshot(snap, ownedSession, 2)).toBeNull()
   })
+  it("识别 DSH 原生 message.role 节点并从正文认领任务", () => {
+    const snap = { nodes: [{ kind: "message", seq: 7, message: { role: "user", content: [{ type: "text", text: "我是银行对公客户经理，准备拜访思必驰" }] } }] }
+    expect(adoptTaskFromSnapshot(snap, ownedSession)).toEqual({ id: "turn:7", prompt: "我是银行对公客户经理，准备拜访思必驰", nodeBaseline: 0 })
+  })
 })
 
 describe("task-scoped report capture", () => {
@@ -140,6 +144,13 @@ describe("task-scoped report capture", () => {
     expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "assistant", blocks: [{ kind: "text", text: report }] }] }, ownedSession, task)).toBe(report)
     expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "assistant", blocks: [{ kind: "reasoning", text: report }] }] }, ownedSession, task)).toBeNull()
     expect(captureTaskReport({ nodes: [nodes[0]!, { kind: "assistant", interrupted: true, blocks: [{ kind: "text", text: report }] }] }, ownedSession, task)).toBeNull()
+  })
+  it("从嵌套 message.role 助手节点捕获报告，不把用户正文当作报告", () => {
+    const nested = [
+      { kind: "message", message: { role: "user", content: [{ type: "text", text: task.prompt }] } },
+      { kind: "message", message: { role: "assistant", content: [{ type: "text", text: report }] } },
+    ]
+    expect(captureTaskReport({ nodes: nested }, ownedSession, task)).toBe(report)
   })
   it("never exports the old report as the next task's report", () => {
     const next = { id: "PV-NEXT", prompt: "访前任务 ID：PV-NEXT", nodeBaseline: 2 }

@@ -27,6 +27,7 @@ type ConversationNode = {
     text?: string;
     content?: unknown;
     message?: {
+        role?: string;
         content?: unknown;
     } | null;
     parts?: Array<{

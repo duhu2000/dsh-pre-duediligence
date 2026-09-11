@@ -64,9 +64,9 @@ for (const [theme, width, height] of scenarios) {
     `--screenshot=${screenshot}`,
     "--dump-dom",
     url,
-  // Linux CI cold-starts the full Chrome binary; 8s can expire before it opens
-  // the fixture. Keep the same virtual-time/assertion gates, allow 30s startup.
-  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024, timeout: 30_000, killSignal: "SIGKILL" })
+  // Parallel Linux runners can cold-start the full Chrome binary for more than
+  // 30s before opening the fixture. Assertions and virtual time remain strict.
+  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024, timeout: 60_000, killSignal: "SIGKILL" })
   await writeFile(resolve(output, `${theme}-${width}.dom.html`), run.stdout ?? "", "utf8")
   await writeFile(resolve(output, `${theme}-${width}.browser.log`), run.stderr ?? "", "utf8")
   const timedOutAfterDump = run.error?.code === "ETIMEDOUT" && run.stdout.includes('data-ui-ready="true"')

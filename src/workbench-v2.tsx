@@ -30,6 +30,7 @@ import {
 import { WORKBENCH_CSS } from "./workbench-style.js"
 import { adoptTaskFromSnapshot, buildPrevisitReportHtml, captureTaskReport } from "./report-export.js"
 import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
+import type { PrevisitTaskRecord } from "./previsit-workflow.js"
 
 export const inject = ["slots", "sessions", "workspaces", "conversation"] as const
 
@@ -76,6 +77,37 @@ type ConversationSnapshot = {
   runningCalls?: Array<{ name?: string }>
   nodes?: ConversationNode[]
   lastAgentError?: string | null
+}
+
+type HostedTask = Omit<PrevisitTaskRecord, "reportMarkdown"> & {
+  reportReady: boolean
+  reportMarkdown?: string
+}
+
+const HOSTED_TERMINAL = new Set(["completed", "partial", "failed"])
+
+function hostedStatus(task: HostedTask): WorkbenchStatus {
+  if ((task.state === "completed" || task.state === "partial") && task.reportReady) return "ready"
+  if (task.state === "failed") return "failed"
+  if (task.state === "needs-entity-confirmation") return "waiting-agent"
+  if (task.state === "needs-entity-search" && task.runs.some(run => run.dimension === "entity_search" && run.status !== "running")) return "waiting-agent"
+  return "running"
+}
+
+async function fetchHostedTask(taskId: string, sessionId: string): Promise<HostedTask | null> {
+  if (!/^(?:PV-\d{8}-[A-Z0-9-]{4,40}|PVT-[a-f0-9-]{36})$/i.test(taskId)) return null
+  const response = await fetch(`/previsit/api/tasks/${encodeURIComponent(taskId)}?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "application/json" } })
+  if (response.status === 404) return null
+  const payload = await response.json() as { ok?: boolean; task?: HostedTask; message?: string }
+  if (!response.ok || payload.ok === false || payload.task === undefined) throw new Error(payload.message ?? `任务状态读取失败（HTTP ${response.status}）`)
+  return payload.task
+}
+
+async function fetchHostedHistory(sessionId: string): Promise<HostedTask[]> {
+  const response = await fetch(`/previsit/api/tasks?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "application/json" } })
+  const payload = await response.json() as { ok?: boolean; tasks?: HostedTask[]; message?: string }
+  if (!response.ok || payload.ok === false || !Array.isArray(payload.tasks)) throw new Error(payload.message ?? `任务历史读取失败（HTTP ${response.status}）`)
+  return payload.tasks
 }
 
 type SessionConversation = {
@@ -332,7 +364,7 @@ function ReportViewer(props: { html: string }): JSX.Element {
   return <iframe ref={ref} className="qccPwReportFrame" title="尽调报告" sandbox="allow-same-origin" srcDoc={embedded} onLoad={fit} />
 }
 
-function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; toolCount: number; failedToolCount: number; cardCaptured: boolean; reportHtml: string | null }): JSX.Element {
+function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; toolCount: number; toolLimit?: number; failedToolCount: number; cardCaptured: boolean; reportHtml: string | null }): JSX.Element {
   const ready = props.status === "ready"
   if (props.reportHtml !== null) {
     return (
@@ -371,7 +403,7 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchS
       <div className="qccPwCard">
         <div className="qccPwCardHeader"><div><h3>执行覆盖</h3><p>这是工作台从当前 Session 读取的真实执行事件，不是完整性评分。</p></div></div>
         <div className="qccPwCoverage">
-          <div className="qccPwMetric"><strong>{props.toolCount}</strong><span>已识别工具调用</span></div>
+          <div className="qccPwMetric"><strong>{props.toolLimit === undefined ? props.toolCount : `${props.toolCount}/${props.toolLimit}`}</strong><span>企查查额度调用</span></div>
           <div className="qccPwMetric"><strong>{props.failedToolCount}</strong><span>工具错误</span></div>
           <div className="qccPwMetric"><strong>{ready ? "已生成" : "待生成"}</strong><span>报告制品（不代表全量覆盖）</span></div>
         </div>
@@ -380,11 +412,19 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchS
   )
 }
 
-function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus }): JSX.Element {
+function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; hosted: HostedTask[] }): JSX.Element {
   return (
     <section className="qccPwPanel">
-      <header className="qccPwPageHeading"><div><p className="qccPwEyebrow">HISTORY</p><h2>任务历史</h2><p>当前会话的完整消息、证据引用与报告由 DSH 原生会话保存。</p></div></header>
-      {props.task === undefined ? (
+      <header className="qccPwPageHeading"><div><p className="qccPwEyebrow">HISTORY</p><h2>任务历史</h2><p>任务状态与报告制品由 Host 保存；完整消息和证据引用仍保留在 DSH 原生会话。</p></div></header>
+      {props.hosted.length > 0 ? props.hosted.map(item => {
+        const status = hostedStatus(item)
+        return (
+          <div className="qccPwCard" key={item.id}>
+            <div className="qccPwCardHeader"><div><h3>{item.entity?.fullName ?? item.query}</h3><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p></div><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span></div>
+            <p className="qccPwNote">企查查额度 {item.used}/{item.limit} · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
+          </div>
+        )
+      }) : props.task === undefined ? (
         <Feedback tone="notice" title="当前没有已认领任务">从提示词生成器回填并发送，或在会话中直接发起访前尽调后，这里会显示当前任务。</Feedback>
       ) : (
         <div className="qccPwCard">
@@ -411,12 +451,65 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const setView = (view: PrevisitView) => { locatePrevisitView(props.shared, sessionId, view) }
   const setPhase = (next: PrevisitPhase) => setView(next)
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
+  const [hostedTask, setHostedTask] = useState<HostedTask | null>(null)
+  const [hostedHistory, setHostedHistory] = useState<HostedTask[]>([])
+  const [hostError, setHostError] = useState<string>()
+  const reconcilingReports = useRef(new Set<string>())
   const [completedTaskId, setCompletedTaskId] = useState<string>()
   const [capturedReport, setCapturedReport] = useState<{ taskId: string; text: string } | null>(null)
-  const cardText = capturedReport?.taskId === task?.id ? capturedReport?.text ?? null : null
   const [downloadNote, setDownloadNote] = useState<string>()
 
   useWorkbenchReveal(props.reveal, props)
+
+  useEffect(() => {
+    if (!props.visible || task === undefined) {
+      setHostedTask(null)
+      return
+    }
+    setHostedTask(null)
+    let disposed = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const refresh = async () => {
+      try {
+        let record = await fetchHostedTask(task.id, sessionId)
+        if (record === null) {
+          const candidates = await fetchHostedHistory(sessionId)
+          const startedAfter = new Date(task.createdAt).getTime() - 60_000
+          record = candidates.find(candidate => new Date(candidate.createdAt).getTime() >= startedAfter) ?? null
+        }
+        if (disposed) return
+        setHostedTask(record)
+        setHostError(undefined)
+        if (record?.entity?.fullName !== undefined && record.entity.fullName !== props.shared.get(sessionId).company) {
+          props.shared.update(sessionId, state => ({ ...state, company: record.entity?.fullName ?? state.company }))
+        }
+        if (record === null || !HOSTED_TERMINAL.has(record.state)) timer = setTimeout(refresh, 1000)
+      } catch (error) {
+        if (!disposed) setHostError(error instanceof Error ? error.message : String(error))
+      }
+    }
+    void refresh()
+    return () => { disposed = true; if (timer !== undefined) clearTimeout(timer) }
+  }, [props.visible, sessionId, task?.id, props.shared])
+
+  useEffect(() => {
+    if (!props.visible || shared.view !== "history") return
+    let disposed = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const refresh = async () => {
+      try {
+        const records = await fetchHostedHistory(sessionId)
+        if (disposed) return
+        setHostedHistory(records)
+        setHostError(undefined)
+        if (records.some(record => !HOSTED_TERMINAL.has(record.state))) timer = setTimeout(refresh, 2000)
+      } catch (error) {
+        if (!disposed) setHostError(error instanceof Error ? error.message : String(error))
+      }
+    }
+    void refresh()
+    return () => { disposed = true; if (timer !== undefined) clearTimeout(timer) }
+  }, [props.visible, shared.view, sessionId])
 
   useEffect(() => {
     const face = props.ctx.sessions.binding?.(sessionId)?.session
@@ -453,17 +546,44 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     return face.subscribe?.(refresh)
   }, [props.ctx, sessionId, task?.id, task?.nodeBaseline, shared.minimumNodeBaseline, shared.dismissedTaskIds.join("|")])
 
+  useEffect(() => {
+    const report = capturedReport !== null && capturedReport.taskId === task?.id ? capturedReport.text : undefined
+    if (hostedTask === null || hostedTask.reportReady || report === undefined || reconcilingReports.current.has(hostedTask.id)) return
+    reconcilingReports.current.add(hostedTask.id)
+    void fetch(`/previsit/api/tasks/${encodeURIComponent(hostedTask.id)}/report?sessionId=${encodeURIComponent(sessionId)}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ reportMarkdown: report, status: hostedTask.runs.some(run => run.status === "failed") ? "partial" : "completed" }),
+    }).then(async response => {
+      const payload = await response.json() as { ok?: boolean; task?: HostedTask; message?: string }
+      if (!response.ok || payload.ok === false || payload.task === undefined) throw new Error(payload.message ?? `报告状态同步失败（HTTP ${response.status}）`)
+      setHostedTask(payload.task)
+      setHostError(undefined)
+    }).catch(error => {
+      reconcilingReports.current.delete(hostedTask.id)
+      setHostError(error instanceof Error ? error.message : String(error))
+    })
+  }, [capturedReport, hostedTask, task?.id])
+
+  const hostedEvents = useMemo<ToolEvent[]>(() => hostedTask === null ? [] : [
+    { name: "previsit_begin", status: "done" },
+    ...(hostedTask.entity === undefined ? [] : [{ name: "previsit_confirm_entity", status: "done" as const }]),
+    ...hostedTask.runs.map(run => ({ name: run.toolName ?? `previsit_${run.dimension}`, status: run.status })),
+  ], [hostedTask])
+  const effectiveEvents = hostedTask === null ? runtime.toolEvents : hostedEvents
+  const cardText = hostedTask?.reportMarkdown ?? (capturedReport?.taskId === task?.id ? capturedReport?.text ?? null : null)
+  const hostStatus = hostedTask === null ? null : hostedStatus(hostedTask)
   const progressInput: SessionProgressInput = {
     hasTask: task !== undefined,
-    running: runtime.running,
+    running: hostStatus === null ? runtime.running : hostStatus === "running",
     seenRunning: task?.seenRunning ?? false,
-    lastAgentError: runtime.lastAgentError,
+    lastAgentError: hostedTask === null ? runtime.lastAgentError : hostedTask.state === "failed" ? hostedTask.lastError ?? "访前任务执行失败" : null,
     partial: runtime.partial,
-    toolNames: runtime.toolNames,
-    toolEvents: runtime.toolEvents,
+    toolNames: hostedTask === null ? runtime.toolNames : hostedEvents.map(event => event.name),
+    toolEvents: effectiveEvents,
     reportReady: cardText !== null,
   }
-  const status = deriveWorkbenchStatus(progressInput)
+  const status = hostStatus ?? deriveWorkbenchStatus(progressInput)
   const phaseStates = derivePhaseStates(progressInput)
   const insights = useMemo(() => parseCardInsights(cardText), [cardText])
   const reportHtml = useMemo(() => cardText === null ? null : buildPrevisitReportHtml(cardText), [cardText])
@@ -486,25 +606,39 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     }))
     setRuntime(EMPTY_RUNTIME)
     setCapturedReport(null)
+    setHostedTask(null)
   }
-  const downloadReport = () => {
+  const downloadReport = async () => {
     if (cardText === null || status !== "ready") {
       setDownloadNote("当前任务的报告尚未就绪，请等待会话生成符合输出结构的报告。")
       return
     }
-    const html = buildPrevisitReportHtml(cardText)
-    const source = cardText
-    setDownloadNote(undefined)
-    const company = /(?:访前尽调报告|拜访作战卡)\s*·\s*([^\n（(锚｜]+)/.exec(source)?.[1]?.trim() || "访前尽调报告"
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `访前尽调报告_${company}.html`
-    document.body.append(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 0)
+    try {
+      setDownloadNote(undefined)
+      let blob: Blob
+      let fileName: string
+      if (hostedTask?.artifact !== undefined) {
+        const response = await fetch(`/previsit/api/tasks/${encodeURIComponent(hostedTask.id)}/report?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "text/html" } })
+        if (!response.ok) throw new Error(`报告下载失败（HTTP ${response.status}）`)
+        blob = await response.blob()
+        fileName = hostedTask.artifact.fileName
+      } else {
+        const html = buildPrevisitReportHtml(cardText)
+        const company = /(?:访前尽调报告|拜访作战卡)\s*·\s*([^\n（(锚｜]+)/.exec(cardText)?.[1]?.trim() || "访前尽调报告"
+        blob = new Blob([html], { type: "text/html;charset=utf-8" })
+        fileName = `访前尽调报告_${company}.html`
+      }
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = fileName
+      document.body.append(anchor)
+      anchor.click()
+      anchor.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch (error) {
+      setDownloadNote(error instanceof Error ? error.message : "报告下载失败，请稍后重试。")
+    }
   }
 
   if (!props.visible || !isPrevisitSession(sessionId)) return <></>
@@ -537,17 +671,17 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       <div className="qccPwBody">
         {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
-        {shared.view === "collect" ? <OpportunityPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
-        {shared.view === "verify" ? <RiskPanel task={task} status={status} events={runtime.toolEvents} insights={insights} /> : null}
-        {shared.view === "output" ? <DeliveryPanel task={task} status={status} toolCount={runtime.toolNames.length} failedToolCount={runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
-        {shared.view === "history" ? <HistoryPanel task={task} status={status} /> : null}
+        {shared.view === "collect" ? <OpportunityPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
+        {shared.view === "verify" ? <RiskPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
+        {shared.view === "output" ? <DeliveryPanel task={task} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} {...(hostedTask === null ? {} : { toolLimit: hostedTask.limit })} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
+        {shared.view === "history" ? <HistoryPanel task={task} status={status} hosted={hostedHistory} /> : null}
       </div>
       <footer className="qccPwFooter">
-        <span className="qccPwFooterHint" data-tone={downloadNote === undefined ? undefined : "error"}>{downloadNote !== undefined ? downloadNote : "宿主收起侧拉或关闭本 Tab 不会取消任务，也不会删除历史或制品。"}</span>
+        <span className="qccPwFooterHint" data-tone={downloadNote === undefined && hostError === undefined ? undefined : "error"}>{downloadNote ?? hostError ?? "宿主收起侧拉或关闭本 Tab 不会取消任务，也不会删除历史或制品。"}</span>
         <div className="qccPwFooterActions">
           {shared.view !== "target" && task !== undefined ? <button type="button" className="qccPwSecondary" onClick={newTask}>新的尽调</button> : null}
           {shared.view === "output"
-            ? <button type="button" className="qccPwPrimary" disabled={status !== "ready" || cardText === null} title="下载为 HTML 文件，可直接打开或打印" onClick={downloadReport}>下载报告<span>↓</span></button>
+            ? <button type="button" className="qccPwPrimary" aria-disabled={status !== "ready" || cardText === null} title={status === "ready" ? "下载为 HTML 文件，可直接打开或打印" : "报告尚未就绪，点击查看原因"} onClick={() => { void downloadReport() }}>下载报告<span>↓</span></button>
             : null}
         </div>
       </footer>

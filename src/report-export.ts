@@ -25,15 +25,25 @@ export type CardNode = {
 
 export type CardSnapshot = { nodes?: CardNode[]; running?: boolean }
 
+function contentText(value: unknown): string {
+  if (typeof value === "string") return value
+  if (!Array.isArray(value)) return ""
+  return value.map(block => {
+    if (typeof block === "string") return block
+    if (block === null || typeof block !== "object") return ""
+    const typed = block as { type?: unknown; kind?: unknown; text?: unknown }
+    if ((typeof typed.type === "string" && typed.type !== "text") || (typeof typed.kind === "string" && typed.kind !== "text")) return ""
+    return typeof typed.text === "string" ? typed.text : ""
+  }).join("")
+}
+
 // 防御式提取助手输出的作战卡正文：DSH 会话节点形态未知，逐种可能字段尝试。
 function nodeText(node: CardNode): string {
   if (Array.isArray(node.blocks)) return node.blocks.filter(b => b.kind === "text").map(b => b.text ?? "").join("\n")
   if (typeof node.text === "string") return node.text
   if (typeof node.content === "string") return node.content
-  if (node.message && typeof node.message.content === "string") return node.message.content
-  if (Array.isArray(node.content)) {
-    return node.content.map(c => (typeof c === "string" ? c : (c && typeof (c as { text?: unknown }).text === "string" ? (c as { text: string }).text : ""))).join("")
-  }
+  if (node.message) { const text = contentText(node.message.content); if (text !== "") return text }
+  if (Array.isArray(node.content)) return contentText(node.content)
   if (Array.isArray(node.parts)) {
     return node.parts.map(pt => (typeof pt === "string" ? pt : (pt && typeof pt.text === "string" ? pt.text : ""))).join("")
   }
@@ -85,9 +95,7 @@ export function captureTaskReport(snapshot: CardSnapshot, sessionId: string, tas
   const text = extractCardText({ nodes: next === -1 ? nodes : nodes.slice(0, next) }, task.nodeBaseline + 1)
   if (text === null) return null
   const sections = [...text.matchAll(/^#{1,4}\s+(.+)$/gm)].map(m => normalizeHeading(m[1] ?? "").replace(/^\d+、\s*/, "").replace(/\*\*/g, "").trim())
-  const required = task.prompt.includes("适合转发给同事的简短摘要")
-    ? FULL_REPORT_SECTIONS.filter(s => s !== "业务假设" && s !== "触达开场") : FULL_REPORT_SECTIONS
-  return required.every(s => sections.some(title => title === s || title.startsWith(s + "（") || title.startsWith(s + "："))) ? text : null
+  return FULL_REPORT_SECTIONS.every(s => sections.some(title => title === s || title.startsWith(s + "（") || title.startsWith(s + "："))) ? text : null
 }
 
 export function extractCardText(snapshot: CardSnapshot, baseline: number): string | null {

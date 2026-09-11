@@ -1,5 +1,17 @@
 # 访前尽调兼容与验收记录
 
+## 0.1.15：Host 任务投影与报告闭环（2026-09-11）
+
+| 问题 | 修复契约 | 失败边界 |
+| --- | --- | --- |
+| 重复询问企查查 MCP 权限 | 用户发送访前任务即授权当前档位的 8 / 18 / 40 次硬上限；`previsit_begin` 不再请求 DSH approval service | OAuth、产品权限、账户额度和 Provider 自身门禁仍由 Connector / Provider 处理；本插件不越过宿主安全边界 |
+| 完整主体未回显 | `previsit_confirm_entity` 同步 Host 的全称与信用代码，侧栏以 Host 主体覆盖原始检索词 | 多候选仍必须选择；名称与信用代码必须来自同一条结构化搜索结果 |
+| `key_personnel` 报不支持 | 业务维度别名归一为 `personnel`，仍使用固定 qcc-executive 路由 | 其它未登记维度继续 fail closed，不转发通用动态 MCP |
+| 进度、完成状态与历史停滞 | Host 按 Session 持久化任务、主体、run、用量、错误、报告和制品；前端轮询本地 API | 仅记录高层工具结果，不伪造未执行阶段；不存储企查查原始响应 |
+| 报告待生成、下载无响应 | `previsit_finalize` 校验完整八段报告并上架 HTML 制品；对话捕获作为同 Session 回写兜底 | 报告不完整时拒绝伪完成；下载未就绪时显示可行动原因，不静默失败 |
+
+该版本未改变 DSH `0.1.1-rc.2` / Sidebar `0.17.1` / Connector `0.2.32` 与 DSH `0.1.2-rc.1` / Sidebar `0.18.1` / Connector `0.2.37` 的成套基线，也未改变无 Sidebar 降级、工作台初始关闭和 Session 单例 Tab 规则。Node 24.21.0 的 `pnpm check` 通过：20 个测试文件 / 130 项测试、类型检查和 Host/Client 构建全部成功；`pnpm test:ui` 通过浅色/深色 × 桌面/窄屏共 4 个隔离 Chrome 场景。本轮自动化使用合成工具返回，未配置生产 OAuth、未调用真实企查查额度，因此不将本地通过写成真实 Provider 验收通过。
+
 ## 0.1.14：Workspace 归组与普通会话隔离（2026-09-11）
 
 | 路径 | 组合 | Workspace / Session 结论 | 容器结论 |

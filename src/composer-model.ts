@@ -222,6 +222,6 @@ export function serializePrevisitRequest(text: string, taskId: string): string {
     text.trim(),
     "",
     "访前任务 ID：" + taskId,
-    "请使用 qcc-previsit-onepager Skill 执行，并在完成报告后回写任务完成标记。",
+    "请使用 qcc-previsit-onepager Skill 执行；调用 previsit_begin 时将上述 ID 原样作为 requestId，完成后通过 previsit_finalize 保存报告并回写完成标记。",
   ].join("\n")
 }

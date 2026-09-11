@@ -83,6 +83,7 @@ describe("extractCardText", () => {
     }
     expect(extractCardText(snapshot, 0)).toBe(card)
     expect(extractCardText({ nodes: [{ role: "assistant", message: { content: card } }] }, 0)).toBe(card)
+    expect(extractCardText({ nodes: [{ role: "assistant", message: { content: [{ type: "reasoning", text: "不要导出" }, { type: "text", text: card }] } }] }, 0)).toBe(card)
   })
   it("从卡片起点切片：前面的过程性文字不进报告", () => {
     const text = "我先做主体锚定……已完成。\n\n" + card

@@ -1,3 +1,4 @@
+import { PrevisitWorkflowStore } from "./previsit-workflow.js";
 export declare const QUERY_ROUTES: {
     readonly entity_search: readonly ["company", "get_company_by_query"];
     readonly registration: readonly ["company", "get_company_registration_info"];
@@ -28,6 +29,10 @@ export declare const QUERY_ROUTES: {
     readonly licenses: readonly ["operation", "get_administrative_license"];
     readonly land: readonly ["operation", "get_land_grant_info"];
     readonly executive_risk: readonly ["executive", "get_executive_risk_scan"];
+};
+/** Common model-facing aliases are normalized before the fixed route guard. */
+export declare const QUERY_ROUTE_ALIASES: {
+    readonly key_personnel: "personnel";
 };
 type Agent = {
     id: string;
@@ -91,6 +96,6 @@ export type ToolHost = {
     };
     get?(name: string): unknown;
 };
-/** Host-owned admission, human approval, entity binding and bounded ToolRuntime dispatch. */
-export declare function registerPrevisitTools(ctx: ToolHost): () => void;
+/** Host-owned admission, entity binding, progress and bounded ToolRuntime dispatch. */
+export declare function registerPrevisitTools(ctx: ToolHost, workflow?: PrevisitWorkflowStore): () => void;
 export {};

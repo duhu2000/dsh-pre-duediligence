@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 import { parseSkillFile } from "./skill-file.js"
+import { mountPrevisitWebRoutes, type WebServer } from "./previsit-web.js"
 import { registerPrevisitTools, type ToolHost } from "./previsit-tools.js"
+import { PrevisitWorkflowStore, type StorageDomain } from "./previsit-workflow.js"
 
 export const inject = ["skills", "tools"] as const
 
@@ -25,6 +27,8 @@ type SkillRegistration = {
 
 export type HostContext = ToolHost & {
   effect(setup: () => void | (() => void)): unknown
+  inject?(deps: string[], setup: (ctx: HostContext & { webServer: WebServer; storageDomain: StorageDomain }) => void): unknown
+  logger?: { info?(message: string): void; warn?(message: string): void }
   skills: {
     register(skill: SkillRegistration): () => void
   }
@@ -47,7 +51,7 @@ export function loadBundledSkill(): SkillRegistration {
     },
     metadata: {
       author: "QCC",
-      version: "0.1.14",
+      version: "0.1.15",
       industry: "enterprise-services",
       mcpServers: ["qcc-company", "qcc-risk", "qcc-ipr", "qcc-operation", "qcc-executive"],
     },
@@ -55,6 +59,15 @@ export function loadBundledSkill(): SkillRegistration {
 }
 
 export function apply(ctx: HostContext): void {
-  ctx.effect(() => registerPrevisitTools(ctx))
+  const workflow = new PrevisitWorkflowStore()
+  ctx.effect(() => registerPrevisitTools(ctx, workflow))
   ctx.skills.register(loadBundledSkill())
+  try {
+    ctx.inject?.(["webServer", "storageDomain"], webCtx => {
+      void workflow.attach(webCtx.storageDomain, ctx.logger)
+      webCtx.effect(() => mountPrevisitWebRoutes(webCtx.webServer, workflow))
+    })
+  } catch (error) {
+    ctx.logger?.warn?.(`[dsh-pre-duediligence] Host task routes unavailable: ${error instanceof Error ? error.message : String(error)}`)
+  }
 }

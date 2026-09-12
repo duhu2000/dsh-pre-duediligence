@@ -2,10 +2,10 @@
 // 纯函数，无 DOM 依赖。
 
 import type { ToolOutcome } from "./tool-outcome.js"
-export type ToolEvent = { name: string; status: ToolOutcome }
+export type ToolEvent = { name: string; status: ToolOutcome; reason?: string }
 export type StepState = "done" | "active" | "review" | "failed" | "idle"
 export type Step = { label: string; state: StepState; note?: string | undefined }
-export type Dimension = { label: string; status: ToolOutcome }
+export type Dimension = { label: string; status: ToolOutcome; note?: string }
 
 // 工具名片段 → 业务维度名。顺序即展示顺序。
 const OPPORTUNITY_DIMENSIONS: Array<[string, string]> = [
@@ -49,11 +49,11 @@ const RISK_DIMENSIONS: Array<[string, string]> = [
   ["get_executive_risk_scan", "董监高"],
 ]
 
-function eventStatus(events: ToolEvent[], fragment: string): Dimension["status"] | null {
-  let seen: Dimension["status"] | null = null
+function latestEvent(events: ToolEvent[], fragment: string): ToolEvent | null {
+  let seen: ToolEvent | null = null
   for (const event of events) {
     if (!event.name.includes(fragment)) continue
-    seen = event.status
+    seen = event
   }
   return seen
 }
@@ -61,8 +61,8 @@ function eventStatus(events: ToolEvent[], fragment: string): Dimension["status"]
 function toDimensions(table: Array<[string, string]>, events: ToolEvent[]): Dimension[] {
   const out: Dimension[] = []
   for (const [fragment, label] of table) {
-    const status = eventStatus(events, fragment)
-    if (status !== null) out.push({ label, status })
+    const event = latestEvent(events, fragment)
+    if (event !== null) out.push({ label, status: event.status, ...(event.reason === undefined ? {} : { note: event.reason }) })
   }
   return out
 }
@@ -157,10 +157,10 @@ const has = (events: ToolEvent[], fragments: string[], status?: ToolEvent["statu
   events.some(e => fragments.some(f => e.name.includes(f)) && (status === undefined || e.status === status))
 
 const completed = (events: ToolEvent[], fragments: string[]): boolean =>
-  events.some(e => fragments.some(f => e.name.includes(f)) && (e.status === "done" || e.status === "no-data"))
+  events.some(e => fragments.some(f => e.name.includes(f)) && (e.status === "done" || e.status === "no-data" || e.status === "skipped"))
 
 const reviewing = (events: ToolEvent[], fragments: string[]): boolean =>
-  events.some(e => fragments.some(f => e.name.includes(f)) && (e.status === "unknown" || e.status === "no-permission"))
+  events.some(e => fragments.some(f => e.name.includes(f)) && (e.status === "unknown" || e.status === "no-permission" || e.status === "not-executed"))
 
 const failed = (events: ToolEvent[], fragments: string[]): boolean =>
   events.some(e => fragments.some(f => e.name.includes(f)) && e.status === "failed")
@@ -170,7 +170,7 @@ const running = (events: ToolEvent[], fragments: string[]): boolean =>
 
 const BASIC = ["get_company_registration_info", "get_company_profile", "get_annual_reports", "get_shareholder_info", "get_key_personnel", "get_change_records", "get_beneficial_owners"]
 const STATE_TOOLS = ["get_bidding_info", "get_financing_records", "get_recruitment_info", "get_administrative_license", "get_patent_info", "get_land_grant_info", "get_external_investments", "get_qualifications", "get_software_copyright_info", "get_financial_data", "get_company_announcement"]
-const DRILL = ["get_dishonest_info", "get_judgment_debtor_info", "get_terminated_cases", "get_equity_freeze", "get_business_exception", "get_administrative_penalty", "get_tax_abnormal", "get_judicial_documents", "get_court_"]
+const DRILL = ["get_dishonest_info", "get_judgment_debtor_info", "get_terminated_cases", "get_equity_freeze", "get_business_exception", "get_administrative_penalty", "get_tax_abnormal", "get_judicial_documents"]
 
 function stepOf(done: boolean, active: boolean, review: boolean, hasFailed: boolean): Step["state"] {
   if (done) return "done"
@@ -198,13 +198,29 @@ export function riskSteps(events: ToolEvent[], insights: CardInsights, finished:
   const scanTools = ["get_company_risk_scan"]
   const executiveTools = ["get_executive_risk_scan"]
   const scanDone = completed(events, scanTools)
-  const drillDone = completed(events, DRILL)
-  const execDone = completed(events, executiveTools)
+  const drillEvents = DRILL.map(fragment => latestEvent(events, fragment))
+  const resolvedDrills = drillEvents.filter(event => event !== null && ["done", "no-data", "skipped"].includes(event.status))
+  const drillDone = scanDone && resolvedDrills.length === DRILL.length
+  const skippedDrills = resolvedDrills.filter(event => event?.status === "skipped").length
+  const queriedDrills = resolvedDrills.length - skippedDrills
+  const pendingDrills = DRILL.length - resolvedDrills.length
+  const executiveEvent = latestEvent(events, executiveTools[0]!)
+  const execDone = executiveEvent !== null && ["done", "no-data", "skipped"].includes(executiveEvent.status)
   const judged = insights.sections.includes("红线提示")
   return [
     { label: "风险扫描", state: stepOf(scanDone, running(events, scanTools), reviewing(events, scanTools), failed(events, scanTools)) },
-    { label: "明细下钻", state: stepOf(drillDone, running(events, DRILL), reviewing(events, DRILL), failed(events, DRILL)), note: !drillDone && finished ? "未见明细查询完成证据" : undefined },
-    { label: "董监高", state: stepOf(execDone, running(events, executiveTools), reviewing(events, executiveTools), failed(events, executiveTools)), note: !execDone && finished ? "未单独扫描" : undefined },
+    {
+      label: "明细下钻",
+      state: stepOf(drillDone, running(events, DRILL), reviewing(events, DRILL) || (finished && scanDone && !drillDone), failed(events, DRILL)),
+      note: drillDone
+        ? (queriedDrills === 0 ? "扫描均为 0，无需下钻" : `${queriedDrills} 项完成${skippedDrills > 0 ? `，${skippedDrills} 项无需执行` : ""}`)
+        : finished && scanDone ? `${pendingDrills} 项未闭环` : undefined,
+    },
+    {
+      label: "董监高",
+      state: stepOf(execDone, running(events, executiveTools), reviewing(events, executiveTools) || (finished && !execDone), failed(events, executiveTools)),
+      note: executiveEvent?.status === "skipped" ? (executiveEvent.reason ?? "无需执行") : !execDone && finished ? "关键人员风险未闭环" : undefined,
+    },
     { label: "影响判断", state: stepOf(judged, !finished && scanDone, finished && scanDone, false), note: judged ? `${insights.risks.length} 项` : undefined },
   ]
 }

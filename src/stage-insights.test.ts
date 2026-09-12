@@ -79,7 +79,7 @@ describe("阶段步骤", () => {
     const steps = opportunitySteps(events, parseCardInsights(null), false)
     expect(steps.map(s => s.state)).toEqual(["done", "failed", "active", "idle"])
     const risk = riskSteps(events, parseCardInsights(null), false)
-    expect(risk.map(s => s.state)).toEqual(["done", "done", "idle", "active"])
+    expect(risk.map(s => s.state)).toEqual(["done", "idle", "idle", "active"])
   })
   it("报告生成后：保留未执行步骤，展示已捕获的结论", () => {
     const steps = opportunitySteps(events, parseCardInsights(card), true)
@@ -88,7 +88,8 @@ describe("阶段步骤", () => {
     expect(steps[3]?.note).toBe("2 条")
     const risks = riskSteps(events, parseCardInsights(card), true)
     expect(risks[3]?.note).toBe("3 项")
-    expect(risks[2]?.state).toBe("idle")
+    expect(risks[1]?.state).toBe("review")
+    expect(risks[2]?.state).toBe("review")
   })
   it("已返回但未归一的结果显示待核验，不再回落为未执行", () => {
     const pending: ToolEvent[] = [
@@ -97,6 +98,17 @@ describe("阶段步骤", () => {
       { name: "mcp__risk__get_company_risk_scan", status: "unknown" },
     ]
     expect(opportunitySteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["done", "review", "done", "done"])
-    expect(riskSteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["review", "idle", "idle", "done"])
+    expect(riskSteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["review", "idle", "review", "done"])
+  })
+  it("风险扫描为零或无关键人员时，明确跳过的核验步骤按完成标绿", () => {
+    const skipped: ToolEvent[] = [
+      { name: "get_company_risk_scan", status: "done" },
+      ...["get_dishonest_info", "get_judgment_debtor_info", "get_terminated_cases", "get_equity_freeze", "get_business_exception", "get_administrative_penalty", "get_tax_abnormal", "get_judicial_documents"].map(name => ({ name, status: "skipped" as const, reason: "风险扫描为 0，无需下钻" })),
+      { name: "get_executive_risk_scan", status: "skipped", reason: "未取得可核验关键人员，无需执行董监高风险扫描" },
+    ]
+    const steps = riskSteps(skipped, parseCardInsights(card), true)
+    expect(steps.map(step => step.state)).toEqual(["done", "done", "done", "done"])
+    expect(steps[1]?.note).toBe("扫描均为 0，无需下钻")
+    expect(steps[2]?.note).toBe("未取得可核验关键人员，无需执行董监高风险扫描")
   })
 })

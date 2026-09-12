@@ -23,7 +23,7 @@ describe("PrevisitWorkflowStore", () => {
     task = await first.confirmEntity(task.id, { fullName: "合成公司股份有限公司", creditCode: "913200000000000001" })
     const report = "# 访前尽调报告 · 合成公司股份有限公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map((section, index) => `## ${index + 1}、${section}\n合成内容`).join("\n")
     task = await first.finalize(task.id, report, "completed")
-    expect(task).toMatchObject({ id: "PV-20260911-ABCD", used: 1, state: "completed", stage: "output", reportMarkdown: report })
+    expect(task).toMatchObject({ id: "PV-20260911-ABCD", used: 1, limit: 0, state: "completed", stage: "output", reportMarkdown: report })
     expect(task.artifact?.fileName).toContain("合成公司股份有限公司")
     const artifact = task.artifact
     await expect(first.startRun(task.id, { runId: "late-run", dimension: "profile", quotaUsed: false })).rejects.toThrow("任务已结束")
@@ -44,7 +44,7 @@ describe("PrevisitWorkflowStore", () => {
     await store.put({ ...legacy, state: "finalizing", stage: "output" })
 
     await expect(store.list(task.sessionId)).resolves.toEqual([
-      expect.objectContaining({ state: "completed", stage: "output", reportMarkdown: report, completedAt: task.artifact?.createdAt }),
+      expect.objectContaining({ limit: 0, state: "completed", stage: "output", reportMarkdown: report, completedAt: task.artifact?.createdAt }),
     ])
   })
 
@@ -54,7 +54,7 @@ describe("PrevisitWorkflowStore", () => {
     task = await store.startRun(task.id, { runId: "run-search", dimension: "entity_search", quotaUsed: true })
     task = await store.finishRun(task.id, "run-search", "no-data")
     task = await store.create({ id: task.id, sessionId: task.sessionId, workspace: task.workspace, query: "正确名称", depth: "standard", limit: 18 })
-    expect(task).toMatchObject({ query: "正确名称", used: 1, state: "needs-entity-search" })
+    expect(task).toMatchObject({ query: "正确名称", used: 1, limit: 0, state: "needs-entity-search" })
     expect(task.runs).toHaveLength(1)
   })
 })

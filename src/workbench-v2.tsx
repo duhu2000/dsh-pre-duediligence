@@ -185,6 +185,7 @@ function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: Acti
     },
     start: props.start,
     onStarted: props.onStarted,
+    draftMode: "isolated",
   })
   return (
     <section className="qccPwPanel">
@@ -246,14 +247,14 @@ function Steps(props: { steps: Step[] }): JSX.Element {
 }
 
 function Dimensions(props: { title: string; items: Dimension[]; empty: string }): JSX.Element {
-  const done = props.items.filter(d => d.status === "done" || d.status === "no-data").length
-  const review = props.items.filter(d => d.status === "unknown" || d.status === "no-permission").length
+  const done = props.items.filter(d => d.status === "done" || d.status === "no-data" || d.status === "skipped").length
+  const review = props.items.filter(d => d.status === "unknown" || d.status === "no-permission" || d.status === "not-executed").length
   return (
     <div className="qccPwCard">
       <div className="qccPwCardHeader"><div><h3>{props.title}</h3></div>{done > 0 ? <span className="qccPwMode">{done} 项完成</span> : review > 0 ? <span className="qccPwMode" data-tone="review">{review} 项待核验</span> : null}</div>
       {props.items.length === 0 ? <p className="qccPwEmpty">{props.empty}</p> : (
         <div className="qccPwDims">
-          {props.items.map(item => <span key={item.label} className="qccPwDim" data-status={item.status}>{item.label} · {TOOL_OUTCOME_LABELS[item.status]}</span>)}
+          {props.items.map(item => <span key={item.label} className="qccPwDim" data-status={item.status} title={item.note}>{item.label} · {TOOL_OUTCOME_LABELS[item.status]}</span>)}
         </div>
       )}
     </div>
@@ -350,7 +351,7 @@ function ReportViewer(props: { html: string }): JSX.Element {
   return <iframe ref={ref} className="qccPwReportFrame" title="尽调报告" sandbox="allow-same-origin" srcDoc={embedded} onLoad={fit} />
 }
 
-function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; toolCount: number; toolLimit?: number; failedToolCount: number; cardCaptured: boolean; reportHtml: string | null }): JSX.Element {
+function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; toolCount: number; failedToolCount: number; cardCaptured: boolean; reportHtml: string | null }): JSX.Element {
   const ready = props.status === "ready"
   if (props.reportHtml !== null) {
     return (
@@ -398,7 +399,7 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: Hosted
       <div className="qccPwCard">
         <div className="qccPwCardHeader"><div><h3>执行覆盖</h3><p>这是工作台从当前 Session 读取的真实执行事件，不是完整性评分。</p></div></div>
         <div className="qccPwCoverage">
-          <div className="qccPwMetric"><strong>{props.toolLimit === undefined ? props.toolCount : `${props.toolCount}/${props.toolLimit}`}</strong><span>企查查额度调用</span></div>
+          <div className="qccPwMetric"><strong>{props.toolCount}</strong><span>企查查查询次数（不设插件上限）</span></div>
           <div className="qccPwMetric"><strong>{props.failedToolCount}</strong><span>工具错误</span></div>
           <div className="qccPwMetric"><strong>{ready ? "已生成" : "待生成"}</strong><span>报告制品（不代表全量覆盖）</span></div>
         </div>
@@ -416,7 +417,7 @@ function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchSt
         return (
           <div className="qccPwCard" key={item.id}>
             <div className="qccPwCardHeader"><div><h3>{item.entity?.fullName ?? item.query}</h3><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p></div><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span></div>
-            <p className="qccPwNote">企查查额度 {item.used}/{item.limit} · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
+            <p className="qccPwNote">企查查查询 {item.used} 次 · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
           </div>
         )
       }) : props.task === undefined ? (
@@ -575,7 +576,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const hostedEvents = useMemo<ToolEvent[]>(() => hostedTask === null ? [] : [
     { name: "previsit_begin", status: "done" },
     ...(hostedTask.entity === undefined ? [] : [{ name: "previsit_confirm_entity", status: "done" as const }]),
-    ...hostedTask.runs.map(run => ({ name: run.toolName ?? `previsit_${run.dimension}`, status: run.status })),
+    ...hostedTask.runs.map(run => ({ name: run.toolName ?? `previsit_${run.dimension}`, status: run.status, ...(run.message === undefined ? {} : { reason: run.message }) })),
   ], [hostedTask])
   const effectiveEvents = hostedTask === null ? runtime.toolEvents : hostedEvents
   const cardText = hostedTask?.reportMarkdown ?? (capturedReport?.taskId === task?.id ? capturedReport?.text ?? null : null)
@@ -684,7 +685,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
         {shared.view === "collect" ? <OpportunityPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "verify" ? <RiskPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
-        {shared.view === "output" ? <DeliveryPanel task={task} hostedTask={hostedTask} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} {...(hostedTask === null ? {} : { toolLimit: hostedTask.limit })} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
+        {shared.view === "output" ? <DeliveryPanel task={task} hostedTask={hostedTask} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
         {shared.view === "history" ? <HistoryPanel task={task} status={status} hosted={hostedHistory} /> : null}
       </div>
       <footer className="qccPwFooter">

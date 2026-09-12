@@ -1,6 +1,6 @@
-export type ToolOutcome = "running" | "done" | "no-data" | "no-permission" | "not-executed" | "failed" | "unknown"
+export type ToolOutcome = "running" | "done" | "no-data" | "skipped" | "no-permission" | "not-executed" | "failed" | "unknown"
 export const TOOL_OUTCOME_LABELS: Record<ToolOutcome, string> = {
-  running: "查询中", done: "查询成功", "no-data": "无数据", "no-permission": "无权限",
+  running: "查询中", done: "查询成功", "no-data": "无数据", skipped: "无需执行", "no-permission": "无权限",
   "not-executed": "未执行", failed: "查询失败", unknown: "结果待核验",
 }
 
@@ -10,8 +10,9 @@ export function classifyToolOutcome(value: unknown, isError = false): ToolOutcom
     const data = value as Record<string, unknown>
     const code = data.code ?? (data.error as { code?: unknown } | undefined)?.code
     if ([401, 403, "401", "403", "FORBIDDEN", "UNAUTHORIZED", "PERMISSION_DENIED"].includes(code as string)) return "no-permission"
+    if (code === "SKIPPED") return "skipped"
     if (["UNKNOWN_TOOL", "ABORTED_BEFORE_DISPATCH", "NOT_EXECUTED"].includes(code as string)) return "not-executed"
-    if (data.status === "no-permission" || data.status === "not-executed") return data.status
+    if (data.status === "skipped" || data.status === "no-permission" || data.status === "not-executed") return data.status
     if (isError || data.isError === true || data.success === false || data.error != null) return "failed"
     if (data.status === "failed") return "failed"
     if (data.status === "no-data" || data.total === 0 || data.count === 0) return "no-data"
@@ -36,12 +37,14 @@ export function resultOutcome(node: { isError?: boolean; content?: unknown; valu
   return classifyToolOutcome(node.content, node.isError)
 }
 
-export function toolEvent(node: { call: { name: string }; isError?: boolean; content?: unknown; error?: unknown }): { name: string; status: ToolOutcome } {
+export function toolEvent(node: { call: { name: string }; isError?: boolean; content?: unknown; error?: unknown }): { name: string; status: ToolOutcome; reason?: string } {
   const fallback = { name: node.call.name, status: resultOutcome(node) }
   if (node.isError || !Array.isArray(node.content) || node.content.length !== 1 || node.content[0]?.type !== "text") return fallback
   try {
     const value = JSON.parse(node.content[0].text)
-    if (node.call.name === "previsit_query" && typeof value.toolName === "string" && Object.hasOwn(TOOL_OUTCOME_LABELS, value.outcome)) return { name: value.toolName, status: value.outcome }
+    if (node.call.name === "previsit_query" && typeof value.toolName === "string" && Object.hasOwn(TOOL_OUTCOME_LABELS, value.outcome)) {
+      return { name: value.toolName, status: value.outcome, ...(typeof value.reason === "string" ? { reason: value.reason } : {}) }
+    }
     if ((node.call.name === "previsit_begin" && value.status === "needs-entity-search") || (node.call.name === "previsit_confirm_entity" && value.status === "entity-confirmed")) return { name: node.call.name, status: "done" }
   } catch { /* Unrecognized content stays unknown/failed. */ }
   return fallback

@@ -24,6 +24,17 @@ const conversationStore = {
   getSnapshot: () => conversationSnapshot,
   subscribe: () => () => {},
 }
+let nativeDraft = "原生草稿保持不变"
+let nativeDraftWrites = 0
+let conversationSends = 0
+const sessionInput = {
+  state: { getSnapshot: () => ({ draft: nativeDraft, phase: "blank" }), subscribe: () => () => {} },
+  setDraft(text: string) { nativeDraft = text; nativeDraftWrites += 1 },
+}
+const conversation = {
+  send: async () => { conversationSends += 1 },
+  input: { for: () => sessionInput },
+}
 let sidebarState = { panelOpen: true, bottomOpen: false }
 const sidebarStore = {
   getSnapshot: () => sidebarState,
@@ -43,7 +54,7 @@ const ctx: any = {
   },
   sessions: {
     binding: () => ({ session: conversationStore }),
-    scope: () => ({ get: () => ({ send: async () => {} }) }),
+    scope: () => ({ get: (name: string) => name === "conversation" ? conversation : undefined }),
     list: { getSnapshot: () => ({ current: sessionId }) },
     create: async ({ workspaceId, sessionId: id }: { workspaceId: string; sessionId: string }) => {
       if (workspaceId !== "fixture") throw new Error("fixture Session 未归属当前 Workspace")
@@ -180,6 +191,21 @@ window.setTimeout(() => {
         const companyInput = document.querySelector<HTMLInputElement>(".qccPwShell .qccDockCompany")
         document.body.dataset.companyLabel = companyInput?.closest(".qccDockRow")?.querySelector(".qccDockLabel")?.textContent?.trim() ?? "missing"
         document.body.dataset.defaultSelections = [...document.querySelectorAll<HTMLElement>('.qccPwShell .qccDockChip[data-selected="true"]')].map(item => item.textContent?.trim() ?? "").join("|")
+        const inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
+        if (companyInput !== null && inputSetter !== undefined) {
+          companyInput.focus()
+          flushSync(() => {
+            inputSetter.call(companyInput, "苏州")
+            companyInput.dispatchEvent(new Event("input", { bubbles: true, composed: true }))
+          })
+          flushSync(() => {
+            inputSetter.call(companyInput, "苏州恒琪")
+            companyInput.dispatchEvent(new Event("input", { bubbles: true, composed: true }))
+          })
+        }
+        document.body.dataset.companyTypingLocal = String(companyInput?.value === "苏州恒琪" && nativeDraft === "原生草稿保持不变" && nativeDraftWrites === 0)
+        document.body.dataset.companyFocusRetained = String(document.activeElement === companyInput)
+        document.body.dataset.companyTypingDidNotSend = String(conversationSends === 0)
         let leakedCompanyEnter = 0
         const countCompanyEnter = () => { leakedCompanyEnter += 1 }
         document.addEventListener("keydown", countCompanyEnter)

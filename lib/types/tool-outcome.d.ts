@@ -1,4 +1,4 @@
-export type ToolOutcome = "running" | "done" | "no-data" | "no-permission" | "not-executed" | "failed" | "unknown";
+export type ToolOutcome = "running" | "done" | "no-data" | "skipped" | "no-permission" | "not-executed" | "failed" | "unknown";
 export declare const TOOL_OUTCOME_LABELS: Record<ToolOutcome, string>;
 /** Interpret explicit structured signals only. A successful transport is not proof of facts. */
 export declare function classifyToolOutcome(value: unknown, isError?: boolean): ToolOutcome;
@@ -18,4 +18,5 @@ export declare function toolEvent(node: {
 }): {
     name: string;
     status: ToolOutcome;
+    reason?: string;
 };

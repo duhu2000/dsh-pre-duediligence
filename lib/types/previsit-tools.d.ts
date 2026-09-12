@@ -96,6 +96,6 @@ export type ToolHost = {
     };
     get?(name: string): unknown;
 };
-/** Host-owned admission, entity binding, progress and bounded ToolRuntime dispatch. */
+/** Host-owned admission, entity binding, progress and fixed-route ToolRuntime dispatch. */
 export declare function registerPrevisitTools(ctx: ToolHost, workflow?: PrevisitWorkflowStore): () => void;
 export {};

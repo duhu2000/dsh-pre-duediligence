@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { isolateCompanyInputEvent, isolateCompanyInputKey } from "./previsit-dock.js"
+import { EMPTY_COMPOSER_STATE, EMPTY_SELECTION } from "./composer-model.js"
+import { isolateCompanyInputEvent, isolateCompanyInputKey, updateCompanyComposer } from "./previsit-dock.js"
 
 function keyEvent(key: string, isComposing = false, keyCode = 0) {
   return {
@@ -36,5 +37,15 @@ describe("company input keyboard isolation", () => {
     const event = { stopPropagation: vi.fn() }
     isolateCompanyInputEvent(event)
     expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
+  it("工作台逐字输入中文只更新本地表单，不写入或聚焦原生会话草稿", () => {
+    const half = updateCompanyComposer(EMPTY_COMPOSER_STATE, "原生草稿保持不变", EMPTY_SELECTION, "苏州", true)
+    const complete = updateCompanyComposer(half.composer, "原生草稿保持不变", EMPTY_SELECTION, "苏州恒琪", true)
+
+    expect(half.nativeDraft).toBeNull()
+    expect(complete.nativeDraft).toBeNull()
+    expect(complete.composer.lastCompany).toBe("苏州恒琪")
+    expect(complete.composer.text).toContain("拜访苏州恒琪")
   })
 })

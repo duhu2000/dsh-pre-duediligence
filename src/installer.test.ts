@@ -24,7 +24,7 @@ describe("installer transaction preflight", () => {
   it("installs the fixed base dependencies without adding optional Sidebar", () => {
     const result = install({})
     expect(result.status, result.stderr).toBe(0)
-    expect(result.calls.map(args => args[4])).toEqual(["dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.18"])
+    expect(result.calls.map(args => args[4])).toEqual(["dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.19"])
     expect(result.calls.every(args => args[2] === "synthetic-profile")).toBe(true)
     expect(result.calls[0]).toContain("--allow-build=node-pty")
     expect(result.calls[1]).toContain("--allow-build=node-pty,dsh-pre-duediligence")
@@ -33,7 +33,7 @@ describe("installer transaction preflight", () => {
   it("adds the paired Sidebar only when the workbench is explicitly enabled", () => {
     const result = install({}, { DSH_PREVISIT_WORKBENCH: "on" })
     expect(result.status, result.stderr).toBe(0)
-    expect(result.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.17.1", "dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.18"])
+    expect(result.calls.map(args => args[4])).toEqual(["dsh-better-sidebar@0.17.1", "dsh-mcp-connector@0.2.32", "dsh-pre-duediligence@0.1.19"])
     expect(result.calls.at(-1)).toContain("--allow-build=node-pty,dsh-pre-duediligence")
   })
   it("refuses to downgrade any shared dependency before making a single install", () => {
@@ -67,7 +67,7 @@ describe("installer transaction preflight", () => {
 
     const matching = install({ "dsh-context": { version: "0.48.0" } }, { DSH_PREVISIT_BASELINE: "candidate", TEST_DSH_VERSION: "0.1.2-rc.1" })
     expect(matching.status, matching.stderr).toBe(0)
-    expect(matching.calls.map(args => args[4])).toEqual(["dsh-mcp-connector@0.2.37", "dsh-pre-duediligence@0.1.18"])
+    expect(matching.calls.map(args => args[4])).toEqual(["dsh-mcp-connector@0.2.37", "dsh-pre-duediligence@0.1.19"])
     expect(matching.calls.some(args => args.some(value => value.startsWith("dsh-context@")))).toBe(false)
     expect(matching.calls.some(args => args.some(value => value.startsWith("dsh-better-sidebar@")))).toBe(false)
   })

@@ -37,7 +37,7 @@ export function selectHostedTask(records: HostedTask[], active: ActiveTask | und
 /** Host 工作流已启动后，右侧不再停留在可重复提交的首页。 */
 export function hostedTaskView(task: HostedTask): Exclude<PrevisitView, "target" | "history"> {
   if (task.reportReady || HOSTED_TERMINAL.has(task.state)) return "output"
-  // 配额用完会先进入 finalizing/output，但此时报告仍在会话中生成。
+  // 报告整理中的兼容任务可能先进入 finalizing/output，但制品仍未就绪。
   // 保留最后一个真实查询所在页，用户可以继续看到采集/核验明细变化；
   // 只有报告制品真正就绪后才自动切到材料输出。
   if (task.stage === "output" || task.state === "finalizing") {
@@ -66,12 +66,12 @@ export function hostedProgressCopy(task: HostedTask): { title: string; detail: s
   if (task.state === "finalizing" || task.stage === "output") {
     return {
       title: "正在整理报告",
-      detail: `主体已确认，已完成 ${task.used}/${task.limit} 次查询；正在整理一页纸简报，生成后即可下载。`,
+      detail: `主体已确认，已完成 ${task.used} 次查询；正在整理一页纸简报，生成后即可下载。`,
     }
   }
   return {
     title: "正在尽调",
-    detail: `主体已确认，已同步 ${task.used}/${task.limit} 次查询；资料采集与证据核验状态会随执行更新。`,
+    detail: `主体已确认，已同步 ${task.used} 次查询；资料采集与证据核验状态会随执行更新。`,
   }
 }
 

@@ -1,3 +1,4 @@
+import { type ComposerSelection, type ComposerState } from "./composer-model.js";
 import { type PrevisitStore } from "./previsit-store.js";
 import { type CardSnapshot } from "./report-export.js";
 type InputStateLike = {
@@ -35,6 +36,10 @@ export declare function isolateCompanyInputKey(event: CompanyInputKeyEvent): voi
 export declare function isolateCompanyInputEvent(event: {
     stopPropagation(): void;
 }): void;
+export declare function updateCompanyComposer(current: ComposerState, nativeDraft: string, selection: ComposerSelection, company: string, isolated: boolean): {
+    composer: ComposerState;
+    nativeDraft: string | null;
+};
 export declare function usePrevisitComposer(args: {
     sessionId: string;
     store: PrevisitStore;
@@ -42,11 +47,14 @@ export declare function usePrevisitComposer(args: {
     writeDraft: (text: string) => void;
     start: (prompt: string) => Promise<number>;
     onStarted?: () => void;
+    /** 右侧工作台必须与原生会话输入框隔离，避免输入中文时宿主抢焦点。 */
+    draftMode?: "live" | "isolated";
 }): {
     state: import("./previsit-store.js").PrevisitSessionState;
     manual: boolean;
     error: string | undefined;
     submitting: boolean;
+    isolated: boolean;
     summary: string[];
     toggleSingle: (key: "role" | "purpose" | "budget" | "output", id: string) => void;
     toggleFocus: (id: string) => void;

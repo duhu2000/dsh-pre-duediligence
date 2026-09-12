@@ -70,7 +70,7 @@ export function deriveWorkbenchStatus(input: SessionProgressInput): WorkbenchSta
   return "waiting-agent"
 }
 
-const COMPLETE_OUTCOMES = new Set(["done", "no-data"])
+const COMPLETE_OUTCOMES = new Set(["done", "no-data", "skipped"])
 const REVIEW_OUTCOMES = new Set(["unknown", "no-permission", "not-executed"])
 
 function eventPhase(events: ToolEvent[], taskFailed: boolean): PhaseProgress {

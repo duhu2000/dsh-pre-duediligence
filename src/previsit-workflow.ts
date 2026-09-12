@@ -59,6 +59,68 @@ export type PrevisitTaskRecord = {
   completedAt?: string
 }
 
+export type PrevisitVerificationClosure = {
+  gaps: string[]
+  partialRequired: boolean
+}
+
+const VERIFICATION_DETAIL_LABELS = {
+  dishonest: "失信明细",
+  enforcement: "被执行明细",
+  terminated_cases: "终本案件明细",
+  equity_freeze: "股权冻结明细",
+  business_exception: "经营异常明细",
+  administrative_penalty: "行政处罚明细",
+  tax_abnormal: "税务异常明细",
+  judicial_documents: "裁判文书明细",
+} as const
+
+const UNRESOLVED_VERIFICATION_STATUSES: ReadonlySet<ToolOutcome> = new Set([
+  "failed",
+  "no-permission",
+  "not-executed",
+  "unknown",
+])
+
+/**
+ * Shared verification gate for explicit tool finalization and the UI report
+ * reconciliation fallback. `skipped` is a resolved green state; synthetic
+ * `previsit-pending-*` runs remain open until a real Provider result replaces them.
+ */
+export function previsitVerificationClosure(task: PrevisitTaskRecord): PrevisitVerificationClosure {
+  const verificationDimensions = new Set<string>([
+    "risk_scan",
+    "personnel",
+    "executive_risk",
+    ...Object.keys(VERIFICATION_DETAIL_LABELS),
+  ])
+  const latest = new Map<string, PrevisitRun>()
+  for (const run of task.runs) if (verificationDimensions.has(run.dimension)) latest.set(run.dimension, run)
+  const gaps: string[] = []
+  const isPending = (run: PrevisitRun | undefined) => run === undefined
+    || run.status === "running"
+    || run.id.startsWith("previsit-pending-")
+
+  const riskScan = latest.get("risk_scan")
+  if (isPending(riskScan)) gaps.push("风险扫描未完成")
+  else if (riskScan?.status === "done" || riskScan?.status === "no-data" || riskScan?.status === "skipped") {
+    for (const [dimension, label] of Object.entries(VERIFICATION_DETAIL_LABELS)) {
+      if (isPending(latest.get(dimension))) gaps.push(`${label}未闭环`)
+    }
+  }
+
+  const personnel = latest.get("personnel")
+  if (isPending(personnel)) gaps.push("关键人员查询未完成")
+  else if (personnel?.status === "done" || personnel?.status === "unknown" || personnel?.status === "no-data") {
+    if (isPending(latest.get("executive_risk"))) gaps.push("董监高风险扫描未闭环")
+  }
+
+  return {
+    gaps: [...new Set(gaps)],
+    partialRequired: [...latest.values()].some(run => UNRESOLVED_VERIFICATION_STATUSES.has(run.status)),
+  }
+}
+
 type StorageTable = {
   get(key: string): unknown | Promise<unknown>
   put(key: string, value: unknown): unknown | Promise<unknown>
@@ -99,13 +161,17 @@ function isRecord(value: unknown): value is PrevisitTaskRecord {
 }
 
 function normalizeTerminalRecord(record: PrevisitTaskRecord): PrevisitTaskRecord {
-  const reportReady = typeof record.reportMarkdown === "string" && record.reportMarkdown.trim() !== ""
-  if (PREVISIT_TERMINAL_STATES.has(record.state) || !reportReady) return record
+  // `limit` remains in schema v1 for backward compatibility. Zero is the
+  // unbounded sentinel; migrate previously persisted 8/18/40-call tasks as
+  // they are read so an installed upgrade cannot remain stuck at the old cap.
+  const unlimited = record.limit === 0 ? record : { ...record, limit: 0 }
+  const reportReady = typeof unlimited.reportMarkdown === "string" && unlimited.reportMarkdown.trim() !== ""
+  if (PREVISIT_TERMINAL_STATES.has(unlimited.state) || !reportReady) return unlimited
   return {
-    ...record,
-    state: record.runs.some(run => run.status === "failed") ? "partial" : "completed",
+    ...unlimited,
+    state: unlimited.runs.some(run => run.status === "failed") ? "partial" : "completed",
     stage: "output",
-    completedAt: record.completedAt ?? record.artifact?.createdAt ?? record.updatedAt,
+    completedAt: unlimited.completedAt ?? unlimited.artifact?.createdAt ?? unlimited.updatedAt,
   }
 }
 
@@ -210,7 +276,7 @@ export class PrevisitWorkflowStore {
     workspace: string
     query: string
     depth: "fast" | "standard" | "deep"
-    limit: number
+    limit?: number
   }): Promise<PrevisitTaskRecord> {
     const timestamp = nowIso()
     const id = normalizePrevisitRequestId(input.id) ?? createPrevisitHostTaskId()
@@ -224,7 +290,7 @@ export class PrevisitWorkflowStore {
           ...retained,
           query: input.query,
           depth: input.depth,
-          limit: Math.max(current.used, input.limit),
+          limit: 0,
           state: "needs-entity-search",
           stage: "target",
         }
@@ -238,7 +304,7 @@ export class PrevisitWorkflowStore {
       workspace: input.workspace,
       query: input.query,
       depth: input.depth,
-      limit: input.limit,
+      limit: 0,
       used: 0,
       state: "needs-entity-search",
       stage: "target",
@@ -299,12 +365,12 @@ export class PrevisitWorkflowStore {
       }
       const nextState = run?.dimension === "entity_search"
         ? (status === "done" || status === "unknown" ? "needs-entity-confirmation" : "needs-entity-search")
-        : current.used >= current.limit ? "finalizing" : current.state
+        : current.state
       return {
         ...current,
         runs,
         state: nextState,
-        stage: nextState === "finalizing" ? "output" : current.stage,
+        stage: current.stage,
         ...(status === "failed" ? { lastError: message ?? "查询失败" } : {}),
       }
     })

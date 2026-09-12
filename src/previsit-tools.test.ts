@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { QUERY_ROUTES, registerPrevisitTools, type ToolHost } from "./previsit-tools.js"
+import { PrevisitWorkflowStore } from "./previsit-workflow.js"
 
 const sessionId = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 const company = { fullName: "合成甲公司", creditCode: "913200000000000001" }
@@ -27,7 +28,8 @@ function fixture() {
       },
     },
   }
-  const dispose = registerPrevisitTools(ctx)
+  const workflow = new PrevisitWorkflowStore()
+  const dispose = registerPrevisitTools(ctx, workflow)
   const execution = (name: string, extra: Partial<Execution> = {}): Execution => ({ agent, name, arguments: {}, callId: "outer", rootCallId: "root", token: {}, signal: new AbortController().signal, ...extra })
   const call = (name: string, args: object, extra: Partial<Execution> = {}) => definitions.get(name)!.execute(args, execution(name, extra)) as Promise<Record<string, unknown>>
   const begin = async () => (await call("previsit_begin", { query: "合成公司", depth: "fast" })).taskId as string
@@ -35,7 +37,7 @@ function fixture() {
     await call("previsit_query", { taskId, dimension: "entity_search" })
     await call("previsit_confirm_entity", { taskId, ...company })
   }
-  return { agent, ctx, call, begin, anchor, execution, guard: (exec: Execution) => guard(exec), approval, dispatch, schemas, dispose, definitions, setReply: (value: unknown) => { reply = value } }
+  return { agent, ctx, call, begin, anchor, execution, guard: (exec: Execution) => guard(exec), approval, dispatch, schemas, workflow, dispose, definitions, setReply: (value: unknown) => { reply = value } }
 }
 
 describe("Agent-owned paid-query boundary", () => {
@@ -66,13 +68,15 @@ describe("Agent-owned paid-query boundary", () => {
     expect(f.guard({ ...raw, parent: raw.token })).toContain("禁止绕过")
     expect(f.guard({ ...raw, agent: { ...f.agent, session: { id: "cleaning-session" } } })).toBeUndefined()
   })
-  it("enforces budget before dispatch, including search and failed retries", async () => {
+  it("does not stop at the former fast-depth eight-call limit", async () => {
     const f = fixture(), taskId = await f.begin()
     await f.anchor(taskId)
     f.dispatch.mockResolvedValue({ isError: true, value: { code: 403 }, content: [] })
-    for (let i = 0; i < 7; i++) await f.call("previsit_query", { taskId, dimension: "profile" })
-    expect(await f.call("previsit_query", { taskId, dimension: "profile" })).toMatchObject({ outcome: "not-executed", reason: "调用预算已用完" })
-    expect(f.dispatch).toHaveBeenCalledTimes(8)
+    for (let i = 0; i < 10; i++) {
+      await expect(f.call("previsit_query", { taskId, dimension: "profile" })).resolves.toMatchObject({ outcome: "failed", unlimited: true })
+    }
+    expect(f.dispatch).toHaveBeenCalledTimes(11)
+    await expect(f.workflow.get(taskId)).resolves.toMatchObject({ used: 11, limit: 0, state: "running" })
   })
   it("reuses the visible PV task when the user corrects the search text", async () => {
     const f = fixture()
@@ -115,8 +119,42 @@ describe("Agent-owned paid-query boundary", () => {
     expect(await f.call("previsit_query", { taskId, dimension: "dishonest" })).toMatchObject({ outcome: "not-executed" })
     f.setReply({ dishonest: 0 })
     await f.call("previsit_query", { taskId, dimension: "risk_scan" })
-    expect(await f.call("previsit_query", { taskId, dimension: "dishonest" })).toMatchObject({ outcome: "not-executed", reason: "扫描返回零记录，不下钻" })
+    expect(await f.call("previsit_query", { taskId, dimension: "dishonest" })).toMatchObject({ outcome: "skipped", reason: "风险扫描为 0，无需下钻" })
+    const record = await f.workflow.get(taskId)
+    expect(record?.runs.filter(run => run.status === "skipped")).toHaveLength(1)
     await expect(f.call("previsit_query", { taskId, dimension: "executive_risk", personName: "猜测姓名" })).rejects.toThrow("实际关键人员")
+  })
+  it("marks every zero-count risk detail and an unavailable executive scan as explicitly skipped", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    f.setReply(Object.fromEntries(["dishonest", "enforcement", "terminated_cases", "equity_freeze", "business_exception", "administrative_penalty", "tax_abnormal", "judicial_documents"].map(key => [key, 0])))
+    await f.call("previsit_query", { taskId, dimension: "risk_scan" })
+    f.setReply([])
+    await f.call("previsit_query", { taskId, dimension: "personnel" })
+    const record = await f.workflow.get(taskId)
+    expect(record?.runs.filter(run => run.status === "skipped").map(run => run.dimension)).toEqual([
+      "dishonest", "enforcement", "terminated_cases", "equity_freeze", "business_exception", "administrative_penalty", "tax_abnormal", "judicial_documents", "executive_risk",
+    ])
+    expect(record?.runs.filter(run => run.status === "skipped").every(run => run.quotaUsed === false)).toBe(true)
+  })
+  it("shows nonzero risk details and available executives as pending, then blocks finalization until queried", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    const counts = Object.fromEntries(["dishonest", "enforcement", "terminated_cases", "equity_freeze", "business_exception", "administrative_penalty", "tax_abnormal", "judicial_documents"].map(key => [key, key === "dishonest" ? 2 : 0]))
+    f.setReply(counts)
+    await f.call("previsit_query", { taskId, dimension: "risk_scan" })
+    f.setReply([{ name: "张三", position: "董事" }])
+    await f.call("previsit_query", { taskId, dimension: "personnel" })
+    const pending = await f.workflow.get(taskId)
+    expect(pending?.runs.find(run => run.dimension === "dishonest" && run.id.startsWith("previsit-pending-"))).toMatchObject({ status: "not-executed", message: "风险扫描命中 2 条，等待明细下钻" })
+    expect(pending?.runs.find(run => run.dimension === "executive_risk" && run.id.startsWith("previsit-pending-"))).toMatchObject({ status: "not-executed", message: "已取得关键人员，等待董监高风险扫描" })
+    const report = "# 访前尽调报告 · 合成甲公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map((section, index) => `## ${index + 1}、${section}\n合成内容`).join("\n")
+    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).rejects.toThrow("失信明细未闭环")
+    f.setReply([{ id: "risk-1" }])
+    await f.call("previsit_query", { taskId, dimension: "dishonest" })
+    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).rejects.toThrow("董监高风险扫描未闭环")
+    await f.call("previsit_query", { taskId, dimension: "executive_risk", personName: "张三" })
+    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).resolves.toMatchObject({ status: "completed" })
   })
   it("aborts on unload, ignores late results and unregisters its tools", async () => {
     const f = fixture(), taskId = await f.begin()
@@ -150,7 +188,12 @@ describe("Agent-owned paid-query boundary", () => {
     await f.anchor(taskId)
     const report = "# 访前尽调报告 · 合成甲公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map((section, index) => `## ${index + 1}、${section}\n合成内容`).join("\n")
     await expect(f.call("previsit_finalize", { taskId, reportMarkdown: "## 核心研判\n不完整" })).rejects.toThrow("完整报告")
-    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).resolves.toMatchObject({ taskId, status: "completed", used: 1 })
+    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).rejects.toThrow("证据核验未闭环")
+    f.setReply({ data: [] })
+    await f.call("previsit_query", { taskId, dimension: "risk_scan" })
+    f.setReply([])
+    await f.call("previsit_query", { taskId, dimension: "personnel" })
+    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).resolves.toMatchObject({ taskId, status: "completed", used: 3, unlimited: true })
     const calls = f.dispatch.mock.calls.length
     await expect(f.call("previsit_query", { taskId, dimension: "profile" })).rejects.toThrow("任务已结束")
     expect(f.dispatch).toHaveBeenCalledTimes(calls)

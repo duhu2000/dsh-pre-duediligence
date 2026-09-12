@@ -75,13 +75,13 @@ describe("Host 任务接管", () => {
       stage: "collect",
       used: 4,
       entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
-    }))).toEqual({ title: "正在尽调", detail: "主体已确认，已同步 4/8 次查询；资料采集与证据核验状态会随执行更新。" })
+    }))).toEqual({ title: "正在尽调", detail: "主体已确认，已同步 4 次查询；资料采集与证据核验状态会随执行更新。" })
     expect(hostedProgressCopy(makeHosted({
       state: "finalizing",
       stage: "output",
       used: 8,
       entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
-    }))).toEqual({ title: "正在整理报告", detail: "主体已确认，已完成 8/8 次查询；正在整理一页纸简报，生成后即可下载。" })
+    }))).toEqual({ title: "正在整理报告", detail: "主体已确认，已完成 8 次查询；正在整理一页纸简报，生成后即可下载。" })
   })
 
   it("同步 PVT 任务、已锭定主体全称和资料采集视图", () => {

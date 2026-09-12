@@ -1,4 +1,5 @@
-// 输入框上方的“尽调设定条”：点选条件实时写进 DSH 原生输入框；开始尽调走带任务 ID 的正式提交。
+// 输入框上方的提示词生成器可回填 DSH 草稿；右侧工作台表单则保持本地隔离，
+// 仅在点击“开始尽调”后发送带任务 ID 的正式请求。
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 
@@ -9,6 +10,7 @@ import {
   PURPOSE_OPTIONS,
   ROLE_OPTIONS,
   applySelection,
+  composeFullSentence,
   createTaskId,
   generateFromSelection,
   serializePrevisitRequest,
@@ -16,6 +18,7 @@ import {
   validateComposerText,
   type ComposerOption,
   type ComposerSelection,
+  type ComposerState,
 } from "./composer-model.js"
 import { EMPTY_SESSION_STATE, summarizeSelection, type DiligenceMode, type PrevisitStore } from "./previsit-store.js"
 import { adoptTaskFromSnapshot, type CardSnapshot } from "./report-export.js"
@@ -76,6 +79,24 @@ export function isolateCompanyInputEvent(event: { stopPropagation(): void }): vo
   event.stopPropagation()
 }
 
+export function updateCompanyComposer(
+  current: ComposerState,
+  nativeDraft: string,
+  selection: ComposerSelection,
+  company: string,
+  isolated: boolean,
+): { composer: ComposerState; nativeDraft: string | null } {
+  const generated = composeFullSentence(selection, company)
+  if (isolated) {
+    return {
+      composer: { text: generated, lastGenerated: generated, lastCompany: company.trim(), mode: "generated" },
+      nativeDraft: null,
+    }
+  }
+  const composer = applySelection({ ...updateManualText(current, nativeDraft), lastCompany: company }, selection, company)
+  return { composer, nativeDraft: composer.mode === "generated" ? composer.text : null }
+}
+
 export function usePrevisitComposer(args: {
   sessionId: string
   store: PrevisitStore
@@ -83,6 +104,8 @@ export function usePrevisitComposer(args: {
   writeDraft: (text: string) => void
   start: (prompt: string) => Promise<number>
   onStarted?: () => void
+  /** 右侧工作台必须与原生会话输入框隔离，避免输入中文时宿主抢焦点。 */
+  draftMode?: "live" | "isolated"
 }) {
   const { sessionId, store } = args
   const state = useSyncExternalStore(store.subscribe, () => store.get(sessionId), () => EMPTY_SESSION_STATE)
@@ -95,15 +118,17 @@ export function usePrevisitComposer(args: {
     lifetime.current = token
     return () => { token.active = false }
   }, [sessionId])
-  const draft = args.readDraft()
+  const isolated = args.draftMode === "isolated"
+  const draft = isolated ? state.composer.text : args.readDraft()
   const synced = updateManualText(state.composer, draft)
   const manual = synced.mode === "manual" && draft.trim() !== ""
 
   const write = (selection: ComposerSelection, company: string) => {
-    const base = { ...updateManualText(state.composer, args.readDraft()), lastCompany: company }
-    const next = applySelection(base, selection, company)
-    if (next.mode === "generated") args.writeDraft(next.text)
-    store.update(sessionId, s => ({ ...s, selection, company, composer: next }))
+    // 工作台表单只写会话级插件 Store；不得逐字调用宿主 setDraft。宿主在
+    // setDraft 后会重新聚焦原生 composer，正是中文只输入一半便跳走的根因。
+    const next = updateCompanyComposer(state.composer, args.readDraft(), selection, company, isolated)
+    if (next.nativeDraft !== null) args.writeDraft(next.nativeDraft)
+    store.update(sessionId, s => ({ ...s, selection, company, composer: next.composer }))
     setError(undefined)
   }
   const toggleSingle = (key: "role" | "purpose" | "budget" | "output", id: string) => {
@@ -123,19 +148,21 @@ export function usePrevisitComposer(args: {
     store.update(sessionId, s => ({ ...s, composer: next }))
   }
   const reset = () => {
-    args.writeDraft("")
+    if (!isolated) args.writeDraft("")
     store.update(sessionId, s => ({ ...EMPTY_SESSION_STATE, task: s.task, panel: s.panel, view: s.view, dismissedTaskIds: s.dismissedTaskIds, minimumNodeBaseline: s.minimumNodeBaseline }))
     setError(undefined)
   }
   const startTask = async () => {
     if (inFlight.current) return
     const lifetimeToken = lifetime.current
-    const text = args.readDraft().trim()
+    const current = store.get(sessionId)
+    // 隔离模式在点击“开始尽调”时才构造正式请求，输入过程不会污染或发送
+    // 原生会话草稿；live 模式仍保留提示词生成器的原有回填能力。
+    const text = (isolated ? composeFullSentence(current.selection, current.company) : args.readDraft()).trim()
     const invalid = validateComposerText(text)
     if (invalid !== undefined) { setError(invalid); return }
     const id = createTaskId()
     const prompt = serializePrevisitRequest(text, id)
-    const current = store.get(sessionId)
     const selection = { ...current.selection, focus: [...current.selection.focus] }
     const company = current.company.trim()
     inFlight.current = true
@@ -159,7 +186,7 @@ export function usePrevisitComposer(args: {
   const summary = summarizeSelection(state, {
     role: labelOf(ROLE_OPTIONS), purpose: labelOf(PURPOSE_OPTIONS), focus: labelOf(FOCUS_OPTIONS), budget: labelOf(BUDGET_OPTIONS), output: labelOf(OUTPUT_OPTIONS),
   })
-  return { state, manual, error, submitting, summary, toggleSingle, toggleFocus, setCompany, append, reset, startTask }
+  return { state, manual, error, submitting, isolated, summary, toggleSingle, toggleFocus, setCompany, append, reset, startTask }
 }
 
 // 六行表单 + 底部动作（两处渲染同一份）
@@ -175,6 +202,8 @@ export function PrevisitFields(props: { actions: ComposerActions; idPrefix: stri
           className="qccDockCompany"
           value={st.company}
           placeholder="企业全称或统一社会信用代码"
+          data-previsit-company-input="true"
+          autoComplete="off"
           onChange={e => a.setCompany(e.target.value)}
           onKeyDownCapture={isolateCompanyInputKey}
           onKeyUpCapture={isolateCompanyInputEvent}
@@ -190,7 +219,7 @@ export function PrevisitFields(props: { actions: ComposerActions; idPrefix: stri
       <div className="qccDockRow"><span className="qccDockLabel">输出</span><Chips options={OUTPUT_OPTIONS} selected={st.selection.output === undefined ? [] : [st.selection.output]} onToggle={id => a.toggleSingle("output", id)} /></div>
       <div className="qccDockFoot">
         <span className="qccDockHint" data-tone={a.error === undefined ? undefined : "error"}>
-          {a.error ?? (a.manual ? "输入框里有你手写的内容，点选不会覆盖；「按条件补充」会另起一句追加" : "条件实时写进输入框，可以直接改；改好后点「开始尽调」")}
+          {a.error ?? (a.isolated ? "设置仅保留在右侧工作台；输入完整后点击「开始尽调」" : a.manual ? "输入框里有你手写的内容，点选不会覆盖；「按条件补充」会另起一句追加" : "条件实时写进输入框，可以直接改；改好后点「开始尽调」")}
         </span>
         <div className="qccDockActions">
           <button type="button" className="qccDockBtn" onClick={a.reset}>清空</button>

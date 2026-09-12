@@ -44,6 +44,16 @@ export type PrevisitTaskRecord = {
     updatedAt: string;
     completedAt?: string;
 };
+export type PrevisitVerificationClosure = {
+    gaps: string[];
+    partialRequired: boolean;
+};
+/**
+ * Shared verification gate for explicit tool finalization and the UI report
+ * reconciliation fallback. `skipped` is a resolved green state; synthetic
+ * `previsit-pending-*` runs remain open until a real Provider result replaces them.
+ */
+export declare function previsitVerificationClosure(task: PrevisitTaskRecord): PrevisitVerificationClosure;
 type StorageTable = {
     get(key: string): unknown | Promise<unknown>;
     put(key: string, value: unknown): unknown | Promise<unknown>;
@@ -79,7 +89,7 @@ export declare class PrevisitWorkflowStore {
         workspace: string;
         query: string;
         depth: "fast" | "standard" | "deep";
-        limit: number;
+        limit?: number;
     }): Promise<PrevisitTaskRecord>;
     update(id: string, updater: (record: PrevisitTaskRecord) => PrevisitTaskRecord): Promise<PrevisitTaskRecord>;
     startRun(id: string, input: {

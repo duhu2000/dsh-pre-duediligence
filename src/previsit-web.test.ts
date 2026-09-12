@@ -25,6 +25,20 @@ describe("previsit Host routes", () => {
     }
     expect((await call(`/previsit/api/tasks/${task.id}/report?sessionId=${encodeURIComponent(sessionId)}`)).status).toBe(409)
     expect((await call(`/previsit/api/tasks/${task.id}/report?sessionId=${encodeURIComponent("session-dsh-pre-duediligence-other")}`)).status).toBe(403)
+    const incomplete = await call(`/previsit/api/tasks/${task.id}/report?sessionId=${encodeURIComponent(sessionId)}`, "PUT", { reportMarkdown: report, status: "completed" })
+    expect(incomplete.status).toBe(409)
+    expect(JSON.parse(incomplete.body)).toMatchObject({ code: "PREVISIT_VERIFICATION_INCOMPLETE" })
+    const addRun = async (dimension: string, status: "done" | "no-data" | "skipped") => {
+      const runId = `test-${dimension}`
+      await workflow.startRun(task.id, { runId, dimension, quotaUsed: false })
+      await workflow.finishRun(task.id, runId, status)
+    }
+    await addRun("risk_scan", "no-data")
+    for (const dimension of ["dishonest", "enforcement", "terminated_cases", "equity_freeze", "business_exception", "administrative_penalty", "tax_abnormal", "judicial_documents"]) {
+      await addRun(dimension, "skipped")
+    }
+    await addRun("personnel", "no-data")
+    await addRun("executive_risk", "skipped")
     const finalized = await call(`/previsit/api/tasks/${task.id}/report?sessionId=${encodeURIComponent(sessionId)}`, "PUT", { reportMarkdown: report, status: "completed" })
     expect(finalized.status).toBe(200)
     expect(JSON.parse(finalized.body).task).toMatchObject({ state: "completed", reportReady: true })

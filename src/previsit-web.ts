@@ -1,6 +1,6 @@
 import { buildPrevisitReportHtml } from "./report-export.js"
 import { isPrevisitSession } from "./previsit-session.js"
-import { normalizePrevisitRequestId, validatePrevisitReport, type PrevisitTaskRecord, type PrevisitWorkflowStore } from "./previsit-workflow.js"
+import { normalizePrevisitRequestId, previsitVerificationClosure, validatePrevisitReport, type PrevisitTaskRecord, type PrevisitWorkflowStore } from "./previsit-workflow.js"
 
 type RequestLike = AsyncIterable<Uint8Array> & {
   method?: string
@@ -100,7 +100,16 @@ export function mountPrevisitWebRoutes(webServer: WebServer, workflow: PrevisitW
             const payload = await readJson(req)
             if (typeof payload.reportMarkdown !== "string") return writeJson(res, 400, { ok: false, code: "PREVISIT_REPORT", message: "reportMarkdown required" })
             const reportMarkdown = validatePrevisitReport(payload.reportMarkdown, task.entity?.fullName)
-            const completed = await workflow.finalize(task.id, reportMarkdown, payload.status === "partial" ? "partial" : "completed")
+            const closure = previsitVerificationClosure(task)
+            if (closure.gaps.length > 0) {
+              return writeJson(res, 409, {
+                ok: false,
+                code: "PREVISIT_VERIFICATION_INCOMPLETE",
+                message: `证据核验未闭环：${closure.gaps.join("；")}`,
+              })
+            }
+            const status = payload.status === "partial" || closure.partialRequired ? "partial" : "completed"
+            const completed = await workflow.finalize(task.id, reportMarkdown, status)
             return writeJson(res, 200, { ok: true, marker: "previsit-workflow-v1", task: { ...publicTask(completed), reportMarkdown: completed.reportMarkdown } })
           }
           if (req.method !== "GET") return writeJson(res, 405, { ok: false, code: "PREVISIT_METHOD", message: "GET or PUT required" })

@@ -11,6 +11,7 @@ describe("provider outcome facts", () => {
     [{ status: "failed", total: 0 }, "failed"],
     [{ status: "no-permission", count: 0 }, "no-permission"],
     [{ status: "not-executed", data: [] }, "not-executed"],
+    [{ status: "skipped", reason: "无需执行" }, "skipped"],
   ])("classifies explicit signals without inferring success from prose", (value, expected) => {
     expect(classifyToolOutcome(value)).toBe(expected)
   })
@@ -25,7 +26,7 @@ describe("provider outcome facts", () => {
   it("never explains an unexecuted drill-down as zero records without evidence", () => {
     const steps = riskSteps([], parseCardInsights("## 核心研判\n未定\n## 覆盖说明\n风险服务未接入"), true)
     expect(steps.every(s => s.state !== "done")).toBe(true)
-    expect(steps[1]?.note).not.toContain("零记录")
+    expect(steps[1]?.note ?? "").not.toContain("零记录")
   })
   it("不隐藏最新失败，并将已生成报告中的部分阶段标记待处理", () => {
     const phases = derivePhaseStates({

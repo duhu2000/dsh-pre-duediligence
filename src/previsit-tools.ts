@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { isPrevisitSession } from "./previsit-session.js"
 import { classifyToolOutcome } from "./tool-outcome.js"
-import { normalizePrevisitRequestId, PrevisitWorkflowStore, validatePrevisitReport } from "./previsit-workflow.js"
+import { normalizePrevisitRequestId, previsitVerificationClosure, PrevisitWorkflowStore, validatePrevisitReport } from "./previsit-workflow.js"
 
 // Business vocabulary is fixed here; the browser/model cannot dispatch an arbitrary MCP tool.
 export const QUERY_ROUTES = {
@@ -54,8 +54,9 @@ export type ToolHost = {
   }
   get?(name: string): unknown
 }
-type Task = { id: string; owner: string; query: string; depth: keyof typeof LIMITS; limit: number; used: number; search: unknown; personnel?: unknown; risk?: unknown; entity?: { fullName: string; creditCode: string }; busy: boolean }
-const LIMITS = { fast: 8, standard: 18, deep: 40 } as const
+type Task = { id: string; owner: string; query: string; depth: keyof typeof DEPTHS; used: number; search: unknown; personnel?: unknown; risk?: unknown; entity?: { fullName: string; creditCode: string }; busy: boolean }
+const DEPTHS = { fast: true, standard: true, deep: true } as const
+const RISK_DETAIL_DIMENSIONS = ["dishonest", "enforcement", "terminated_cases", "equity_freeze", "business_exception", "administrative_penalty", "tax_abnormal", "judicial_documents"] as const
 const qccTool = (name: string) => /^mcp__(?:qcc(?:[-_][A-Za-z0-9_-]+)?|company|risk|ipr|operation|executive)__/.test(name)
 const ownerOf = (agent: Agent) => JSON.stringify([agent.id, agent.session.id, agent.session.header?.cwd ?? ""])
 const object = (value: unknown): Record<string, unknown> => {
@@ -100,7 +101,7 @@ function containsEntity(value: unknown, name: string, code: string, depth = 0): 
   return (!Array.isArray(value) && values.includes(name) && values.includes(code)) || values.some(v => containsEntity(v, name, code, depth + 1))
 }
 
-/** Host-owned admission, entity binding, progress and bounded ToolRuntime dispatch. */
+/** Host-owned admission, entity binding, progress and fixed-route ToolRuntime dispatch. */
 export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWorkflowStore()): () => void {
   const tasks = new Map<string, Task>()
   const beginning = new Set<string>()
@@ -112,7 +113,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
     if (!exec.agent || !isPrevisitSession(exec.agent.session.id) || !qccTool(exec.name)) return undefined
     const permit = permits.get(exec.callId)
     return !disposed && permit?.owner === ownerOf(exec.agent) && permit.name === exec.name && permit.parent === exec.parent
-      ? undefined : "访前企查查调用必须通过 previsit_begin / previsit_confirm_entity / previsit_query；禁止绕过主体与预算。"
+      ? undefined : "访前企查查调用必须通过 previsit_begin / previsit_confirm_entity / previsit_query；禁止绕过主体绑定与固定业务路由。"
   }))
   const register = (name: string, description: string, properties: object, required: string[], execute: (args: Record<string, unknown>, exec: Execution, agent: Agent) => Promise<unknown>) => {
     disposers.push(ctx.tools.register({
@@ -133,13 +134,12 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       },
     }))
   }
-  register("previsit_begin", "开始访前尽调。用户发送任务即同意按所选 8/18/40 次上限执行；不要再次请求 MCP 权限确认。若提示中含 PV 任务 ID，必须作为 requestId 传入，以便工作台同步。", {
-    query: { type: "string" }, depth: { type: "string", enum: Object.keys(LIMITS) }, requestId: { type: "string" },
+  register("previsit_begin", "开始访前尽调。用户发送任务即同意在固定业务路由内连续执行；不要再次请求 MCP 权限确认。深度只控制覆盖优先级与目标时长，不设置插件调用次数上限。若提示中含 PV 任务 ID，必须作为 requestId 传入，以便工作台同步。", {
+    query: { type: "string" }, depth: { type: "string", enum: Object.keys(DEPTHS) }, requestId: { type: "string" },
   }, ["query", "depth"], async (args, exec, agent) => {
     const query = string(args.query)
-    const depth = string(args.depth) as keyof typeof LIMITS
-    const limit = LIMITS[depth]
-    if (!Object.hasOwn(LIMITS, depth)) throw new Error("无效尽调档位")
+    const depth = string(args.depth) as keyof typeof DEPTHS
+    if (!Object.hasOwn(DEPTHS, depth)) throw new Error("无效尽调档位")
     const owner = ownerOf(agent)
     if (beginning.has(owner) || tasks.get(owner)?.busy) throw new Error("当前任务仍有未完成操作，请等待完成")
     beginning.add(owner)
@@ -153,13 +153,13 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
         workspace: agent.session.header?.cwd ?? "",
         query,
         depth,
-        limit,
+        limit: 0,
       })
       const task: Task = prior?.id === record.id && prior.entity === undefined
-        ? { ...prior, query, depth, limit: record.limit, used: record.used, search: null, personnel: undefined, risk: undefined, busy: false }
-        : { id: record.id, owner, query, depth, limit: record.limit, used: record.used, search: null, busy: false }
+        ? { ...prior, query, depth, used: record.used, search: null, personnel: undefined, risk: undefined, busy: false }
+        : { id: record.id, owner, query, depth, used: record.used, search: null, busy: false }
       tasks.set(owner, task)
-      return { taskId: task.id, query, limit: task.limit, used: task.used, status: "needs-entity-search" }
+      return { taskId: task.id, query, unlimited: true, used: task.used, status: "needs-entity-search" }
     } finally { beginning.delete(owner) }
   })
   const requireTask = (args: Record<string, unknown>, agent: Agent) => {
@@ -186,26 +186,35 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       return { taskId: task.id, entity: task.entity, status: "entity-confirmed" }
     } finally { task.busy = false }
   })
-  register("previsit_query", "查询已确认任务的一项业务维度。首先 entity_search；确认唯一主体后再查询其余维度。固定路由、预算内执行，不接受动态 MCP 名称或跨企业参数。", {
+  const recordSyntheticOutcome = async (task: Task, dimension: keyof typeof QUERY_ROUTES, outcome: "skipped" | "not-executed", reason: string, pending = false) => {
+    const record = await workflow.get(task.id)
+    const latest = [...(record?.runs ?? [])].reverse().find(run => run.dimension === dimension)
+    if (latest?.status === outcome && latest.message === reason) return
+    const [server, tool] = QUERY_ROUTES[dimension]
+    const runId = `previsit-${pending ? "pending" : outcome}-${randomUUID()}`
+    await workflow.startRun(task.id, { runId, dimension, toolName: `mcp__qcc_${server}__${tool}`, quotaUsed: false })
+    await workflow.finishRun(task.id, runId, outcome, reason)
+  }
+
+  register("previsit_query", "查询已确认任务的一项业务维度。首先 entity_search；确认唯一主体后再查询其余维度。仅按固定路由执行，不设置插件调用次数上限，也不接受动态 MCP 名称或跨企业参数。", {
     taskId: { type: "string" }, dimension: { type: "string", enum: [...Object.keys(QUERY_ROUTES), ...Object.keys(QUERY_ROUTE_ALIASES)] }, personName: { type: "string" },
   }, ["taskId", "dimension"], async (args, exec, agent) => {
     const task = requireTask(args, agent)
     const requestedDimension = string(args.dimension)
     const dimension = (QUERY_ROUTE_ALIASES[requestedDimension as keyof typeof QUERY_ROUTE_ALIASES] ?? requestedDimension) as keyof typeof QUERY_ROUTES
     if (!Object.hasOwn(QUERY_ROUTES, dimension)) throw new Error("不支持的业务维度")
-    const skipped = async (reason: string) => {
-      const runId = `previsit-skip-${randomUUID()}`
-      await workflow.startRun(task.id, { runId, dimension, quotaUsed: false })
-      await workflow.finishRun(task.id, runId, "not-executed", reason)
-      return { taskId: task.id, dimension, outcome: "not-executed", reason, used: task.used, limit: task.limit }
+    const skipped = async (reason: string, outcome: "skipped" | "not-executed" = "not-executed") => {
+      await recordSyntheticOutcome(task, dimension, outcome, reason)
+      const [server, tool] = QUERY_ROUTES[dimension]
+      return { taskId: task.id, dimension, toolName: `mcp__qcc_${server}__${tool}`, outcome, reason, used: task.used, unlimited: true }
     }
-    if (task.used >= task.limit) return skipped("调用预算已用完")
     if (dimension !== "entity_search" && !task.entity) throw new Error("必须先搜索并经用户确认唯一法律实体")
     if (dimension === "entity_search" && task.entity) throw new Error("已确认主体；重新搜索前请建立并确认新任务")
     const [server, tool] = QUERY_ROUTES[dimension]
     if (server === "risk" && dimension !== "risk_scan") {
       const count = scanCount(task.risk, dimension, tool)
-      if (count === undefined || count === 0) return skipped(count === 0 ? "扫描返回零记录，不下钻" : "尚无可核验的非零扫描计数；请核对 Provider 扫描契约")
+      if (count === 0) return skipped("风险扫描为 0，无需下钻", "skipped")
+      if (count === undefined) return skipped("尚无可核验的非零扫描计数；请核对 Provider 扫描契约")
     }
     const tools = ctx.tools.schemas(agent).filter(s => s.name === `mcp__qcc_${server}__${tool}` || s.name === `mcp__qcc-${server}__${tool}` || s.name === `mcp__${server}__${tool}`)
     if (tools.length !== 1) return skipped(tools.length ? "存在多个同名来源，请检查 MCP 连接" : "所需 MCP 服务未接入或工具接口不匹配")
@@ -234,13 +243,35 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       if (!result.isError && result.concludesTurn) exec.concludeTurn?.()
       exec.signal.throwIfAborted()
       const data = structured(result)
-      const outcome = result.isError ? classifyToolOutcome({ code: result.error?.info?.code }, true) : classifyToolOutcome(data)
+      let outcome = result.isError ? classifyToolOutcome({ code: result.error?.info?.code }, true) : classifyToolOutcome(data)
+      // A risk scan with at least one recognized integer count satisfies its
+      // business contract even when the Provider omits a generic status/data wrapper.
+      if (!result.isError && dimension === "risk_scan" && outcome === "unknown"
+        && RISK_DETAIL_DIMENSIONS.some(detail => scanCount(data, detail, QUERY_ROUTES[detail][1]) !== undefined)) outcome = "done"
       const usable = !result.isError && !["failed", "no-permission", "not-executed", "no-data"].includes(outcome)
       if (dimension === "entity_search") task.search = usable ? data : null
       if (dimension === "personnel") task.personnel = usable ? data : null
       if (dimension === "risk_scan") task.risk = usable ? data : null
       await workflow.finishRun(task.id, callId, outcome, result.isError ? result.error?.message ?? "查询失败" : undefined)
-      return { taskId: task.id, dimension, ...(requestedDimension === dimension ? {} : { requestedDimension }), toolName: selected.name, outcome, used: task.used, limit: task.limit, data: result.isError ? { message: result.error?.message ?? "查询失败" } : data }
+      if (dimension === "risk_scan" && outcome === "no-data") {
+        for (const detail of RISK_DETAIL_DIMENSIONS) {
+          await recordSyntheticOutcome(task, detail, "skipped", "风险扫描无记录，无需下钻")
+        }
+      } else if (dimension === "risk_scan" && usable) {
+        for (const detail of RISK_DETAIL_DIMENSIONS) {
+          const [, detailTool] = QUERY_ROUTES[detail]
+          const count = scanCount(data, detail, detailTool)
+          if (count === 0) await recordSyntheticOutcome(task, detail, "skipped", "风险扫描为 0，无需下钻")
+          else if (count === undefined) await recordSyntheticOutcome(task, detail, "not-executed", "风险扫描未返回可映射计数，无法判定是否需要下钻")
+          else await recordSyntheticOutcome(task, detail, "not-executed", `风险扫描命中 ${count} 条，等待明细下钻`, true)
+        }
+      }
+      if (dimension === "personnel" && outcome === "no-data") {
+        await recordSyntheticOutcome(task, "executive_risk", "skipped", "未取得可核验关键人员，无需执行董监高风险扫描")
+      } else if (dimension === "personnel" && (outcome === "done" || outcome === "unknown")) {
+        await recordSyntheticOutcome(task, "executive_risk", "not-executed", "已取得关键人员，等待董监高风险扫描", true)
+      }
+      return { taskId: task.id, dimension, ...(requestedDimension === dimension ? {} : { requestedDimension }), toolName: selected.name, outcome, used: task.used, unlimited: true, data: result.isError ? { message: result.error?.message ?? "查询失败" } : data }
     } catch (error) {
       if (runStarted) await workflow.finishRun(task.id, callId, "failed", error instanceof Error ? error.message : String(error)).catch(() => {})
       throw error
@@ -252,14 +283,18 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
     const task = requireTask(args, agent)
     if (task.entity === undefined) throw new Error("必须先确认唯一法律实体")
     const reportMarkdown = validatePrevisitReport(reportString(args.reportMarkdown), task.entity.fullName)
+    const current = await workflow.get(task.id)
+    if (current === undefined) throw new Error("访前任务不存在")
+    const closure = previsitVerificationClosure(current)
+    if (closure.gaps.length > 0) throw new Error(`证据核验未闭环：${closure.gaps.join("；")}。完成查询，或记录明确失败/无需执行后再生成报告`)
     exec.signal.throwIfAborted()
-    const status = args.status === "partial" ? "partial" : "completed"
+    const status = args.status === "partial" || closure.partialRequired ? "partial" : "completed"
     const record = await workflow.finalize(task.id, reportMarkdown, status)
     return {
       taskId: task.id,
       status: record.state,
       used: record.used,
-      limit: record.limit,
+      unlimited: true,
       entity: record.entity,
       artifact: record.artifact,
       reportUrl: `/previsit/api/tasks/${encodeURIComponent(task.id)}/report?sessionId=${encodeURIComponent(agent.session.id)}`,

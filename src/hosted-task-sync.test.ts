@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { hostedStatus, hostedTaskView, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
+import { hostedProgressCopy, hostedStatus, hostedTaskView, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import type { ActiveTask } from "./previsit-store.js"
 import { EMPTY_SESSION_STATE } from "./previsit-store.js"
 
@@ -49,10 +49,39 @@ describe("Host 任务接管", () => {
     expect(hostedTaskView(makeHosted())).toBe("scope")
     expect(hostedTaskView(makeHosted({ state: "running", stage: "collect" }))).toBe("collect")
     expect(hostedTaskView(makeHosted({ state: "running", stage: "verify" }))).toBe("verify")
-    expect(hostedTaskView(makeHosted({ state: "finalizing", stage: "output" }))).toBe("output")
+    expect(hostedTaskView(makeHosted({ state: "finalizing", stage: "output" }))).toBe("scope")
+    expect(hostedTaskView(makeHosted({
+      state: "finalizing",
+      stage: "output",
+      entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
+      runs: [{ id: "risk-1", dimension: "risk_scan", status: "done", quotaUsed: true, startedAt: "2026-09-11T12:01:00.000Z" }],
+    }))).toBe("verify")
+    expect(hostedTaskView(makeHosted({
+      state: "finalizing",
+      stage: "output",
+      entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
+      runs: [{ id: "profile-1", dimension: "profile", status: "done", quotaUsed: true, startedAt: "2026-09-11T12:01:00.000Z" }],
+    }))).toBe("collect")
+    expect(hostedTaskView(makeHosted({ state: "completed", stage: "output", reportReady: true }))).toBe("output")
     expect(hostedStatus(makeHosted({ state: "running", stage: "collect" }))).toBe("running")
     expect(hostedStatus(makeHosted({ state: "needs-entity-confirmation", stage: "target" }))).toBe("waiting-agent")
     expect(hostedStatus(makeHosted({ state: "finalizing", stage: "output", reportReady: true, completedAt: "2026-09-11T12:05:00.000Z" }))).toBe("ready")
+  })
+
+  it("只在候选主体阶段提示确认，主体锚定后显示真实查询与报告整理进度", () => {
+    expect(hostedProgressCopy(makeHosted({ state: "needs-entity-confirmation" }))).toMatchObject({ title: "等待确认拜访客户" })
+    expect(hostedProgressCopy(makeHosted({
+      state: "running",
+      stage: "collect",
+      used: 4,
+      entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
+    }))).toEqual({ title: "正在尽调", detail: "主体已确认，已同步 4/8 次查询；资料采集与证据核验状态会随执行更新。" })
+    expect(hostedProgressCopy(makeHosted({
+      state: "finalizing",
+      stage: "output",
+      used: 8,
+      entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
+    }))).toEqual({ title: "正在整理报告", detail: "主体已确认，已完成 8/8 次查询；正在整理一页纸简报，生成后即可下载。" })
   })
 
   it("同步 PVT 任务、已锭定主体全称和资料采集视图", () => {
@@ -68,8 +97,19 @@ describe("Host 任务接管", () => {
       { id: "turn:7", prompt: active.prompt, nodeBaseline: 7 },
       true,
     )
-    expect(result.task).toMatchObject({ id: record.id, captureId: "turn:7", nodeBaseline: 7, seenRunning: true })
+    expect(result.task).toMatchObject({ id: record.id, captureId: "turn:7", company: "思必驰科技股份有限公司", nodeBaseline: 7, seenRunning: true })
     expect(result.company).toBe("思必驰科技股份有限公司")
     expect(result.view).toBe("collect")
+  })
+
+  it("任务开始后以 Host 检索词覆盖继续变化的表单草稿", () => {
+    const result = syncHostedTaskState(
+      { ...EMPTY_SESSION_STATE, company: "苏州恒琪", task: { ...active, company: "苏州恒琪" } },
+      makeHosted({ query: "苏州" }),
+      { id: "turn:7", prompt: active.prompt, nodeBaseline: 7 },
+      true,
+    )
+    expect(result.company).toBe("苏州")
+    expect(result.task?.company).toBe("苏州")
   })
 })

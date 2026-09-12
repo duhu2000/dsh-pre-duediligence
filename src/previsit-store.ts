@@ -5,6 +5,8 @@ export type ActiveTask = {
   id: string
   // Host 任务接管原生对话后，保留原会话任务 ID 用于精确截取报告边界。
   captureId?: string
+  // 启动瞬间的拜访对象快照；后续编辑表单不得改写已发送任务的展示。
+  company?: string
   prompt: string
   createdAt: string
   nodeBaseline: number

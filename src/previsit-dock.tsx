@@ -54,6 +54,28 @@ function Chips(props: { options: readonly ComposerOption[]; selected: readonly s
 
 // 表单逻辑（设定条与右侧工作台共用；状态在会话级 store 里，两边实时一致）
 export type ComposerActions = ReturnType<typeof usePrevisitComposer>
+
+type CompanyInputKeyEvent = {
+  key: string
+  nativeEvent: { isComposing?: boolean; keyCode?: number }
+  preventDefault(): void
+  stopPropagation(): void
+}
+
+/**
+ * 右侧表单与原生 composer 共享草稿，但不共享键盘提交事件。
+ * 中文输入法用 Enter 确认候选词时只结束 composition，绝不能冒泡成会话发送。
+ */
+export function isolateCompanyInputKey(event: CompanyInputKeyEvent): void {
+  const composing = event.nativeEvent.isComposing === true || event.nativeEvent.keyCode === 229
+  if (event.key === "Enter" && !composing) event.preventDefault()
+  event.stopPropagation()
+}
+
+export function isolateCompanyInputEvent(event: { stopPropagation(): void }): void {
+  event.stopPropagation()
+}
+
 export function usePrevisitComposer(args: {
   sessionId: string
   store: PrevisitStore
@@ -113,7 +135,9 @@ export function usePrevisitComposer(args: {
     if (invalid !== undefined) { setError(invalid); return }
     const id = createTaskId()
     const prompt = serializePrevisitRequest(text, id)
-    const selection = { ...state.selection, focus: [...state.selection.focus] }
+    const current = store.get(sessionId)
+    const selection = { ...current.selection, focus: [...current.selection.focus] }
+    const company = current.company.trim()
     inFlight.current = true
     setSubmitting(true)
     setError(undefined)
@@ -122,7 +146,7 @@ export function usePrevisitComposer(args: {
       store.update(sessionId, s => ({
         ...s,
         composer: { ...s.composer, text: "", lastGenerated: "", mode: "generated" },
-        task: { id, prompt, createdAt: new Date().toISOString(), nodeBaseline, seenRunning: false, selection },
+        task: { id, company, prompt, createdAt: new Date().toISOString(), nodeBaseline, seenRunning: false, selection },
       }))
       if (lifetimeToken.active) args.onStarted?.()
     } catch {
@@ -145,8 +169,19 @@ export function PrevisitFields(props: { actions: ComposerActions; idPrefix: stri
   return (
     <div className="qccDockBody">
       <div className="qccDockRow">
-        <label className="qccDockLabel" htmlFor={`${props.idPrefix}-company`}>要见谁</label>
-        <input id={`${props.idPrefix}-company`} className="qccDockCompany" value={st.company} placeholder="企业全称或统一社会信用代码" onChange={e => a.setCompany(e.target.value)} />
+        <label className="qccDockLabel" htmlFor={`${props.idPrefix}-company`}>拜访客户</label>
+        <input
+          id={`${props.idPrefix}-company`}
+          className="qccDockCompany"
+          value={st.company}
+          placeholder="企业全称或统一社会信用代码"
+          onChange={e => a.setCompany(e.target.value)}
+          onKeyDownCapture={isolateCompanyInputKey}
+          onKeyUpCapture={isolateCompanyInputEvent}
+          onCompositionStartCapture={isolateCompanyInputEvent}
+          onCompositionUpdateCapture={isolateCompanyInputEvent}
+          onCompositionEndCapture={isolateCompanyInputEvent}
+        />
       </div>
       <div className="qccDockRow"><span className="qccDockLabel">我是</span><Chips options={ROLE_OPTIONS} selected={st.selection.role === undefined ? [] : [st.selection.role]} onToggle={id => a.toggleSingle("role", id)} /></div>
       <div className="qccDockRow"><span className="qccDockLabel">场合</span><Chips options={PURPOSE_OPTIONS} selected={st.selection.purpose === undefined ? [] : [st.selection.purpose]} onToggle={id => a.toggleSingle("purpose", id)} /></div>

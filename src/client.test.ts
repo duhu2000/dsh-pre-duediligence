@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   COMPANY_PLACEHOLDER,
   EMPTY_COMPOSER_STATE,
+  EMPTY_SELECTION,
   applySelection,
   composeFullSentence,
   generateFromSelection,
@@ -22,13 +23,25 @@ const fullSelection: ComposerSelection = {
 }
 
 describe("previsit composer contract", () => {
+  it("为新任务提供可见且可取消的业务默认值", () => {
+    expect(EMPTY_SELECTION).toEqual({
+      role: "bank_rm",
+      focus: ["risk", "equity", "finance", "contact", "ipr", "bidding"],
+      budget: "fast",
+      output: "onepager",
+    })
+    expect(composeFullSentence(EMPTY_SELECTION, "企查查科技股份有限公司")).toBe(
+      "我是银行对公客户经理，准备拜访企查查科技股份有限公司，请重点看风险与涉诉、股权与实控人、经营与财务、联系人与触达路径、知识产权、招投标业绩，做一次速览尽调，输出一页纸简报。",
+    )
+  })
+
   it("uses the handoff vocabulary in the generated natural-language request", () => {
     expect(composeFullSentence(fullSelection, "浙江台华新材料集团股份有限公司")).toBe(
       "我是银行对公客户经理，准备首次拜访浙江台华新材料集团股份有限公司，请重点看风险与涉诉、股权与实控人，做一次标准尽调，输出一页纸简报。",
     )
   })
 
-  it("does not duplicate prompt defaults in the front end", () => {
+  it("keeps an explicitly empty selection available for callers", () => {
     expect(composeFullSentence({ focus: [] })).toBe("")
     expect(composeFullSentence({ focus: ["risk"] })).toContain(COMPANY_PLACEHOLDER)
   })

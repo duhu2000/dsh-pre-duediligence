@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 
 import {
   BUDGET_OPTIONS,
+  EMPTY_SELECTION,
   FOCUS_OPTIONS,
   OUTPUT_OPTIONS,
   PURPOSE_OPTIONS,
@@ -130,7 +131,7 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [company, setCompany] = useState("")
-  const [selection, setSelection] = useState<ComposerSelection>({ focus: [] })
+  const [selection, setSelection] = useState<ComposerSelection>(() => cloneSelection(EMPTY_SELECTION))
   const [initializedSession, setInitializedSession] = useState<string>()
   const [error, setError] = useState<string>()
   const [conflict, setConflict] = useState(false)
@@ -246,7 +247,7 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
             {step === 2 ? (
               <section className="qccPromptPane">
                 <h4>说明你的角色和拜访场景</h4>
-                <p>未选择时由 Skill 使用通用视角，不在前端暗设默认值。</p>
+                <p>默认采用银行/信贷客户经理视角；可按本次拜访角色和场景调整。</p>
                 <OptionGroup title="我的角色" options={ROLE_OPTIONS} selected={selection.role === undefined ? [] : [selection.role]} onChange={values => setSingle(setSelection, "role", values)} />
                 <OptionGroup title="拜访场景" options={PURPOSE_OPTIONS} selected={selection.purpose === undefined ? [] : [selection.purpose]} onChange={values => setSingle(setSelection, "purpose", values)} />
               </section>

@@ -66,7 +66,16 @@ export type ComposerState = {
   mode: ComposerMode
 }
 
-export const EMPTY_SELECTION: ComposerSelection = { focus: [] }
+/**
+ * 新任务的显式产品默认值。默认值只负责减少重复点选，用户仍可逐项取消或改选；
+ * 场合不预设，避免把首次拜访等业务事实强加给用户。
+ */
+export const EMPTY_SELECTION: ComposerSelection = {
+  role: "bank_rm",
+  focus: FOCUS_OPTIONS.map(option => option.id),
+  budget: "fast",
+  output: "onepager",
+}
 export const EMPTY_COMPOSER_STATE: ComposerState = {
   text: "",
   lastGenerated: "",

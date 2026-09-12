@@ -2,6 +2,7 @@ import { type ComposerSelection, type ComposerState } from "./composer-model.js"
 export type ActiveTask = {
     id: string;
     captureId?: string;
+    company?: string;
     prompt: string;
     createdAt: string;
     nodeBaseline: number;

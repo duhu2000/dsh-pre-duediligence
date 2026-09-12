@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from "vitest"
 import { createPrevisitStore, locatePrevisitView } from "./previsit-store.js"
 
 describe("session-scoped workbench navigation", () => {
+  it("starts each new Session with the previsit defaults", () => {
+    expect(createPrevisitStore().get("session-default").selection).toEqual({
+      role: "bank_rm",
+      focus: ["risk", "equity", "finance", "contact", "ipr", "bidding"],
+      budget: "fast",
+      output: "onepager",
+    })
+  })
+
   it("locates a target view once and is a strict no-op when repeated", () => {
     const store = createPrevisitStore()
     const listener = vi.fn()

@@ -18,6 +18,23 @@ export type PrevisitDockProps = {
 declare function writeDraft(actions: PrevisitDockProps["inputActions"], text: string): void;
 export { writeDraft as writeComposerDraft };
 export type ComposerActions = ReturnType<typeof usePrevisitComposer>;
+type CompanyInputKeyEvent = {
+    key: string;
+    nativeEvent: {
+        isComposing?: boolean;
+        keyCode?: number;
+    };
+    preventDefault(): void;
+    stopPropagation(): void;
+};
+/**
+ * 右侧表单与原生 composer 共享草稿，但不共享键盘提交事件。
+ * 中文输入法用 Enter 确认候选词时只结束 composition，绝不能冒泡成会话发送。
+ */
+export declare function isolateCompanyInputKey(event: CompanyInputKeyEvent): void;
+export declare function isolateCompanyInputEvent(event: {
+    stopPropagation(): void;
+}): void;
 export declare function usePrevisitComposer(args: {
     sessionId: string;
     store: PrevisitStore;

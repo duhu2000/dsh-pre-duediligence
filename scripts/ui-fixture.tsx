@@ -177,6 +177,16 @@ window.setTimeout(() => {
         document.body.dataset.stageDirection = firstStage === null ? "missing" : getComputedStyle(firstStage).flexDirection
         document.body.dataset.businessContainerControlCount = String(document.querySelectorAll('.qccPwClose,[aria-label="关闭访前尽调工作台"]').length)
         document.body.dataset.businessReturnControlCount = String([...document.querySelectorAll<HTMLButtonElement>(".qccPwShell button")].filter(button => button.textContent?.includes("返回会话")).length)
+        const companyInput = document.querySelector<HTMLInputElement>(".qccPwShell .qccDockCompany")
+        document.body.dataset.companyLabel = companyInput?.closest(".qccDockRow")?.querySelector(".qccDockLabel")?.textContent?.trim() ?? "missing"
+        document.body.dataset.defaultSelections = [...document.querySelectorAll<HTMLElement>('.qccPwShell .qccDockChip[data-selected="true"]')].map(item => item.textContent?.trim() ?? "").join("|")
+        let leakedCompanyEnter = 0
+        const countCompanyEnter = () => { leakedCompanyEnter += 1 }
+        document.addEventListener("keydown", countCompanyEnter)
+        const companyEnter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, composed: true })
+        flushSync(() => companyInput?.dispatchEvent(companyEnter))
+        document.removeEventListener("keydown", countCompanyEnter)
+        document.body.dataset.companyEnterIsolated = String(companyInput !== null && leakedCompanyEnter === 0 && companyEnter.defaultPrevented)
         document.body.dataset.logoCount = String(document.querySelectorAll(`path[d="${PREVISIT_LOGO_PATH}"]`).length)
         document.body.dataset.heroTitle = title?.textContent ?? "missing"
         document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)

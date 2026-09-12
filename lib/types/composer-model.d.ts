@@ -113,6 +113,10 @@ export type ComposerState = {
     lastCompany: string;
     mode: ComposerMode;
 };
+/**
+ * 新任务的显式产品默认值。默认值只负责减少重复点选，用户仍可逐项取消或改选；
+ * 场合不预设，避免把首次拜访等业务事实强加给用户。
+ */
 export declare const EMPTY_SELECTION: ComposerSelection;
 export declare const EMPTY_COMPOSER_STATE: ComposerState;
 export declare function composeFullSentence(selection: ComposerSelection, company?: string): string;

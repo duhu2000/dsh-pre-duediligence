@@ -18,7 +18,7 @@ import {
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import { PrevisitHome } from "./previsit-home.js"
 import { openWorkbench } from "./better-sidebar.js"
-import { HOSTED_TERMINAL, hostedStatus, hostedTaskView, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
+import { HOSTED_TERMINAL, hostedProgressCopy, hostedStatus, hostedTaskView, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import { installOrdinarySessionGuard, type WorkspaceNavigation } from "./ordinary-session-guard.js"
 import {
   PREVISIT_PHASES,
@@ -210,8 +210,9 @@ const optionLabel = (options: readonly ComposerOption[], id: string | undefined)
 
 function ScopePanel(props: { state: PrevisitSessionState; task: ActiveTask | undefined }): JSX.Element {
   const focus = props.state.selection.focus.map(id => optionLabel(FOCUS_OPTIONS, id)).join("、") || "按 Skill 标准范围"
+  const submittedCompany = props.task?.company?.trim() || props.state.company.trim()
   const rows = [
-    ["拜访对象", props.state.company.trim() || "尚未填写"],
+    ["拜访对象", submittedCompany || "尚未填写"],
     ["我的角色", optionLabel(ROLE_OPTIONS, props.state.selection.role)],
     ["拜访场景", optionLabel(PURPOSE_OPTIONS, props.state.selection.purpose)],
     ["重点关注", focus],
@@ -349,7 +350,7 @@ function ReportViewer(props: { html: string }): JSX.Element {
   return <iframe ref={ref} className="qccPwReportFrame" title="尽调报告" sandbox="allow-same-origin" srcDoc={embedded} onLoad={fit} />
 }
 
-function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; toolCount: number; toolLimit?: number; failedToolCount: number; cardCaptured: boolean; reportHtml: string | null }): JSX.Element {
+function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; toolCount: number; toolLimit?: number; failedToolCount: number; cardCaptured: boolean; reportHtml: string | null }): JSX.Element {
   const ready = props.status === "ready"
   if (props.reportHtml !== null) {
     return (
@@ -372,13 +373,22 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; status: WorkbenchS
     ["⑦", "触达开场", "来源、归属、用途与开场白"],
     ["⑧", "覆盖说明", "已查、未查、失败与证据层级"],
   ]
+  const hostedProgress = props.hostedTask === null ? null : hostedProgressCopy(props.hostedTask)
   return (
     <section className="qccPwPanel">
       <header className="qccPwPageHeading">
         <div><p className="qccPwEyebrow">OUTPUT</p><h2>访前材料</h2><p>不是资料堆砌，只回答四件事：去不去、见谁、聊什么、什么不能碰。</p></div>
         {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
       </header>
-      {props.task === undefined ? (props.cardCaptured ? <Feedback tone="success" title="报告可下载">当前会话中已有尽调报告，可直接下载；新的尽调将重新计数。</Feedback> : <Feedback tone="notice" title="等待设定">完成尽调设定后，报告结构与执行进度会显示在这里。</Feedback>) : ready ? <Feedback tone="success" title="报告已生成">执行已结束。可下载报告，或回到会话查看完整内容与事实引用。</Feedback> : props.status === "failed" ? <Feedback tone="error" title="本次尽调未完整完成">请回到会话查看错误；已取得事实仍可保留，失败维度不得写成零记录。</Feedback> : <Feedback tone="notice" title={props.status === "running" ? "正在生成报告" : "等待开始"}>{props.status === "running" && !props.cardCaptured ? "会话若停在候选主体确认，请先在会话中选定企业；报告生成后「下载报告」才可点。" : "完成经营与风险两条线后，将自动切换到本页。"}</Feedback>}
+      {props.task === undefined
+        ? (props.cardCaptured ? <Feedback tone="success" title="报告可下载">当前会话中已有尽调报告，可直接下载；新的尽调将重新计数。</Feedback> : <Feedback tone="notice" title="等待设定">完成尽调设定后，报告结构与执行进度会显示在这里。</Feedback>)
+        : ready
+          ? <Feedback tone="success" title="报告已生成">执行已结束。可下载报告，或回到会话查看完整内容与事实引用。</Feedback>
+          : props.status === "failed"
+            ? <Feedback tone="error" title="本次尽调未完整完成">请回到会话查看错误；已取得事实仍可保留，失败维度不得写成零记录。</Feedback>
+            : hostedProgress !== null
+              ? <Feedback tone="notice" title={hostedProgress.title}>{hostedProgress.detail}</Feedback>
+              : <Feedback tone="notice" title={props.status === "running" ? "正在尽调" : "等待继续"}>{props.status === "running" ? "正在同步当前会话的资料采集与证据核验；报告生成后即可下载。" : "请回到会话继续当前任务；报告生成后即可下载。"}</Feedback>}
       <div className="qccPwCard">
         <div className="qccPwCardHeader"><div><h3>报告结构</h3><p>固定八段，可压缩或展开；事实、推理、问题和覆盖边界不混写。</p></div></div>
         <div className="qccPwDeliverables">
@@ -674,7 +684,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
         {shared.view === "collect" ? <OpportunityPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "verify" ? <RiskPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
-        {shared.view === "output" ? <DeliveryPanel task={task} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} {...(hostedTask === null ? {} : { toolLimit: hostedTask.limit })} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
+        {shared.view === "output" ? <DeliveryPanel task={task} hostedTask={hostedTask} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} {...(hostedTask === null ? {} : { toolLimit: hostedTask.limit })} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
         {shared.view === "history" ? <HistoryPanel task={task} status={status} hosted={hostedHistory} /> : null}
       </div>
       <footer className="qccPwFooter">

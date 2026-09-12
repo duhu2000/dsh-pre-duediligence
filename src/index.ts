@@ -51,7 +51,7 @@ export function loadBundledSkill(): SkillRegistration {
     },
     metadata: {
       author: "QCC",
-      version: "0.1.19",
+      version: "0.1.20",
       industry: "enterprise-services",
       mcpServers: ["qcc-company", "qcc-risk", "qcc-ipr", "qcc-operation", "qcc-executive"],
     },

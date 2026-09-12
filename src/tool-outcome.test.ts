@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { classifyToolOutcome, resultOutcome } from "./tool-outcome.js"
+import { classifyQccProviderOutcome, classifyToolOutcome, resultOutcome } from "./tool-outcome.js"
 import { opportunityDimensions, riskSteps, parseCardInsights } from "./stage-insights.js"
 import { derivePhaseStates } from "./workbench-state.js"
 
@@ -18,6 +18,13 @@ describe("provider outcome facts", () => {
   it("reads durable structured content and preserves an error despite an empty data array", () => {
     expect(resultOutcome({ content: [{ type: "text", text: '{"data":[]}' }] })).toBe("no-data")
     expect(classifyToolOutcome([], true)).toBe("failed")
+  })
+  it("recognizes the real QCC Chinese response contract without turning transport success amber", () => {
+    expect(classifyQccProviderOutcome({ "企业名称": "合成甲公司", "摘要": "已完成查询", "工商登记": { "法定代表人": "张三" } })).toBe("done")
+    expect(classifyQccProviderOutcome({ "企业名称": "合成甲公司", "搜索结果": "已全量扫描该主体数据库，未发现任何记录。" })).toBe("no-data")
+    expect(classifyQccProviderOutcome({ "搜索结果": "当前账户权限不足" })).toBe("no-permission")
+    expect(classifyQccProviderOutcome({ "地域限制": "暂不支持" })).toBe("failed")
+    expect(classifyQccProviderOutcome({})).toBe("unknown")
   })
   it("does not hide a failed latest retry behind an earlier success", () => {
     const name = "get_company_profile"

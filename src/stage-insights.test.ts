@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type ToolEvent } from "./stage-insights.js"
+import { isRiskFindingText, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type ToolEvent } from "./stage-insights.js"
 
 const events: ToolEvent[] = [
   { name: "mcp__company__get_company_by_query", status: "done" },
@@ -71,6 +71,11 @@ describe("parseCardInsights", () => {
   it("状态未定与空输入", () => {
     expect(parseCardInsights("## 1、核心研判\n状态未定，本卡降级为清单式简报。").stateUndetermined).toBe(true)
     expect(parseCardInsights(null).found).toBe(false)
+  })
+  it("不把零记录覆盖说明计为风险发现", () => {
+    expect(isRiskFindingText("本次未发现公开记录")).toBe(false)
+    expect(isRiskFindingText("失信、被执行人、限高等其余 32 项企业风险因子均为 0；本次扫描未发现公开记录")).toBe(false)
+    expect(isRiskFindingText("裁判文书命中 35 条，当事人角色待确认")).toBe(true)
   })
 })
 

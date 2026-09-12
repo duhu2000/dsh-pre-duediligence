@@ -5,7 +5,7 @@ whenToUse: 用户要求准备客户拜访、访前尽调、一页纸简报、授
 user-invocable: true
 metadata:
   author: QCC
-  version: 0.1.19
+  version: 0.1.20
 ---
 
 # 访前尽调
@@ -54,7 +54,7 @@ metadata:
 
 ## MCP 就绪检查
 
-### Agent-owned 执行门（0.1.19）
+### Agent-owned 执行门（0.1.20）
 
 只在从“访前尽调”入口创建的专属 Session 内执行。首先调用 `previsit_begin`，传入用户提供的企业检索词和 fast / standard / deep 档位；提示中含“访前任务 ID：PV-...”时，必须原样作为 `requestId` 传入。用户发送任务已经构成本任务在固定业务路由内连续执行的明确授权，禁止再询问是否允许调用企查查 MCP，也不要弹出调用次数或额度二次确认。插件不设 8 / 18 / 40 次硬上限。
 

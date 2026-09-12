@@ -12,14 +12,14 @@ npm keywords 已在包清单内更新。GitHub description 建议使用上述英
 
 验收：使用实时完整目录和原版搜索函数对比登记描述更新前后；记录语言、命中位置、结果数与版本。独立目录缺失条目必须标为未上线，不能把模拟添加的结果当作上线结果。
 
-发布清单：0.1.19 已获得发布授权；完成仓库 check、README 与包清单差异审核后，以新的不可变 tag 和 npm 版本发布，不覆盖旧版本或移动旧 tag。仅登记 YAML 更新仍无需重复发布 npm。
+发布清单：0.1.20 已获得发布授权；完成仓库 check、README 与包清单差异审核后，以新的不可变 tag 和 npm 版本发布，不覆盖旧版本或移动旧 tag。仅登记 YAML 更新仍无需重复发布 npm。
 
 ## 安装与三分钟上手
 
 访前尽调智能体：面向拜访前调查，提供企业尽调、客户尽调、客户背景调查、工商核验与风险信息整理；使用企查查 MCP，提供固定路由连续调用、主体确认、动态进度和可下载报告。
 
 ```sh
-dsh plugin --profile web add dsh-pre-duediligence@0.1.19
+dsh plugin --profile web add dsh-pre-duediligence@0.1.20
 ```
 
 请先满足下文的 DSH 与连接器要求；Better Sidebar 只在需要可视化工作台时选装。安装后完整停止并重启对应 Profile。

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { isPrevisitSession } from "./previsit-session.js"
-import { classifyToolOutcome } from "./tool-outcome.js"
+import { classifyQccProviderOutcome } from "./tool-outcome.js"
 import { normalizePrevisitRequestId, previsitVerificationClosure, PrevisitWorkflowStore, validatePrevisitReport } from "./previsit-workflow.js"
 
 // Business vocabulary is fixed here; the browser/model cannot dispatch an arbitrary MCP tool.
@@ -88,9 +88,22 @@ function containsName(value: unknown, name: string, depth = 0): boolean {
 }
 function scanCount(value: unknown, dimension: string, tool: string, depth = 0): number | undefined {
   if (depth > 30 || value === null || typeof value !== "object") return undefined
+  if (Array.isArray(value)) {
+    for (const child of value) { const found = scanCount(child, dimension, tool, depth + 1); if (found !== undefined) return found }
+    return undefined
+  }
   const record = value as Record<string, unknown>
   const candidate = record[dimension] ?? record[tool]
-  const count = typeof candidate === "number" ? candidate : candidate && typeof candidate === "object" ? (candidate as { count?: unknown }).count : undefined
+  const direct = typeof candidate === "object" && candidate !== null
+    ? (candidate as Record<string, unknown>).count ?? (candidate as Record<string, unknown>)["条目数"]
+    : candidate
+  const matchesRow = [record["明细工具"], record.tool, record.toolName].includes(tool)
+    || [record.dimension, record["维度"]].includes(dimension)
+  const rowCount = matchesRow
+    ? record["条目数"] ?? record["本维度条目数"] ?? record.count ?? record.total ?? record.totalCount
+    : undefined
+  const raw = rowCount ?? direct
+  const count = typeof raw === "string" && /^\d+$/u.test(raw.trim()) ? Number(raw) : raw
   if (typeof count === "number" && Number.isInteger(count) && count >= 0) return count
   for (const child of Object.values(record)) { const found = scanCount(child, dimension, tool, depth + 1); if (found !== undefined) return found }
   return undefined
@@ -243,7 +256,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       if (!result.isError && result.concludesTurn) exec.concludeTurn?.()
       exec.signal.throwIfAborted()
       const data = structured(result)
-      let outcome = result.isError ? classifyToolOutcome({ code: result.error?.info?.code }, true) : classifyToolOutcome(data)
+      let outcome = result.isError ? classifyQccProviderOutcome({ code: result.error?.info?.code }, true) : classifyQccProviderOutcome(data)
       // A risk scan with at least one recognized integer count satisfies its
       // business contract even when the Provider omits a generic status/data wrapper.
       if (!result.isError && dimension === "risk_scan" && outcome === "unknown"

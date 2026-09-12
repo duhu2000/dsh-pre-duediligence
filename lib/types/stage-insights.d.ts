@@ -38,6 +38,7 @@ export type CardInsights = {
     riskNoRecord: boolean;
     sections: string[];
 };
+export declare function isRiskFindingText(text: string): boolean;
 export declare function parseCardInsights(md: string | null): CardInsights;
 export declare function opportunitySteps(events: ToolEvent[], insights: CardInsights, finished: boolean): Step[];
 export declare function riskSteps(events: ToolEvent[], insights: CardInsights, finished: boolean): Step[];

@@ -47,6 +47,12 @@ describe("访前工作台企查查蓝主题", () => {
     expect(WORKBENCH_CSS).toContain('.qccPwDim[data-status="unknown"]')
     expect(WORKBENCH_CSS).toContain('.qccPwDim[data-status="failed"]')
     expect(WORKBENCH_CSS).toContain('.qccPwDim[data-status="not-executed"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwRiskTile[data-clear="true"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwMode[data-tone="success"]')
+    expect(workbenchSource).toContain('title="采集结果"')
+    expect(workbenchSource).toContain('title="核验结果"')
+    expect(workbenchSource).not.toContain('title="已取得"')
+    expect(workbenchSource).not.toContain('title="已核查"')
   })
 
   it("首页快捷菜单采用数据清洗补全式纵向描边卡片", () => {

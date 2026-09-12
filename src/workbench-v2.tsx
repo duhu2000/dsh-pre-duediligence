@@ -30,7 +30,7 @@ import {
 } from "./workbench-state.js"
 import { WORKBENCH_CSS } from "./workbench-style.js"
 import { adoptTaskFromSnapshot, buildPrevisitReportHtml, captureTaskReport } from "./report-export.js"
-import { BUSINESS_STATES, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
+import { BUSINESS_STATES, isRiskFindingText, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
 
 export const inject = ["slots", "sessions", "workspaces", "conversation"] as const
 
@@ -248,10 +248,17 @@ function Steps(props: { steps: Step[] }): JSX.Element {
 
 function Dimensions(props: { title: string; items: Dimension[]; empty: string }): JSX.Element {
   const done = props.items.filter(d => d.status === "done" || d.status === "no-data" || d.status === "skipped").length
-  const review = props.items.filter(d => d.status === "unknown" || d.status === "no-permission" || d.status === "not-executed").length
+  const review = props.items.filter(d => d.status === "unknown").length
+  const blocked = props.items.filter(d => d.status === "no-permission" || d.status === "not-executed").length
+  const failed = props.items.filter(d => d.status === "failed").length
   return (
     <div className="qccPwCard">
-      <div className="qccPwCardHeader"><div><h3>{props.title}</h3></div>{done > 0 ? <span className="qccPwMode">{done} 项完成</span> : review > 0 ? <span className="qccPwMode" data-tone="review">{review} 项待核验</span> : null}</div>
+      <div className="qccPwCardHeader"><div><h3>{props.title}</h3></div><div className="qccPwModeGroup">
+        {done > 0 ? <span className="qccPwMode" data-tone="success">{done} 项完成</span> : null}
+        {review > 0 ? <span className="qccPwMode" data-tone="review">{review} 项待确认</span> : null}
+        {blocked > 0 ? <span className="qccPwMode" data-tone="review">{blocked} 项未完成</span> : null}
+        {failed > 0 ? <span className="qccPwMode" data-tone="error">{failed} 项失败</span> : null}
+      </div></div>
       {props.items.length === 0 ? <p className="qccPwEmpty">{props.empty}</p> : (
         <div className="qccPwDims">
           {props.items.map(item => <span key={item.label} className="qccPwDim" data-status={item.status} title={item.note}>{item.label} · {TOOL_OUTCOME_LABELS[item.status]}</span>)}
@@ -283,7 +290,7 @@ function OpportunityPanel(props: { task: ActiveTask | undefined; status: Workben
   return (
     <StagePanel eyebrow="COLLECT" title="资料采集" task={props.task}>
       <Steps steps={steps} />
-      <Dimensions title="已取得" items={dims} empty={running ? "正在建立主体与信号集…" : "尽调开始后显示取得的维度"} />
+      <Dimensions title="采集结果" items={dims} empty={running ? "正在建立主体与信号集…" : "尽调开始后显示采集结果"} />
       <div className="qccPwCard">
         <div className="qccPwCardHeader"><div><h3>经营状态</h3></div>{insights.confidence === null ? null : <span className="qccPwMode">置信度 {insights.confidence}</span>}</div>
         <div className="qccPwStateStrip" data-concluded={concluded}>
@@ -308,29 +315,30 @@ function RiskPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatu
   const { insights } = props
   const steps = riskSteps(props.events, insights, finished)
   const dims = riskDimensions(props.events)
-  const real = (level: string) => insights.risks.filter(r => r.level === level && !/^(无|—|-|暂无|本次.*未发现)/.test(r.text))
+  const rows = (level: string) => insights.risks.filter(r => r.level === level)
+  const real = (level: string) => rows(level).filter(r => isRiskFindingText(r.text))
   const judged = insights.sections.includes("红线提示")
   return (
     <StagePanel eyebrow="VERIFY" title="证据核验" task={props.task}>
       <Steps steps={steps} />
-      <Dimensions title="已核查" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核查的维度"} />
+      <Dimensions title="核验结果" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核验结果"} />
       <div className="qccPwCard">
         <div className="qccPwCardHeader"><div><h3>风险分级</h3></div></div>
         {!judged
           ? <p className="qccPwEmpty">{running ? "扫描与下钻后给出分级" : finished ? "报告未捕获" : "尽调开始后显示"}</p>
-          : insights.riskNoRecord && insights.risks.length === 0
-            ? <p className="qccPwNote">企业自身风险扫描未发现公开记录；这不等于不存在其他风险。</p>
-            : (
+          : (
               <div className="qccPwRiskTiles">
                 {(["红线", "关注", "信息"] as const).map(level => {
                   const items = real(level)
+                  const cleared = items.length === 0 && (rows(level).length > 0 || insights.riskNoRecord)
                   return (
-                    <div key={level} className="qccPwRiskTile" data-level={level} data-empty={items.length === 0}>
+                    <div key={level} className="qccPwRiskTile" data-level={level} data-clear={cleared} data-empty={items.length === 0}>
                       <div className="qccPwRiskTileTop"><b>{level}</b><strong>{items.length}</strong></div>
-                      <p>{items[0]?.text ?? "本次未发现"}</p>
+                      <p>{items[0]?.text ?? (cleared ? "已核查，本次未发现公开记录" : "未形成明确结论")}</p>
                     </div>
                   )
                 })}
+                <p className="qccPwRiskBoundary">绿色表示本次公开数据核查未发现，不代表风险绝对不存在。</p>
               </div>
             )}
       </div>

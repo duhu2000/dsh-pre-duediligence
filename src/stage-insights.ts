@@ -107,6 +107,11 @@ function section(md: string, title: string): string {
 
 const strip = (s: string): string => s.replace(/\[F-?\d{2,4}\]/g, "").replace(/\*\*/g, "").replace(/（推理说明）|\(推理说明\)/g, "").trim()
 
+const NO_RISK_FINDING = /^(?:无|—|-|暂无|本次.*未发现)|均为\s*0|(?:本次)?扫描未发现(?:任何|公开)?记录|未发现(?:任何|公开)?记录/u
+export function isRiskFindingText(text: string): boolean {
+  return !NO_RISK_FINDING.test(strip(text))
+}
+
 export function parseCardInsights(md: string | null): CardInsights {
   if (md === null || md.trim() === "") return EMPTY_INSIGHTS
   const sections = ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].filter(t => new RegExp(`^#{1,4}[^\\n]*${t}`, "m").test(md))

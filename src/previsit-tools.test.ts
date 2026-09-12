@@ -137,6 +137,35 @@ describe("Agent-owned paid-query boundary", () => {
     ])
     expect(record?.runs.filter(run => run.status === "skipped").every(run => run.quotaUsed === false)).toBe(true)
   })
+  it("normalizes the production QCC risk-scan rows and string counts", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    const tools = [
+      "get_dishonest_info", "get_judgment_debtor_info", "get_terminated_cases", "get_equity_freeze",
+      "get_business_exception", "get_administrative_penalty", "get_tax_abnormal", "get_judicial_documents",
+    ]
+    f.setReply({
+      "企业名称": company.fullName,
+      "摘要": "已全量扫描 35 项风险因子：1 项有记录、34 项无记录。",
+      "风险因子扫描": tools.map(tool => ({ "风险因子": tool, "条目数": tool === "get_judicial_documents" ? "35" : "0", "明细工具": tool })),
+    })
+    await expect(f.call("previsit_query", { taskId, dimension: "risk_scan" })).resolves.toMatchObject({ outcome: "done" })
+    const record = await f.workflow.get(taskId)
+    expect(record?.runs.filter(run => run.status === "skipped").map(run => run.dimension)).toEqual([
+      "dishonest", "enforcement", "terminated_cases", "equity_freeze", "business_exception", "administrative_penalty", "tax_abnormal",
+    ])
+    expect(record?.runs.find(run => run.dimension === "judicial_documents" && run.id.startsWith("previsit-pending-"))).toMatchObject({
+      status: "not-executed", message: "风险扫描命中 35 条，等待明细下钻",
+    })
+  })
+  it("marks non-empty QCC business objects green and explicit no-record responses green", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    f.setReply({ "企业名称": company.fullName, "摘要": "已完成企业画像查询", "行业": "软件和信息技术服务业" })
+    await expect(f.call("previsit_query", { taskId, dimension: "profile" })).resolves.toMatchObject({ outcome: "done" })
+    f.setReply({ "企业名称": company.fullName, "搜索结果": "已全量扫描该主体融资数据库，未发现任何记录。" })
+    await expect(f.call("previsit_query", { taskId, dimension: "financing" })).resolves.toMatchObject({ outcome: "no-data" })
+  })
   it("shows nonzero risk details and available executives as pending, then blocks finalization until queried", async () => {
     const f = fixture(), taskId = await f.begin()
     await f.anchor(taskId)

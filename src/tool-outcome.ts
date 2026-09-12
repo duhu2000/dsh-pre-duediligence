@@ -25,6 +25,29 @@ export function classifyToolOutcome(value: unknown, isError = false): ToolOutcom
   return "unknown"
 }
 
+const QCC_NO_PERMISSION = /无权限|权限不足|未授权|无权访问/u
+const QCC_FAILURE = /查询失败|服务异常|格式错误|地域限制/u
+const QCC_NO_DATA = /未匹配|未发现(?:任何|相关)?记录|暂无(?:相关)?数据|无匹配项/u
+
+/**
+ * QCC tools return reader-facing Chinese business objects instead of a generic
+ * success/data envelope. A non-error, non-empty QCC object is a completed
+ * query; explicit empty/error copy still wins over that fallback.
+ */
+export function classifyQccProviderOutcome(value: unknown, isError = false): ToolOutcome {
+  const generic = classifyToolOutcome(value, isError)
+  if (generic !== "unknown") return generic
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return generic
+  const data = value as Record<string, unknown>
+  const messages = [data["无匹配项"], data["搜索结果"], data["提示"], data["消息"]]
+    .filter((item): item is string => typeof item === "string")
+    .join("\n")
+  if (QCC_NO_PERMISSION.test(messages)) return "no-permission"
+  if (QCC_FAILURE.test(messages) || "格式错误" in data || "地域限制" in data) return "failed"
+  if (QCC_NO_DATA.test(messages) || "无匹配项" in data) return "no-data"
+  return Object.keys(data).length > 0 ? "done" : "unknown"
+}
+
 export function resultOutcome(node: { isError?: boolean; content?: unknown; value?: unknown; error?: unknown }): ToolOutcome {
   if (node.error !== undefined) return classifyToolOutcome({ error: node.error }, true)
   if (node.value !== undefined) return classifyToolOutcome(node.value, node.isError)

@@ -7,8 +7,8 @@
 | 项目 | 已核验值 |
 | --- | --- |
 | 仓库 | `https://github.com/duhu2000/dsh-pre-duediligence`，公开、未归档 |
-| npm | `dsh-pre-duediligence@0.1.20`，发布后核验 `latest=0.1.20` |
-| Release | `https://github.com/duhu2000/dsh-pre-duediligence/releases/tag/v0.1.20` |
+| npm | `dsh-pre-duediligence@0.1.21`，发布后核验 `latest=0.1.21` |
+| Release | `https://github.com/duhu2000/dsh-pre-duediligence/releases/tag/v0.1.21` |
 | 许可证 | MIT |
 | Topic | `dsh-plugin` |
 | Manifest | `package.json` 的 `dsh.bundle.patch` 指向 `./cordis.patch.yml` |
@@ -28,7 +28,7 @@
 - 企查查数据采用 BYO QCC：用户需要自行安装并配置兼容的 MCP Connector，使用自己的企查查账号、产品权限和可用额度完成 OAuth；本插件不附带账号、数据权限或查询额度。
 - 多候选时需要用户确认唯一法律实体；用户发送任务即表示同意固定路由内连续执行，不再二次询问，也不受插件调用次数硬上限阻断。
 - 零记录、无权限、额度不足和调用失败是不同状态；未执行或失败的维度不得写成“零风险”。
-- 0.1.20 已按真实企查查调用样本适配中文 Provider 业务对象、风险扫描计数和状态色语义，并完成自动化契约、构建和隔离 UI 回归；生产账号端到端复测仍以用户验收为准，市场描述不把待验项写成已通过。
+- 0.1.21 已补齐长任务实时反馈、最新运行聚合、流程/风险颜色分层和互斥经营状态说明，并完成自动化契约、构建和隔离 UI 回归；生产账号端到端复测仍以用户验收为准，市场描述不把待验项写成已通过。
 
 ## 安装、卸载与截图证据
 

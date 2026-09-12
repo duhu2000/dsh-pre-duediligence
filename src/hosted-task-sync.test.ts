@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { hostedProgressCopy, hostedStatus, hostedTaskView, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
+import { hostedLiveProgress, hostedProgressCopy, hostedStatus, hostedTaskView, hostedToolEvents, latestHostedRuns, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import type { ActiveTask } from "./previsit-store.js"
 import { EMPTY_SESSION_STATE } from "./previsit-store.js"
+import { derivePhaseStates } from "./workbench-state.js"
 
 const makeHosted = (overrides: Partial<HostedTask> = {}): HostedTask => ({
   id: "PVT-11111111-1111-4111-8111-111111111111",
@@ -82,6 +83,64 @@ describe("Host 任务接管", () => {
       used: 8,
       entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
     }))).toEqual({ title: "正在整理报告", detail: "主体已确认，已完成 8 次查询；正在整理一页纸简报，生成后即可下载。" })
+  })
+
+  it("按当前工具调用展示真实进度，并在查询间隙明确说明正在研判", () => {
+    const running = makeHosted({
+      state: "running",
+      stage: "collect",
+      used: 2,
+      entity: { fullName: "思必驰科技股份有限公司", creditCode: "91320594668384120B" },
+      runs: [
+        { id: "profile-1", dimension: "profile", status: "done", quotaUsed: true, startedAt: "2026-09-11T12:00:10.000Z", completedAt: "2026-09-11T12:00:20.000Z" },
+        { id: "annual-1", dimension: "annual_reports", status: "running", quotaUsed: true, startedAt: "2026-09-11T12:01:50.000Z" },
+      ],
+    })
+    expect(hostedLiveProgress(running, new Date("2026-09-11T12:02:05.000Z").getTime())).toMatchObject({
+      title: "正在查询：企业年报",
+      current: "企业年报",
+      queryCount: 2,
+      completedCount: 1,
+      elapsed: "2 分 5 秒",
+    })
+
+    const reasoning = { ...running, runs: running.runs.map((run) => ({ ...run, status: "done" as const })) }
+    expect(hostedLiveProgress(reasoning, new Date("2026-09-11T12:02:05.000Z").getTime())).toMatchObject({
+      title: "本轮查询已返回，正在研判与整理",
+      current: null,
+      queryCount: 2,
+      completedCount: 2,
+    })
+  })
+
+  it("同一业务维度只投影最新运行，旧待处理记录不再把已完成阶段染黄", () => {
+    const task = makeHosted({
+      state: "completed",
+      stage: "output",
+      reportReady: true,
+      runs: [
+        { id: "risk-old", dimension: "risk_scan", toolName: "mcp__qcc_risk__get_company_risk_scan", status: "unknown", quotaUsed: false, startedAt: "2026-09-11T12:00:10.000Z" },
+        { id: "risk-new", dimension: "risk_scan", toolName: "mcp__qcc-risk__get_company_risk_scan", status: "done", quotaUsed: true, startedAt: "2026-09-11T12:00:20.000Z", completedAt: "2026-09-11T12:00:30.000Z" },
+        { id: "executive", dimension: "executive_risk", status: "no-data", quotaUsed: true, startedAt: "2026-09-11T12:00:40.000Z", completedAt: "2026-09-11T12:00:50.000Z" },
+      ],
+    })
+    expect(latestHostedRuns(task).map((run) => [run.dimension, run.status])).toEqual([
+      ["risk_scan", "done"],
+      ["executive_risk", "no-data"],
+    ])
+    const events = hostedToolEvents(task)
+    expect(events.some((event) => event.status === "unknown")).toBe(false)
+    expect(events).toContainEqual({ name: "get_executive_risk_scan", status: "no-data" })
+    expect(derivePhaseStates({
+      hasTask: true,
+      running: false,
+      seenRunning: true,
+      lastAgentError: null,
+      partial: false,
+      toolNames: [],
+      toolEvents: events,
+      reportReady: true,
+    }).find(phase => phase.id === "verify")?.progress).toBe("done")
   })
 
   it("同步 PVT 任务、已锭定主体全称和资料采集视图", () => {

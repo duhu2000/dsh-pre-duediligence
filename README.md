@@ -1,13 +1,13 @@
 # dsh-pre-duediligence
 
-0.1.20 适配企查查 Provider 的真实中文业务对象与风险扫描结构：成功返回和明确零记录显示绿色，真实风险命中仍按黄色/红色呈现，待确认、未执行和失败不再混入“采集结果 / 核验结果”。已发布版本与验证边界见 [发布说明](docs/RELEASE-0.1.20.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)和[兼容矩阵](docs/COMPATIBILITY.md)。
+0.1.21 补齐长任务的可见进度与状态解释：资料采集和证据核验持续显示当前查询、真实查询/闭环数量、无需执行项及耗时；同一业务维度只采用最新运行，旧待处理记录不再误染黄色；流程待复核改用中性色，经营状态明确区分当前研判、非当前研判、未形成结论与待研判。已发布版本与验证边界见 [发布说明](docs/RELEASE-0.1.21.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)和[兼容矩阵](docs/COMPATIBILITY.md)。
 
 ## 安装与三分钟上手
 
 访前尽调智能体：面向拜访前调查，提供企业尽调、客户尽调、客户背景调查、工商核验与风险信息整理；使用企查查 MCP，提供固定路由连续调用、主体确认、动态进度和可下载报告。
 
 ```sh
-dsh plugin --profile web add dsh-pre-duediligence@0.1.20
+dsh plugin --profile web add dsh-pre-duediligence@0.1.21
 ```
 
 请先满足下文的 DSH 与连接器要求；Better Sidebar 仅在需要可视化工作台时选装。安装后完整停止并重启对应 Profile。
@@ -23,7 +23,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.20
 相关智能体：[数据清洗补全](https://github.com/duhu2000/dsh-data-cleaning-agent) · [AI填表](https://github.com/duhu2000/dsh-form-fill-agent) · [访前尽调](https://github.com/duhu2000/dsh-pre-duediligence) · [招投标](https://github.com/duhu2000/dsh-tender-workbench)
 
 
-版本：**0.1.20**。本版保持 DSH-UX-001 v1.5.2 的 Workspace / Session 隔离、工作台初始关闭和核验完成门，并按用户真实企查查调用样本补齐中文 Provider 返回归一、风险扫描计数和状态色语义。成功取得的数据及明确的零记录使用绿色；真实风险命中继续使用黄色/红色；无法确认、无权限、未执行和失败保持独立状态，不伪装成完成。本轮实现来自真实界面问题样本，自动化仍使用合成 Provider 数据，不声明生产账号全链路验收通过。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
+版本：**0.1.21**。本版保持 DSH-UX-001 v1.5.2 的 Workspace / Session 隔离、工作台初始关闭和核验完成门，并让长任务持续显示当前真实查询、已闭环数量、最近完成项和耗时。相同业务维度按最新运行聚合，已完成或无需执行的结果显示绿色；流程待复核使用中性色，不再与风险预警黄色混同。经营状态为互斥研判结果，每张卡片明确说明当前研判、非当前研判、未形成结论或待研判。本轮实现来自真实界面问题样本，自动化仍使用合成 Provider 数据，不声明生产账号全链路验收通过。详见 [更新日志](CHANGELOG.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
@@ -91,7 +91,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligenc
 安装脚本默认向 DSH Web profile 安装两个基础 Bundle：
 
 1. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-2. `dsh-pre-duediligence@0.1.20`：提供左侧智能体入口、原生会话首页、提示词生成器、Host 执行门和 Skill。
+2. `dsh-pre-duediligence@0.1.21`：提供左侧智能体入口、原生会话首页、提示词生成器、Host 执行门和 Skill。
 
 默认不会安装 Better Sidebar。需要 Session 级可视化工作台时显式开启：
 
@@ -119,7 +119,7 @@ dsh web
 
 ~~~bash
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add dsh-pre-duediligence@0.1.20 --allow-build=node-pty,dsh-pre-duediligence
+dsh plugin --profile web add dsh-pre-duediligence@0.1.21 --allow-build=node-pty,dsh-pre-duediligence
 dsh web
 ~~~
 
@@ -135,7 +135,7 @@ dsh web
 dsh plugin --profile web list --depth 0
 ~~~
 
-应始终看到所选基线的 Connector 和 `dsh-pre-duediligence@0.1.20`；仅在显式启用或原本已安装时看到 Sidebar。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”进入初始原生会话。无 Sidebar 时可继续生成提示词、回填/发送草稿并在会话中阅读报告；五项流程按钮会提示安装可选工作台。安装 Sidebar 时，右侧工作台仍默认关闭，点击业务按钮后才打开对应视图；其右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
+应始终看到所选基线的 Connector 和 `dsh-pre-duediligence@0.1.21`；仅在显式启用或原本已安装时看到 Sidebar。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”进入初始原生会话。无 Sidebar 时可继续生成提示词、回填/发送草稿并在会话中阅读报告；五项流程按钮会提示安装可选工作台。安装 Sidebar 时，右侧工作台仍默认关闭，点击业务按钮后才打开对应视图；其右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
 
 ### 无 Sidebar 功能边界
 

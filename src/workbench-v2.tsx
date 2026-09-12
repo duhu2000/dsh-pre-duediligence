@@ -18,7 +18,7 @@ import {
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import { PrevisitHome } from "./previsit-home.js"
 import { openWorkbench } from "./better-sidebar.js"
-import { HOSTED_TERMINAL, hostedProgressCopy, hostedStatus, hostedTaskView, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
+import { HOSTED_TERMINAL, hostedLiveProgress, hostedProgressCopy, hostedStatus, hostedTaskView, hostedToolEvents, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import { installOrdinarySessionGuard, type WorkspaceNavigation } from "./ordinary-session-guard.js"
 import {
   PREVISIT_PHASES,
@@ -172,6 +172,26 @@ function Feedback(props: { tone: "notice" | "success" | "error"; title: string; 
   )
 }
 
+function ExecutionProgress(props: { task: HostedTask | null; status: WorkbenchStatus }): JSX.Element | null {
+  if (props.task === null || props.status === "ready") return null
+  const progress = hostedLiveProgress(props.task)
+  return (
+    <div className="qccPwLiveProgress" data-running={progress.current !== null}>
+      <span className="qccPwLivePulse" aria-hidden="true" />
+      <div className="qccPwLiveCopy" role="status" aria-live="polite"><strong>{progress.title}</strong><p>{progress.detail}</p></div>
+      <div className="qccPwLiveMetrics" aria-label="实时执行统计">
+        <span>查询 {progress.queryCount}</span>
+        <span data-tone="success">闭环 {progress.completedCount}</span>
+        {progress.noDataCount > 0 ? <span data-tone="success">无数据 {progress.noDataCount}</span> : null}
+        {progress.skippedCount > 0 ? <span data-tone="success">无需执行 {progress.skippedCount}</span> : null}
+        {progress.pendingCount > 0 ? <span>待处理 {progress.pendingCount}</span> : null}
+        {progress.failedCount > 0 ? <span data-tone="error">失败 {progress.failedCount}</span> : null}
+        <span>已用时 {progress.elapsed}</span>
+      </div>
+    </div>
+  )
+}
+
 function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: ActiveTask | undefined; input: SessionInput | undefined; start: (prompt: string) => Promise<number>; onStarted: () => void }): JSX.Element {
   useSyncExternalStore(listener => props.input?.state.subscribe?.(listener) ?? (() => {}), () => props.input?.state.getSnapshot().draft ?? "")
   // 与输入框上方的设定条共用同一份状态与逻辑；草稿直接读写 DSH 输入框
@@ -280,7 +300,7 @@ function StagePanel(props: { eyebrow: string; title: string; task: ActiveTask | 
   )
 }
 
-function OpportunityPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
+function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
   const finished = props.status === "ready"
   const running = props.status === "running"
   const { insights } = props
@@ -289,12 +309,21 @@ function OpportunityPanel(props: { task: ActiveTask | undefined; status: Workben
   const concluded = insights.state !== null || insights.stateUndetermined
   return (
     <StagePanel eyebrow="COLLECT" title="资料采集" task={props.task}>
+      <ExecutionProgress task={props.hostedTask} status={props.status} />
       <Steps steps={steps} />
       <Dimensions title="采集结果" items={dims} empty={running ? "正在建立主体与信号集…" : "尽调开始后显示采集结果"} />
       <div className="qccPwCard">
-        <div className="qccPwCardHeader"><div><h3>经营状态</h3></div>{insights.confidence === null ? null : <span className="qccPwMode">置信度 {insights.confidence}</span>}</div>
+        <div className="qccPwCardHeader"><div><h3>经营状态</h3><p>八项为互斥研判结果，采集覆盖情况以上方“采集结果”为准。</p></div>{insights.state !== null
+          ? <span className="qccPwMode" data-tone="success">已研判{insights.confidence === null ? "" : ` · 置信度 ${insights.confidence}`}</span>
+          : insights.stateUndetermined
+            ? <span className="qccPwMode" data-tone="review">状态未定</span>
+            : <span className="qccPwMode" data-tone={running ? undefined : "neutral"}>{running ? "正在研判" : finished ? "未识别结论" : "待研判"}</span>}</div>
         <div className="qccPwStateStrip" data-concluded={concluded}>
-          {BUSINESS_STATES.map(state => <span key={state} className="qccPwState" data-hit={insights.state === state}>{state}</span>)}
+          {BUSINESS_STATES.map(state => {
+            const stateStatus = insights.state === state ? "selected" : insights.stateUndetermined ? "undetermined" : concluded ? "excluded" : "pending"
+            const stateLabel = stateStatus === "selected" ? "当前研判" : stateStatus === "excluded" ? "非当前研判" : stateStatus === "undetermined" ? "未形成结论" : "待研判"
+            return <span key={state} className="qccPwState" data-state={stateStatus}><b>{state}</b><small>{stateLabel}</small></span>
+          })}
         </div>
         {insights.stateUndetermined ? <p className="qccPwNote">状态未定：公开证据不足，本次降级为清单式简报。</p> : null}
         {insights.industryLink === null ? null : <p className="qccPwNote">产业链环节：{insights.industryLink}</p>}
@@ -309,7 +338,7 @@ function OpportunityPanel(props: { task: ActiveTask | undefined; status: Workben
   )
 }
 
-function RiskPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
+function RiskPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
   const finished = props.status === "ready"
   const running = props.status === "running"
   const { insights } = props
@@ -320,6 +349,7 @@ function RiskPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatu
   const judged = insights.sections.includes("红线提示")
   return (
     <StagePanel eyebrow="VERIFY" title="证据核验" task={props.task}>
+      <ExecutionProgress task={props.hostedTask} status={props.status} />
       <Steps steps={steps} />
       <Dimensions title="核验结果" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核验结果"} />
       <div className="qccPwCard">
@@ -581,11 +611,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     })
   }, [capturedReport, hostedTask, task?.id])
 
-  const hostedEvents = useMemo<ToolEvent[]>(() => hostedTask === null ? [] : [
-    { name: "previsit_begin", status: "done" },
-    ...(hostedTask.entity === undefined ? [] : [{ name: "previsit_confirm_entity", status: "done" as const }]),
-    ...hostedTask.runs.map(run => ({ name: run.toolName ?? `previsit_${run.dimension}`, status: run.status, ...(run.message === undefined ? {} : { reason: run.message }) })),
-  ], [hostedTask])
+  const hostedEvents = useMemo<ToolEvent[]>(() => hostedTask === null ? [] : hostedToolEvents(hostedTask), [hostedTask])
   const effectiveEvents = hostedTask === null ? runtime.toolEvents : hostedEvents
   const cardText = hostedTask?.reportMarkdown ?? (capturedReport?.taskId === task?.id ? capturedReport?.text ?? null : null)
   const hostStatus = hostedTask === null ? null : hostedStatus(hostedTask)
@@ -691,8 +717,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       <div className="qccPwBody">
         {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
-        {shared.view === "collect" ? <OpportunityPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
-        {shared.view === "verify" ? <RiskPanel task={task} status={status} events={effectiveEvents} insights={insights} /> : null}
+        {shared.view === "collect" ? <OpportunityPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
+        {shared.view === "verify" ? <RiskPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "output" ? <DeliveryPanel task={task} hostedTask={hostedTask} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
         {shared.view === "history" ? <HistoryPanel task={task} status={status} hosted={hostedHistory} /> : null}
       </div>

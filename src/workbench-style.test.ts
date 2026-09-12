@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 import { WORKBENCH_CSS } from "./workbench-style.js"
 
 const workbenchSource = readFileSync(new URL("workbench-v2.tsx", import.meta.url), "utf8")
+const hostedSyncSource = readFileSync(new URL("hosted-task-sync.ts", import.meta.url), "utf8")
 
 describe("访前工作台企查查蓝主题", () => {
   it("包含 DSH-UX-001 v1.5.0 的完整浅色与深色 Token", () => {
@@ -53,6 +54,27 @@ describe("访前工作台企查查蓝主题", () => {
     expect(workbenchSource).toContain('title="核验结果"')
     expect(workbenchSource).not.toContain('title="已取得"')
     expect(workbenchSource).not.toContain('title="已核查"')
+  })
+
+  it("用真实查询事件持续展示当前动作、完成数量和耗时", () => {
+    expect(WORKBENCH_CSS).toContain(".qccPwLiveProgress")
+    expect(WORKBENCH_CSS).toContain("@keyframes qccPwPulse")
+    expect(workbenchSource).toContain("<ExecutionProgress task={props.hostedTask} status={props.status} />")
+    expect(workbenchSource).toContain("查询 {progress.queryCount}")
+    expect(workbenchSource).toContain("闭环 {progress.completedCount}")
+    expect(hostedSyncSource).toContain("本轮查询已返回，正在研判与整理")
+    expect(hostedSyncSource).toContain("页面每秒同步，不使用虚构百分比。")
+  })
+
+  it("区分流程待复核与风险预警，并解释互斥经营状态", () => {
+    expect(WORKBENCH_CSS).toContain('.qccPwStage[data-progress="review"]')
+    expect(WORKBENCH_CSS).toContain("background:var(--qcc-table-head);color:var(--qcc-secondary)")
+    expect(WORKBENCH_CSS).toContain('.qccPwState[data-state="pending"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwState[data-state="selected"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwState[data-state="excluded"]')
+    expect(WORKBENCH_CSS).toContain('.qccPwState[data-state="undetermined"]')
+    expect(workbenchSource).toContain("八项为互斥研判结果")
+    for (const label of ["当前研判", "非当前研判", "未形成结论", "待研判"]) expect(workbenchSource).toContain(label)
   })
 
   it("首页快捷菜单采用数据清洗补全式纵向描边卡片", () => {

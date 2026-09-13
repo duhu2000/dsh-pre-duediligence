@@ -9,6 +9,26 @@ import { verifySessionIsolation } from "./session-isolation-fixture.js"
 const sessionId = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 document.documentElement.dataset.theme = new URLSearchParams(location.search).get("theme") === "dark" ? "dark" : "light"
 
+const historyTasks = [
+  {
+    id: "PVT-11111111-1111-4111-8111-111111111111", schemaVersion: 1, revision: 2,
+    sessionId: "session-dsh-pre-duediligence-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    workspace: "/fixture/这是一个用于验证窄屏截断行为的历史工作空间路径",
+    query: "历史企业甲", depth: "fast", limit: 0, used: 3, state: "completed", stage: "output", runs: [], reportReady: true,
+    createdAt: "2026-09-12T08:00:00.000Z", updatedAt: "2026-09-12T08:03:00.000Z", completedAt: "2026-09-12T08:03:00.000Z",
+  },
+  {
+    id: "PVT-22222222-2222-4222-8222-222222222222", schemaVersion: 1, revision: 1,
+    sessionId: "", workspace: "", query: "旧版历史企业", depth: "standard", limit: 0, used: 0, state: "partial", stage: "output", runs: [], reportReady: true,
+    createdAt: "2026-09-11T08:00:00.000Z", updatedAt: "2026-09-11T08:03:00.000Z", completedAt: "2026-09-11T08:03:00.000Z",
+  },
+]
+globalThis.fetch = (async (input) => {
+  const url = String(input)
+  const tasks = url.includes("?sessionId=") ? [] : historyTasks
+  return new Response(JSON.stringify({ ok: true, tasks }), { status: 200, headers: { "content-type": "application/json" } })
+}) as typeof fetch
+
 type Registered = { descriptor: any; component: (props: any) => JSX.Element | null }
 const registered = new Map<string, Registered>()
 let workbenchComponent: ((props: any) => JSX.Element) | undefined
@@ -215,9 +235,19 @@ window.setTimeout(() => {
         document.body.dataset.companyEnterIsolated = String(companyInput !== null && leakedCompanyEnter === 0 && companyEnter.defaultPrevented)
         document.body.dataset.logoCount = String(document.querySelectorAll(`path[d="${PREVISIT_LOGO_PATH}"]`).length)
         document.body.dataset.heroTitle = title?.textContent ?? "missing"
-        document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)
-        document.body.dataset.viewportWidth = String(window.innerWidth)
-        document.body.dataset.uiReady = "true"
+        const historyButton = [...document.querySelectorAll<HTMLButtonElement>(".qccPwTabs button")].find(button => button.textContent?.trim() === "任务历史")
+        flushSync(() => historyButton?.click())
+        window.setTimeout(() => {
+          const sources = [...document.querySelectorAll<HTMLElement>(".qccPwHistorySource")]
+          const sourceRights = sources.map(source => Math.round(source.getBoundingClientRect().right * 10) / 10)
+          document.body.dataset.historyCount = String(sources.length)
+          document.body.dataset.historyOriginMissing = String(sources.some(source => source.textContent?.includes("Workspace 未记录（旧记录） · Session 未记录（旧记录）")))
+          document.body.dataset.historyFits = String(sources.length === 2 && sources.every(source => source.getBoundingClientRect().right <= window.innerWidth + 0.5))
+          document.body.dataset.historyMetrics = `${sourceRights.join("|")}/${window.innerWidth}`
+          document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)
+          document.body.dataset.viewportWidth = String(window.innerWidth)
+          document.body.dataset.uiReady = "true"
+        }, 120)
       }, 120)
     }, 80)
   }, 120)

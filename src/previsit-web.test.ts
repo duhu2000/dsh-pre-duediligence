@@ -49,10 +49,18 @@ describe("previsit Host routes", () => {
     expect(listed.body).not.toContain("reportMarkdown")
 
     const otherTask = await workflow.create({ id: "PV-20260911-WEB2", sessionId: otherSessionId, workspace: "/synthetic", query: "另一家合成公司", depth: "fast" })
+    const legacyTask = await workflow.put({
+      ...otherTask,
+      id: "PV-20260911-WEB3",
+      sessionId: "",
+      workspace: "",
+      query: "旧版来源缺失记录",
+    })
     const allSessions = await call("/previsit/api/tasks")
     expect(allSessions.status).toBe(200)
-    expect(JSON.parse(allSessions.body).tasks.map((item: { id: string }) => item.id).sort()).toEqual([otherTask.id, task.id].sort())
+    expect(JSON.parse(allSessions.body).tasks.map((item: { id: string }) => item.id).sort()).toEqual([legacyTask.id, otherTask.id, task.id].sort())
     expect(JSON.parse(listed.body).tasks.map((item: { id: string }) => item.id)).toEqual([task.id])
+    expect((await call(`/previsit/api/tasks/${legacyTask.id}?sessionId=${encodeURIComponent(sessionId)}`)).status).toBe(403)
 
     const downloaded = await call(`/previsit/api/tasks/${task.id}/report?sessionId=${encodeURIComponent(sessionId)}`)
     expect(downloaded.status).toBe(200)

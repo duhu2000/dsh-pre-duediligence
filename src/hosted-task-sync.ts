@@ -8,6 +8,25 @@ export type HostedTask = Omit<PrevisitTaskRecord, "reportMarkdown"> & {
   reportMarkdown?: string
 }
 
+export type HostedTaskOrigin = {
+  workspace: string
+  sessionId: string
+  label: string
+  complete: boolean
+}
+
+/** Never infer missing legacy origin metadata or bind it to the active Session. */
+export function hostedTaskOrigin(task: Pick<HostedTask, "workspace" | "sessionId">): HostedTaskOrigin {
+  const workspace = task.workspace.trim() || "未记录（旧记录）"
+  const sessionId = task.sessionId.trim() || "未记录（旧记录）"
+  return {
+    workspace,
+    sessionId,
+    label: `来源：Workspace ${workspace} · Session ${sessionId}`,
+    complete: task.workspace.trim() !== "" && task.sessionId.trim() !== "",
+  }
+}
+
 export const HOSTED_TERMINAL = new Set(["completed", "partial", "failed"])
 const VERIFY_RUN = /risk|dishonest|enforcement|terminated|freeze|exception|penalty|tax|judicial|executive/
 const COMPLETE_RUN = new Set(["done", "no-data", "skipped"])

@@ -1,5 +1,16 @@
 # DSH-UX-001 采纳与验收记录
 
+## 0.1.23：旧记录兼容与 TaskScope 契约
+
+日期：2026-09-13。
+
+| 交互要求 | 当前实现 |
+| --- | --- |
+| 历史升级不能丢弃旧 Host 记录 | 缺少 Workspace / Session 的合法旧记录继续进入 Profile 历史，并规范化为空来源哨兵 |
+| 来源缺失不得猜测或重绑 | 卡片明确显示“未记录（旧记录）”；旧记录不匹配任何当前 Session，也不能由当前页下载或回写 |
+| 当前任务与历史查询边界应可复用 | `HostedTaskListScope` 显式区分 `current` 和 `profile-history`；独立 TaskScope 文档覆盖 Session A/B/legacy fixtures |
+| 长来源信息不能破坏布局 | 浅色/深色 × 桌面/窄屏四种隔离 Chrome 场景检查跨 Session 长路径与旧记录标识 |
+
 ## 0.1.22：跨 Session 历史汇总
 
 日期：2026-09-13。

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { hostedLiveProgress, hostedProgressCopy, hostedStatus, hostedTaskView, hostedToolEvents, latestHostedRuns, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
+import { hostedLiveProgress, hostedProgressCopy, hostedStatus, hostedTaskOrigin, hostedTaskView, hostedToolEvents, latestHostedRuns, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import type { ActiveTask } from "./previsit-store.js"
 import { EMPTY_SESSION_STATE } from "./previsit-store.js"
 import { derivePhaseStates } from "./workbench-state.js"
@@ -34,6 +34,21 @@ const active: ActiveTask = {
 }
 
 describe("Host 任务接管", () => {
+  it("明确展示完整来源和旧记录缺失来源，不猜测当前 Session", () => {
+    expect(hostedTaskOrigin(makeHosted())).toEqual({
+      workspace: "/tmp/workspace",
+      sessionId: "session-dsh-pre-duediligence-sync",
+      label: "来源：Workspace /tmp/workspace · Session session-dsh-pre-duediligence-sync",
+      complete: true,
+    })
+    expect(hostedTaskOrigin(makeHosted({ workspace: "", sessionId: "" }))).toEqual({
+      workspace: "未记录（旧记录）",
+      sessionId: "未记录（旧记录）",
+      label: "来源：Workspace 未记录（旧记录） · Session 未记录（旧记录）",
+      complete: false,
+    })
+  })
+
   it("原生对话未创建本地任务时仍认领当前 Session 最新任务", () => {
     const older = makeHosted({ id: "PVT-22222222-2222-4222-8222-222222222222", updatedAt: "2026-09-11T11:59:00.000Z" })
     const latest = makeHosted()

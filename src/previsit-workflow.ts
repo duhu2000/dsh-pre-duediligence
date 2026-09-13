@@ -147,17 +147,24 @@ const DOMAIN_SPEC = {
 const VALID_REQUEST_ID = /^PV-\d{8}-[A-Z0-9-]{4,40}$/
 const nowIso = () => new Date().toISOString()
 
-function isRecord(value: unknown): value is PrevisitTaskRecord {
-  if (value === null || typeof value !== "object") return false
+function parseStoredRecord(value: unknown): PrevisitTaskRecord | undefined {
+  if (value === null || typeof value !== "object") return undefined
   const record = value as Partial<PrevisitTaskRecord>
-  return typeof record.id === "string"
+  const valid = typeof record.id === "string"
     && record.schemaVersion === 1
-    && typeof record.sessionId === "string"
+    && (record.sessionId === undefined || typeof record.sessionId === "string")
+    && (record.workspace === undefined || typeof record.workspace === "string")
     && typeof record.query === "string"
     && typeof record.limit === "number"
     && typeof record.used === "number"
     && Array.isArray(record.runs)
     && PREVISIT_TASK_STATES.includes(record.state as PrevisitTaskState)
+  if (!valid) return undefined
+  return normalizeTerminalRecord({
+    ...(record as PrevisitTaskRecord),
+    sessionId: typeof record.sessionId === "string" ? record.sessionId : "",
+    workspace: typeof record.workspace === "string" ? record.workspace : "",
+  })
 }
 
 function normalizeTerminalRecord(record: PrevisitTaskRecord): PrevisitTaskRecord {
@@ -228,7 +235,10 @@ export class PrevisitWorkflowStore {
     if (this.attachPromise !== undefined) return this.attachPromise
     this.attachPromise = storageDomain.open(DOMAIN_SPEC).then(async access => {
       this.table = access.table("tasks")
-      for (const [id, value] of this.table.entries()) if (isRecord(value)) this.records.set(id, normalizeTerminalRecord(value))
+      for (const [id, value] of this.table.entries()) {
+        const record = parseStoredRecord(value)
+        if (record !== undefined) this.records.set(id, record)
+      }
       for (const [id, record] of this.records) await this.table.put(id, record)
       logger.info?.("[dsh-pre-duediligence] persistent task state ready")
     }).catch(error => {
@@ -257,10 +267,9 @@ export class PrevisitWorkflowStore {
     }
     if (this.table === undefined) return undefined
     const value = await this.table.get(id)
-    if (!isRecord(value)) return undefined
-    const normalized = normalizeTerminalRecord(value)
-    if (normalized !== value) await this.put(normalized)
-    else this.records.set(id, normalized)
+    const normalized = parseStoredRecord(value)
+    if (normalized === undefined) return undefined
+    await this.put(normalized)
     return normalized
   }
 

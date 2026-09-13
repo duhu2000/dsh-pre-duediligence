@@ -1,6 +1,12 @@
 # 更新日志
 ## [Unreleased]
 
+## [0.1.23] - 2026-09-13
+
+- Host 存储兼容缺少 Workspace / Session 来源元数据的旧记录：记录继续进入 Profile 历史，但绝不匹配或重绑为当前 Session 任务。
+- 历史卡片对缺失来源明确显示“未记录（旧记录）”；客户端以 `HostedTaskListScope` 判别联合固化当前任务与 Profile 历史边界。
+- 新增可复用 TaskScope/History 契约及 Session A/B/legacy fixtures，并将跨 Session 历史来源纳入四种隔离 Chrome 布局回归。
+
 ## [0.1.22] - 2026-09-13
 
 - “任务历史”改为汇总当前 DSH Profile 内所有访前尽调 Session 的 Host 持久记录，重新打开插件或进入新会话后仍可查看既有任务。

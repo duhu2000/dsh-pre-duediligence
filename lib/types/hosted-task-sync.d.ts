@@ -6,6 +6,14 @@ export type HostedTask = Omit<PrevisitTaskRecord, "reportMarkdown"> & {
     reportReady: boolean;
     reportMarkdown?: string;
 };
+export type HostedTaskOrigin = {
+    workspace: string;
+    sessionId: string;
+    label: string;
+    complete: boolean;
+};
+/** Never infer missing legacy origin metadata or bind it to the active Session. */
+export declare function hostedTaskOrigin(task: Pick<HostedTask, "workspace" | "sessionId">): HostedTaskOrigin;
 export declare const HOSTED_TERMINAL: Set<string>;
 export type HostedLiveProgress = {
     title: string;

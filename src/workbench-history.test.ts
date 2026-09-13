@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchHostedTasks } from "./hosted-task-api.js"
+import { fetchHostedTasks, hostedTaskListUrl } from "./hosted-task-api.js"
 
 describe("访前任务历史范围", () => {
   afterEach(() => { vi.unstubAllGlobals() })
@@ -12,8 +12,13 @@ describe("访前任务历史范围", () => {
     } as Response))
     vi.stubGlobal("fetch", fetchMock)
 
-    await fetchHostedTasks("session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc")
-    await fetchHostedTasks()
+    const current = { kind: "current", sessionId: "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc" } as const
+    const history = { kind: "profile-history" } as const
+    expect(hostedTaskListUrl(current)).toContain("?sessionId=")
+    expect(hostedTaskListUrl(history)).toBe("/previsit/api/tasks")
+
+    await fetchHostedTasks(current)
+    await fetchHostedTasks(history)
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,

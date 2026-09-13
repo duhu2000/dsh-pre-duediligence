@@ -19,7 +19,7 @@ import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sideba
 import { PrevisitHome } from "./previsit-home.js"
 import { openWorkbench } from "./better-sidebar.js"
 import { fetchHostedTask, fetchHostedTasks } from "./hosted-task-api.js"
-import { HOSTED_TERMINAL, hostedLiveProgress, hostedProgressCopy, hostedStatus, hostedTaskView, hostedToolEvents, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
+import { HOSTED_TERMINAL, hostedLiveProgress, hostedProgressCopy, hostedStatus, hostedTaskOrigin, hostedTaskView, hostedToolEvents, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import { installOrdinarySessionGuard, type WorkspaceNavigation } from "./ordinary-session-guard.js"
 import {
   PREVISIT_PHASES,
@@ -438,9 +438,10 @@ function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchSt
       <header className="qccPwPageHeading"><div><p className="qccPwEyebrow">HISTORY</p><h2>任务历史</h2><p>汇总当前 DSH Profile 中所有访前尽调 Session；任务状态与报告制品由 Host 保存。</p></div></header>
       {props.hosted.length > 0 ? props.hosted.map(item => {
         const status = hostedStatus(item)
+        const origin = hostedTaskOrigin(item)
         return (
           <div className="qccPwCard" key={item.id}>
-            <div className="qccPwCardHeader"><div><h3>{item.entity?.fullName ?? item.query}</h3><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p><p className="qccPwHistorySource" title={`${item.workspace} · ${item.sessionId}`}>来源：{item.workspace} · {item.sessionId}</p></div><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span></div>
+            <div className="qccPwCardHeader"><div><h3>{item.entity?.fullName ?? item.query}</h3><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p><p className="qccPwHistorySource" data-complete={origin.complete} title={origin.label}>{origin.label}</p></div><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span></div>
             <p className="qccPwNote">企查查查询 {item.used} 次 · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
           </div>
         )
@@ -493,7 +494,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     const refresh = async () => {
       try {
         const current = props.shared.get(sessionId)
-        const records = await fetchHostedTasks(sessionId)
+        const records = await fetchHostedTasks({ kind: "current", sessionId })
         const summary = selectHostedTask(records, current.task, current.dismissedTaskIds)
         // 列表只传轻量状态；报告就绪后再按 ID 读取正文。
         const record = summary?.reportReady === true ? (await fetchHostedTask(summary.id, sessionId) ?? summary) : summary
@@ -529,7 +530,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     let timer: ReturnType<typeof setTimeout> | undefined
     const refresh = async () => {
       try {
-        const records = await fetchHostedTasks()
+        const records = await fetchHostedTasks({ kind: "profile-history" })
         if (disposed) return
         setHostedHistory(records)
         setHostError(undefined)

@@ -13,6 +13,33 @@ function storageFixture() {
 }
 
 describe("PrevisitWorkflowStore", () => {
+  it("保留缺少来源元数据的旧记录，仅进入 Profile 历史且不猜测当前 Session", async () => {
+    const storage = storageFixture()
+    storage.values.set("PV-20260911-OLD1", {
+      id: "PV-20260911-OLD1",
+      schemaVersion: 1,
+      revision: 1,
+      query: "旧版合成公司",
+      depth: "fast",
+      limit: 8,
+      used: 0,
+      state: "completed",
+      stage: "output",
+      runs: [],
+      createdAt: "2026-09-10T12:00:00.000Z",
+      updatedAt: "2026-09-10T12:05:00.000Z",
+      completedAt: "2026-09-10T12:05:00.000Z",
+    })
+    const store = new PrevisitWorkflowStore()
+    await store.attach(storage.domain)
+
+    await expect(store.list()).resolves.toEqual([
+      expect.objectContaining({ id: "PV-20260911-OLD1", sessionId: "", workspace: "", limit: 0 }),
+    ])
+    await expect(store.list("session-dsh-pre-duediligence-current")).resolves.toEqual([])
+    expect(storage.values.get("PV-20260911-OLD1")).toEqual(expect.objectContaining({ sessionId: "", workspace: "" }))
+  })
+
   it("persists entity, progress and a downloadable report across store instances", async () => {
     const storage = storageFixture()
     const first = new PrevisitWorkflowStore()

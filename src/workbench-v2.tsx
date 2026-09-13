@@ -432,7 +432,52 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: Hosted
   )
 }
 
-function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; hosted: HostedTask[] }): JSX.Element {
+export function HistoryPanel(props: {
+  task: ActiveTask | undefined
+  status: WorkbenchStatus
+  hosted: HostedTask[]
+  selected: HostedTask | null
+  loadingTaskId: string | undefined
+  downloadingTaskId: string | undefined
+  onOpen(item: HostedTask): void
+  onBack(): void
+  onDownload(item: HostedTask): void
+}): JSX.Element {
+  const selectedReport = props.selected?.reportMarkdown?.trim()
+  if (props.selected !== null) {
+    const item = props.selected
+    const status = hostedStatus(item)
+    const origin = hostedTaskOrigin(item)
+    const reportHtml = selectedReport === undefined || selectedReport === "" ? null : buildPrevisitReportHtml(selectedReport)
+    return (
+      <section className="qccPwPanel">
+        <header className="qccPwPageHeading qccPwHistoryHeading">
+          <div><p className="qccPwEyebrow">HISTORY DETAIL</p><h2>{item.entity?.fullName ?? item.query}</h2><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p></div>
+          <button type="button" className="qccPwSecondary" onClick={props.onBack}>返回清单</button>
+        </header>
+        <div className="qccPwCard">
+          <div className="qccPwCardHeader">
+            <div><h3>任务详情</h3><p className="qccPwHistorySource" data-complete={origin.complete} title={origin.label}>{origin.label}</p></div>
+            <span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span>
+          </div>
+          <p className="qccPwNote">企查查查询 {item.used} 次 · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
+          <div className="qccPwHistoryActions">
+            <button
+              type="button"
+              className="qccPwPrimary"
+              disabled={!item.reportReady || !origin.complete || props.downloadingTaskId === item.id}
+              title={!origin.complete ? "旧记录缺少来源 Session，无法安全下载" : item.reportReady ? "下载已保存的 HTML 报告" : "报告尚未生成"}
+              onClick={() => props.onDownload(item)}
+            >{props.downloadingTaskId === item.id ? "正在下载…" : "下载报告 ↓"}</button>
+          </div>
+        </div>
+        {reportHtml === null
+          ? <Feedback tone="notice" title={item.reportReady ? "正在读取报告" : "报告尚未生成"}>{item.reportReady ? "已找到报告制品，但正文暂未返回；请返回清单后重试。" : "任务详情已恢复，报告生成后可在这里查看并下载。"}</Feedback>
+          : <div className="qccPwCard qccPwReportCard"><ReportViewer html={reportHtml} /></div>}
+        <p className="qccPwNote">历史详情只读取该任务所属 Session 的 Host 制品，不会重新调用企查查，也不会覆盖当前会话任务。</p>
+      </section>
+    )
+  }
   return (
     <section className="qccPwPanel">
       <header className="qccPwPageHeading"><div><p className="qccPwEyebrow">HISTORY</p><h2>任务历史</h2><p>汇总当前 DSH Profile 中所有访前尽调 Session；任务状态与报告制品由 Host 保存。</p></div></header>
@@ -440,10 +485,19 @@ function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchSt
         const status = hostedStatus(item)
         const origin = hostedTaskOrigin(item)
         return (
-          <div className="qccPwCard" key={item.id}>
+          <button
+            type="button"
+            className="qccPwCard qccPwHistoryCard"
+            key={item.id}
+            disabled={!origin.complete || props.loadingTaskId === item.id}
+            title={origin.complete ? "打开任务详情与已保存报告" : "旧记录缺少来源 Session，只能查看清单摘要"}
+            aria-label={`查看${item.entity?.fullName ?? item.query}的任务详情`}
+            onClick={() => props.onOpen(item)}
+          >
             <div className="qccPwCardHeader"><div><h3>{item.entity?.fullName ?? item.query}</h3><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p><p className="qccPwHistorySource" data-complete={origin.complete} title={origin.label}>{origin.label}</p></div><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span></div>
             <p className="qccPwNote">企查查查询 {item.used} 次 · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
-          </div>
+            <span className="qccPwHistoryOpen">{props.loadingTaskId === item.id ? "正在打开…" : origin.complete ? "查看详情 →" : "仅摘要"}</span>
+          </button>
         )
       }) : props.task === undefined ? (
         <Feedback tone="notice" title="暂无历史任务">从提示词生成器回填并发送，或在任一访前会话中直接发起尽调后，这里会汇总显示。</Feedback>
@@ -453,7 +507,7 @@ function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchSt
           <pre className="qccPwPrompt">{props.task.prompt}</pre>
         </div>
       )}
-      <p className="qccPwNote">这里跨访前 Session 汇总 Host 任务记录；完整对话和证据引用仍保留在各自的 DSH 原生会话中。</p>
+      <p className="qccPwNote">点击任务可恢复详情并查看、下载已生成报告；不会重新执行查询。完整对话和证据引用仍保留在各自的 DSH 原生会话中。</p>
     </section>
   )
 }
@@ -474,6 +528,9 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
   const [hostedTask, setHostedTask] = useState<HostedTask | null>(null)
   const [hostedHistory, setHostedHistory] = useState<HostedTask[]>([])
+  const [selectedHistory, setSelectedHistory] = useState<HostedTask | null>(null)
+  const [loadingHistoryTaskId, setLoadingHistoryTaskId] = useState<string>()
+  const [downloadingTaskId, setDownloadingTaskId] = useState<string>()
   const [hostError, setHostError] = useState<string>()
   const reconcilingReports = useRef(new Set<string>())
   const lastHostedLocation = useRef<string>()
@@ -542,6 +599,13 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     void refresh()
     return () => { disposed = true; if (timer !== undefined) clearTimeout(timer) }
   }, [props.visible, shared.view, sessionId])
+
+  useEffect(() => {
+    if (shared.view !== "history") {
+      setSelectedHistory(null)
+      setLoadingHistoryTaskId(undefined)
+    }
+  }, [shared.view])
 
   useEffect(() => {
     const face = props.ctx.sessions.binding?.(sessionId)?.session
@@ -641,6 +705,60 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     setCapturedReport(null)
     setHostedTask(null)
   }
+  const saveReportResponse = async (record: HostedTask, ownerSessionId: string): Promise<void> => {
+    const response = await fetch(`/previsit/api/tasks/${encodeURIComponent(record.id)}/report?sessionId=${encodeURIComponent(ownerSessionId)}`, { headers: { accept: "text/html" } })
+    if (!response.ok) {
+      let message = `报告下载失败（HTTP ${response.status}）`
+      try {
+        const payload = await response.json() as { message?: string }
+        if (payload.message !== undefined) message = payload.message
+      } catch { /* HTML or empty error response. */ }
+      throw new Error(message)
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = record.artifact?.fileName ?? `访前尽调报告_${record.entity?.fullName ?? record.query}.html`
+    document.body.append(anchor)
+    anchor.click()
+    anchor.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
+  const openHistoryTask = async (record: HostedTask) => {
+    const origin = hostedTaskOrigin(record)
+    if (!origin.complete) {
+      setDownloadNote("该旧记录缺少 Workspace / Session 来源，只能查看清单摘要，无法安全读取详情。")
+      return
+    }
+    setLoadingHistoryTaskId(record.id)
+    setDownloadNote(undefined)
+    try {
+      const detail = await fetchHostedTask(record.id, record.sessionId)
+      if (detail === null) throw new Error("该历史任务已不存在或当前 Profile 无权访问。")
+      setSelectedHistory(detail)
+    } catch (error) {
+      setDownloadNote(error instanceof Error ? error.message : "历史任务详情读取失败，请稍后重试。")
+    } finally {
+      setLoadingHistoryTaskId(undefined)
+    }
+  }
+
+  const downloadHistoryReport = async (record: HostedTask) => {
+    const origin = hostedTaskOrigin(record)
+    if (!record.reportReady || !origin.complete || downloadingTaskId !== undefined) return
+    setDownloadingTaskId(record.id)
+    setDownloadNote(undefined)
+    try {
+      await saveReportResponse(record, record.sessionId)
+    } catch (error) {
+      setDownloadNote(error instanceof Error ? error.message : "历史报告下载失败，请稍后重试。")
+    } finally {
+      setDownloadingTaskId(undefined)
+    }
+  }
+
   const downloadReport = async () => {
     if (cardText === null || status !== "ready") {
       setDownloadNote("当前任务的报告尚未就绪，请等待会话生成符合输出结构的报告。")
@@ -651,10 +769,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       let blob: Blob
       let fileName: string
       if (hostedTask?.artifact !== undefined) {
-        const response = await fetch(`/previsit/api/tasks/${encodeURIComponent(hostedTask.id)}/report?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "text/html" } })
-        if (!response.ok) throw new Error(`报告下载失败（HTTP ${response.status}）`)
-        blob = await response.blob()
-        fileName = hostedTask.artifact.fileName
+        await saveReportResponse(hostedTask, sessionId)
+        return
       } else {
         const html = buildPrevisitReportHtml(cardText)
         const company = /(?:访前尽调报告|拜访作战卡)\s*·\s*([^\n（(锚｜]+)/.exec(cardText)?.[1]?.trim() || "访前尽调报告"
@@ -707,7 +823,17 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         {shared.view === "collect" ? <OpportunityPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "verify" ? <RiskPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "output" ? <DeliveryPanel task={task} hostedTask={hostedTask} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
-        {shared.view === "history" ? <HistoryPanel task={task} status={status} hosted={hostedHistory} /> : null}
+        {shared.view === "history" ? <HistoryPanel
+          task={task}
+          status={status}
+          hosted={hostedHistory}
+          selected={selectedHistory}
+          loadingTaskId={loadingHistoryTaskId}
+          downloadingTaskId={downloadingTaskId}
+          onOpen={record => { void openHistoryTask(record) }}
+          onBack={() => { setSelectedHistory(null); setDownloadNote(undefined) }}
+          onDownload={record => { void downloadHistoryReport(record) }}
+        /> : null}
       </div>
       <footer className="qccPwFooter">
         <span className="qccPwFooterHint" data-tone={downloadNote === undefined && hostError === undefined ? undefined : "error"}>{downloadNote ?? hostError ?? "宿主收起侧拉或关闭本 Tab 不会取消任务，也不会删除历史或制品。"}</span>

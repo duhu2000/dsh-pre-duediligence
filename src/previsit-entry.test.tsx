@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { createPrevisitSession, isPrevisitSession, resolvePrevisitWorkspaceId, type PrevisitSessionHost } from "./previsit-session.js"
-import { PREVISIT_HOME_FLOWS, PREVISIT_HOME_SUMMARY, PREVISIT_HOME_TITLE, PrevisitHome, setPrevisitHeadline } from "./previsit-home.js"
+import { PREVISIT_HOME_FLOWS, PREVISIT_HOME_SUMMARY, PREVISIT_HOME_TITLE, PrevisitHome, resolvePrevisitHeroChrome, setPrevisitHeadline } from "./previsit-home.js"
 
 const id = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 function host(expectedWorkspaceId = "current") {
@@ -121,5 +121,28 @@ describe("session-specific previsit home", () => {
     title.textContent = "数据清洗补全智能体"
     next()
     expect(title.textContent).toBe("数据清洗补全智能体")
+  })
+  it("finds the headline when the Host mounts the dock beside the hero instead of inside data-phase", () => {
+    const title = { textContent: "探索未至之境", dataset: {}, parentElement: null }
+    const region = {
+      parentElement: null,
+      querySelectorAll: (selector: string) => selector === "span" ? [title] : [],
+      querySelector: () => title,
+    }
+    const seat = {
+      parentElement: region,
+      querySelectorAll: () => [],
+      querySelector: () => null,
+    }
+    const anchor = {
+      parentElement: seat,
+      closest: (selector: string) => selector === "[data-composer-seat]" ? seat : null,
+    } as unknown as HTMLElement
+
+    expect(resolvePrevisitHeroChrome(anchor)?.title).toBe(title)
+    const release = setPrevisitHeadline(anchor)
+    expect(title.textContent).toBe(PREVISIT_HOME_TITLE)
+    release()
+    expect(title.textContent).toBe("探索未至之境")
   })
 })

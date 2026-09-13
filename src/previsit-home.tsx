@@ -79,46 +79,100 @@ export function installCapabilityMount(marker: HTMLElement, onMount: (mount: HTM
   }
 }
 
+type HeroChrome = { scope: HTMLElement; title: HTMLElement }
+
+/**
+ * 新版 Host 会把 list slot 挂在 composer seat 的独立分支，marker 不再一定是
+ * `[data-phase="hero"]` 的后代。优先沿用旧结构，再向上寻找同时包含原生输入区与标题的最小祖先。
+ */
+export function resolvePrevisitHeroChrome(anchor: HTMLElement): HeroChrome | null {
+  const direct = anchor.closest<HTMLElement>('[data-phase="hero"]')
+  const findTitle = (scope: HTMLElement): HTMLElement | null => {
+    const spans = [...scope.querySelectorAll<HTMLElement>("span")]
+    return spans.find(node => node.dataset.previsitHeroTitle === "true")
+      ?? spans.find(node => ["探索未至之境", "Into the Unknown"].includes(node.textContent?.trim() ?? ""))
+      ?? scope.querySelector<HTMLElement>('[class*="headlineText"]')
+  }
+  if (direct !== null) {
+    const title = findTitle(direct)
+    if (title !== null) return { scope: direct, title }
+  }
+  let scope = anchor.closest<HTMLElement>("[data-composer-seat]") ?? anchor.parentElement
+  while (scope !== null) {
+    const title = findTitle(scope)
+    if (title !== null) return { scope, title }
+    scope = scope.parentElement
+  }
+  return null
+}
+
 /** DSH 暂未公开会话级 Hero 标题槽位，因此仅在本插件空白会话内做可逆桥接。 */
 export function setPrevisitHeadline(anchor: HTMLElement): () => void {
-  const hero = anchor.closest<HTMLElement>('[data-phase="hero"]')
-  const title = hero?.querySelector<HTMLElement>('[class*="headlineText"]')
-  if (title === null || title === undefined) return () => {}
+  const originalTitles = new Map<HTMLElement, string | null>()
+  const originalMarks = new Map<HTMLElement, string>()
+  const originalBadges = new Map<HTMLElement, string>()
+  const originalRows = new Map<HTMLElement, string | null>()
+  const logos = new Map<HTMLElement, HTMLElement>()
+  let observer: MutationObserver | null = null
 
-  const originalTitle = title.textContent
-  const row = title.parentElement
-  const nativeMark = row?.querySelector<HTMLElement>('[class*="fishHitbox"]')
-  const badge = hero === null || hero === undefined ? undefined : [...hero.querySelectorAll<HTMLElement>("span")]
-    .find(node => ["预览版", "Preview"].includes(node.textContent?.trim() ?? ""))
-  const originalMarkDisplay = nativeMark?.style.display
-  const originalBadgeDisplay = badge?.style.display
-  const originalRowFlag = row?.getAttribute("data-previsit-hero-row") ?? null
-  let logo: HTMLElement | null = null
+  const sync = () => {
+    const chrome = resolvePrevisitHeroChrome(anchor)
+    if (chrome === null) return
+    const { scope, title } = chrome
+    if (!originalTitles.has(title)) originalTitles.set(title, title.textContent)
+    title.dataset.previsitHeroTitle = "true"
+    if (title.textContent !== PREVISIT_HOME_TITLE) title.textContent = PREVISIT_HOME_TITLE
 
-  title.textContent = PREVISIT_HOME_TITLE
-  title.dataset.previsitHeroTitle = "true"
-  if (row !== null && row !== undefined && nativeMark !== null && nativeMark !== undefined && typeof document !== "undefined") {
-    nativeMark.style.display = "none"
-    row.dataset.previsitHeroRow = "true"
-    logo = document.createElement("span")
-    logo.className = "qccPrevisitHeroLogo"
-    logo.dataset.previsitOwned = "true"
-    logo.setAttribute("aria-hidden", "true")
-    logo.innerHTML = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="${PREVISIT_LOGO_PATH}"></path></svg>`
-    row.insertBefore(logo, title)
+    const row = title.parentElement
+    const nativeMark = row?.querySelector<HTMLElement>('[class*="fishHitbox"]')
+    if (row !== null && row !== undefined && nativeMark !== null && nativeMark !== undefined && typeof document !== "undefined") {
+      if (!originalRows.has(row)) originalRows.set(row, row.getAttribute("data-previsit-hero-row"))
+      if (!originalMarks.has(nativeMark)) originalMarks.set(nativeMark, nativeMark.style.display)
+      nativeMark.style.display = "none"
+      row.dataset.previsitHeroRow = "true"
+      if (!logos.get(row)?.isConnected) {
+        const logo = document.createElement("span")
+        logo.className = "qccPrevisitHeroLogo"
+        logo.dataset.previsitOwned = "true"
+        logo.setAttribute("aria-hidden", "true")
+        logo.innerHTML = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="${PREVISIT_LOGO_PATH}"></path></svg>`
+        row.insertBefore(logo, title)
+        logos.set(row, logo)
+      }
+    }
+
+    const badge = [...scope.querySelectorAll<HTMLElement>("span")]
+      .find(node => node.dataset.previsitHeroBadge === "true" || ["预览版", "Preview"].includes(node.textContent?.trim() ?? ""))
+    if (badge !== undefined) {
+      if (!originalBadges.has(badge)) originalBadges.set(badge, badge.style.display)
+      badge.dataset.previsitHeroBadge = "true"
+      badge.style.display = "none"
+    }
   }
-  if (badge !== undefined) badge.style.display = "none"
+
+  sync()
+  const observationRoot = resolvePrevisitHeroChrome(anchor)?.scope
+    ?? (typeof document === "undefined" ? null : document.body)
+    ?? anchor.parentElement
+  observer = typeof MutationObserver === "function" ? new MutationObserver(sync) : null
+  if (observationRoot !== null) observer?.observe(observationRoot, { childList: true, subtree: true })
 
   return () => {
-    logo?.remove()
-    if (nativeMark !== null && nativeMark !== undefined) nativeMark.style.display = originalMarkDisplay ?? ""
-    if (badge !== undefined) badge.style.display = originalBadgeDisplay ?? ""
-    if (row !== null && row !== undefined) {
-      if (originalRowFlag === null) row.removeAttribute("data-previsit-hero-row")
-      else row.setAttribute("data-previsit-hero-row", originalRowFlag)
+    observer?.disconnect()
+    for (const logo of logos.values()) logo.remove()
+    for (const [mark, display] of originalMarks) mark.style.display = display
+    for (const [badge, display] of originalBadges) {
+      badge.style.display = display
+      delete badge.dataset.previsitHeroBadge
     }
-    if (title.textContent === PREVISIT_HOME_TITLE) title.textContent = originalTitle
-    delete title.dataset.previsitHeroTitle
+    for (const [row, flag] of originalRows) {
+      if (flag === null) row.removeAttribute("data-previsit-hero-row")
+      else row.setAttribute("data-previsit-hero-row", flag)
+    }
+    for (const [title, text] of originalTitles) {
+      if (title.textContent === PREVISIT_HOME_TITLE) title.textContent = text
+      delete title.dataset.previsitHeroTitle
+    }
   }
 }
 

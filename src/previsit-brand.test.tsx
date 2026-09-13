@@ -15,8 +15,9 @@ describe("访前尽调品牌一致性", () => {
 
   it("锁定菜单名与初始页面名称", () => {
     const sidebar = readFileSync(new URL("src/left-sidebar.tsx", root), "utf8")
-    expect(sidebar).toContain('error === undefined ? "访前尽调"')
-    expect(sidebar).not.toContain('error === undefined ? "访前尽调智能体"')
+    expect(sidebar).toContain('{wide ? <span>访前尽调</span> : null}')
+    expect(sidebar).not.toContain('正在打开…')
+    expect(sidebar).not.toContain('打开失败，请重试')
     expect(PREVISIT_HOME_TITLE).toBe("访前尽调一页纸智能体")
   })
 })

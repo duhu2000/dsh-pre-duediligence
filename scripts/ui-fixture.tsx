@@ -25,6 +25,17 @@ const historyTasks = [
 ]
 globalThis.fetch = (async (input) => {
   const url = String(input)
+  const detail = historyTasks.find(task => url.includes(`/previsit/api/tasks/${encodeURIComponent(task.id)}?sessionId=`))
+  if (detail !== undefined) {
+    return new Response(JSON.stringify({
+      ok: true,
+      task: {
+        ...detail,
+        artifact: { id: "history-report", format: "html", fileName: "历史企业甲访前报告.html", mediaType: "text/html; charset=utf-8", createdAt: detail.completedAt },
+        reportMarkdown: "# 访前尽调报告 · 历史企业甲\n## 1、核心研判\n历史报告正文",
+      },
+    }), { status: 200, headers: { "content-type": "application/json" } })
+  }
   const tasks = url.includes("?sessionId=") ? [] : historyTasks
   return new Response(JSON.stringify({ ok: true, tasks }), { status: 200, headers: { "content-type": "application/json" } })
 }) as typeof fetch
@@ -244,9 +255,20 @@ window.setTimeout(() => {
           document.body.dataset.historyOriginMissing = String(sources.some(source => source.textContent?.includes("Workspace 未记录（旧记录） · Session 未记录（旧记录）")))
           document.body.dataset.historyFits = String(sources.length === 2 && sources.every(source => source.getBoundingClientRect().right <= window.innerWidth + 0.5))
           document.body.dataset.historyMetrics = `${sourceRights.join("|")}/${window.innerWidth}`
-          document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)
-          document.body.dataset.viewportWidth = String(window.innerWidth)
-          document.body.dataset.uiReady = "true"
+          const historyCard = document.querySelector<HTMLButtonElement>(".qccPwHistoryCard:not(:disabled)")
+          flushSync(() => historyCard?.click())
+          window.setTimeout(() => {
+            const detailHeading = [...document.querySelectorAll<HTMLElement>(".qccPwPageHeading h2")].find(node => node.textContent === "历史企业甲")
+            const download = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryActions button")].find(button => button.textContent?.includes("下载报告"))
+            document.body.dataset.historyDetail = String(detailHeading !== undefined)
+            document.body.dataset.historyDownload = String(download !== undefined && !download.disabled)
+            const back = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryHeading button")].find(button => button.textContent?.includes("返回清单"))
+            flushSync(() => back?.click())
+            document.body.dataset.historyBack = String(document.querySelectorAll(".qccPwHistoryCard").length === 2)
+            document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)
+            document.body.dataset.viewportWidth = String(window.innerWidth)
+            document.body.dataset.uiReady = "true"
+          }, 100)
         }, 120)
       }, 120)
     }, 80)

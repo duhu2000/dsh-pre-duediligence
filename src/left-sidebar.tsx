@@ -133,7 +133,7 @@ function LeftSidebarEntry(props: LeftSidebarEntryProps): JSX.Element {
     >
       <span className="qccPrevisitLauncherContent">
         <PrevisitLogo size={18} />
-        {wide ? <span>{busy ? "正在打开…" : error === undefined ? "访前尽调" : "打开失败，请重试"}</span> : null}
+        {wide ? <span>访前尽调</span> : null}
       </span>
     </Button>
   )

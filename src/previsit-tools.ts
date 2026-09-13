@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { summarizeResult } from "./result-summary.js"
 import { isPrevisitSession } from "./previsit-session.js"
 import { classifyQccProviderOutcome } from "./tool-outcome.js"
 import { normalizePrevisitRequestId, previsitVerificationClosure, PrevisitWorkflowStore, validatePrevisitReport } from "./previsit-workflow.js"
@@ -265,7 +266,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       if (dimension === "entity_search") task.search = usable ? data : null
       if (dimension === "personnel") task.personnel = usable ? data : null
       if (dimension === "risk_scan") task.risk = usable ? data : null
-      await workflow.finishRun(task.id, callId, outcome, result.isError ? result.error?.message ?? "查询失败" : undefined)
+      await workflow.finishRun(task.id, callId, outcome, result.isError ? result.error?.message ?? "查询失败" : undefined, usable ? summarizeResult(data) : undefined)
       if (dimension === "risk_scan" && outcome === "no-data") {
         for (const detail of RISK_DETAIL_DIMENSIONS) {
           await recordSyntheticOutcome(task, detail, "skipped", "风险扫描无记录，无需下钻")

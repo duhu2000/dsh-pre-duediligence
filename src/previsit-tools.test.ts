@@ -41,6 +41,15 @@ function fixture() {
 }
 
 describe("Agent-owned paid-query boundary", () => {
+  it("persists provider risk findings before report generation", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    f.setReply({ 摘要: "合成风险扫描", 风险因子扫描: [{ 风险因子: "终本案件", 条目数: 12, 明细工具: "get_terminated_cases" }, { 风险因子: "破产重整", 条目数: 2 }] })
+    await f.call("previsit_query", { taskId, dimension: "risk_scan" })
+    const stored = await f.workflow.get(taskId)
+    expect(stored?.reportMarkdown).toBeUndefined()
+    expect(stored?.runs.find(run => run.dimension === "risk_scan")?.result?.factors).toEqual([{ name: "终本案件", count: 12 }, { name: "破产重整", count: 2 }])
+  })
   it("treats the submitted task as consent and does not open extra MCP approvals", async () => {
     const f = fixture()
     f.approval.mockResolvedValue("rejected")

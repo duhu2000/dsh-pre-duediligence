@@ -31,6 +31,7 @@ globalThis.fetch = (async (input) => {
       ok: true,
       task: {
         ...detail,
+        runs: [{ id: "scan", dimension: "risk_scan", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "合成扫描摘要", facts: [], factors: [{ name: "合成风险因子", count: 12 }] } }],
         artifact: { id: "history-report", format: "html", fileName: "历史企业甲访前报告.html", mediaType: "text/html; charset=utf-8", createdAt: detail.completedAt },
         reportMarkdown: "# 访前尽调报告 · 历史企业甲\n## 1、核心研判\n历史报告正文",
       },
@@ -256,12 +257,17 @@ window.setTimeout(() => {
           document.body.dataset.historyFits = String(sources.length === 2 && sources.every(source => source.getBoundingClientRect().right <= window.innerWidth + 0.5))
           document.body.dataset.historyMetrics = `${sourceRights.join("|")}/${window.innerWidth}`
           const historyCard = document.querySelector<HTMLButtonElement>(".qccPwHistoryCard:not(:disabled)")
+          document.body.dataset.historyNavHidden = String(document.querySelector(".qccPwStages") === null)
           flushSync(() => historyCard?.click())
           window.setTimeout(() => {
             const detailHeading = [...document.querySelectorAll<HTMLElement>(".qccPwPageHeading h2")].find(node => node.textContent === "历史企业甲")
             const download = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryActions button")].find(button => button.textContent?.includes("下载报告"))
             document.body.dataset.historyDetail = String(detailHeading !== undefined)
             document.body.dataset.historyDownload = String(download !== undefined && !download.disabled)
+            const historyStage = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="历史任务阶段"] button')].find(button => button.textContent?.includes("证据核验"))
+            flushSync(() => historyStage?.click())
+            document.body.dataset.historyStageReview = String(document.querySelector('.qccPwTabs [data-selected="true"]')?.textContent === "任务历史" && document.querySelector(".qccPwBody")?.textContent?.includes("合成风险因子") === true)
+            document.body.dataset.historyRiskHighlight = String(document.querySelector('.qccPwRiskTile[data-level="关注"]')?.textContent?.includes("12") === true)
             const back = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryHeading button")].find(button => button.textContent?.includes("返回清单"))
             flushSync(() => back?.click())
             document.body.dataset.historyBack = String(document.querySelectorAll(".qccPwHistoryCard").length === 2)

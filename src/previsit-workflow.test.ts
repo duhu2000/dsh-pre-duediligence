@@ -46,7 +46,7 @@ describe("PrevisitWorkflowStore", () => {
     await first.attach(storage.domain)
     let task = await first.create({ id: "PV-20260911-ABCD", sessionId: "session-dsh-pre-duediligence-test", workspace: "/synthetic", query: "合成公司", depth: "standard", limit: 18 })
     task = await first.startRun(task.id, { runId: "run-search", dimension: "entity_search", toolName: "mcp__qcc_company__get_company_by_query", quotaUsed: true })
-    task = await first.finishRun(task.id, "run-search", "done")
+    task = await first.finishRun(task.id, "run-search", "done", undefined, { summary: "合成结果", facts: [], factors: [] })
     task = await first.confirmEntity(task.id, { fullName: "合成公司股份有限公司", creditCode: "913200000000000001" })
     const report = "# 访前尽调报告 · 合成公司股份有限公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map((section, index) => `## ${index + 1}、${section}\n合成内容`).join("\n")
     task = await first.finalize(task.id, report, "completed")
@@ -59,6 +59,7 @@ describe("PrevisitWorkflowStore", () => {
     const restored = new PrevisitWorkflowStore()
     await restored.attach(storage.domain)
     await expect(restored.get(task.id)).resolves.toMatchObject({ entity: { fullName: "合成公司股份有限公司" }, reportMarkdown: report })
+    expect((await restored.get(task.id))?.runs[0]?.result?.summary).toBe("合成结果")
   })
 
   it("自愈旧版本中已有报告却回退到进行中的任务", async () => {

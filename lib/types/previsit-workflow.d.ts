@@ -1,4 +1,5 @@
 import type { ToolOutcome } from "./tool-outcome.js";
+import type { ResultSummary } from "./result-summary.js";
 export declare const PREVISIT_TASK_STATES: readonly ["needs-entity-search", "needs-entity-confirmation", "entity-confirmed", "running", "finalizing", "completed", "partial", "failed"];
 export type PrevisitTaskState = (typeof PREVISIT_TASK_STATES)[number];
 export type PrevisitTaskStage = "target" | "scope" | "collect" | "verify" | "output";
@@ -12,6 +13,7 @@ export type PrevisitRun = {
     startedAt: string;
     completedAt?: string;
     message?: string;
+    result?: ResultSummary;
 };
 export type PrevisitArtifact = {
     id: string;
@@ -98,7 +100,7 @@ export declare class PrevisitWorkflowStore {
         toolName?: string;
         quotaUsed: boolean;
     }): Promise<PrevisitTaskRecord>;
-    finishRun(id: string, runId: string, status: ToolOutcome, message?: string): Promise<PrevisitTaskRecord>;
+    finishRun(id: string, runId: string, status: ToolOutcome, message?: string, result?: ResultSummary): Promise<PrevisitTaskRecord>;
     confirmEntity(id: string, entity: {
         fullName: string;
         creditCode: string;

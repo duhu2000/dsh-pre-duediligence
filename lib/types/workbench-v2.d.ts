@@ -61,6 +61,9 @@ type ClientContext = LeftSidebarHost & {
     inject(deps: string[], setup: (ctx: ClientContext) => void): unknown;
     effect(setup: () => void | (() => void), label?: string): unknown;
 };
+export declare function ScanFindings({ task }: {
+    task: HostedTask | null;
+}): JSX.Element;
 export declare function HistoryPanel(props: {
     task: ActiveTask | undefined;
     status: WorkbenchStatus;

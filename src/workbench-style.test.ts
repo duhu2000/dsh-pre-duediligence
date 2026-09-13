@@ -73,8 +73,9 @@ describe("访前工作台企查查蓝主题", () => {
     expect(WORKBENCH_CSS).toContain('.qccPwState[data-state="selected"]')
     expect(WORKBENCH_CSS).toContain('.qccPwState[data-state="excluded"]')
     expect(WORKBENCH_CSS).toContain('.qccPwState[data-state="undetermined"]')
-    expect(workbenchSource).toContain("八项为互斥研判结果")
-    for (const label of ["当前研判", "非当前研判", "未形成结论", "待研判"]) expect(workbenchSource).toContain(label)
+    expect(workbenchSource).toContain("经营事实与研判")
+    expect(workbenchSource).not.toContain("BUSINESS_STATES.map")
+    expect(workbenchSource).toContain("实时风险扫描")
   })
 
   it("首页快捷菜单采用数据清洗补全式纵向描边卡片", () => {

@@ -30,6 +30,7 @@ export type HostedLiveProgress = {
 /** Only the latest run for each business dimension may drive current UI state. */
 export declare function latestHostedRuns(task: Pick<HostedTask, "runs">): PrevisitRun[];
 export declare function hostedToolEvents(task: HostedTask): ToolEvent[];
+export declare function dimensionLabel(dimension: string): string;
 /** Human-readable, count-based progress. It deliberately avoids fake percentages. */
 export declare function hostedLiveProgress(task: HostedTask, now?: number): HostedLiveProgress;
 export declare function hostedStatus(task: HostedTask): WorkbenchStatus;

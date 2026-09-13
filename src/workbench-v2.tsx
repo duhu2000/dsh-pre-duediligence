@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 
 import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
 import { PrevisitLogo } from "./previsit-brand.js"
+import { dimensionLabel } from "./hosted-task-sync.js"
 import { PrevisitFields, usePrevisitComposer } from "./previsit-dock.js"
 import { resolveSessionInput, clearSubmittedDraft, type SessionInput } from "./session-input.js"
 import { isPrevisitSession } from "./previsit-session.js"
@@ -286,31 +287,39 @@ function StagePanel(props: { eyebrow: string; title: string; task: ActiveTask | 
   )
 }
 
+export function ScanFindings({ task }: { task: HostedTask | null }): JSX.Element {
+  const scan = task?.runs.filter(run => run.dimension === "risk_scan").at(-1)
+  const factors = scan?.result?.factors ?? []
+  const hits = factors.filter(factor => factor.count > 0)
+  if (!scan?.result) return <p className="qccPwNote">扫描因子尚未保存；旧任务请参阅报告中的风险与覆盖说明。</p>
+  return <div className="qccPwCard"><h3>实时风险扫描 · {hits.length} 项命中</h3>
+    <p>查询成功仅表示数据已返回，不代表企业无风险。以下为公开记录计数，尚非最终风险定性。</p>
+    <div className="qccPwRiskTiles">{hits.map(factor => <div key={factor.name} className="qccPwRiskTile" data-level="关注" data-empty={false}><b>{factor.name}</b><strong> · {factor.count} 条</strong><p>已发现公开记录 · 需结合明细研判</p></div>)}</div>
+    {factors.length > 0 && hits.length === 0 ? <p className="qccPwNote">本次扫描 {factors.length} 项均未发现公开记录。</p> : null}
+    {scan.result.summary ? <p>{scan.result.summary}</p> : null}
+  </div>
+}
+
 function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
   const finished = props.status === "ready"
   const running = props.status === "running"
   const { insights } = props
   const steps = opportunitySteps(props.events, insights, finished)
   const dims = opportunityDimensions(props.events)
-  const concluded = insights.state !== null || insights.stateUndetermined
   return (
     <StagePanel eyebrow="COLLECT" title="资料采集" task={props.task}>
       <ExecutionProgress task={props.hostedTask} status={props.status} />
       <Steps steps={steps} />
       <Dimensions title="采集结果" items={dims} empty={running ? "正在建立主体与信号集…" : "尽调开始后显示采集结果"} />
+      <ScanFindings task={props.hostedTask} />
       <div className="qccPwCard">
-        <div className="qccPwCardHeader"><div><h3>经营状态</h3><p>八项为互斥研判结果，采集覆盖情况以上方“采集结果”为准。</p></div>{insights.state !== null
+        <div className="qccPwCardHeader"><div><h3>经营事实与研判</h3><p>以下内容来自本次查询返回；最终研判与查询执行状态分别展示。</p></div>{insights.state !== null
           ? <span className="qccPwMode" data-tone="success">已研判{insights.confidence === null ? "" : ` · 置信度 ${insights.confidence}`}</span>
           : insights.stateUndetermined
             ? <span className="qccPwMode" data-tone="review">状态未定</span>
             : <span className="qccPwMode" data-tone={running ? undefined : "neutral"}>{running ? "正在研判" : finished ? "未识别结论" : "待研判"}</span>}</div>
-        <div className="qccPwStateStrip" data-concluded={concluded}>
-          {BUSINESS_STATES.map(state => {
-            const stateStatus = insights.state === state ? "selected" : insights.stateUndetermined ? "undetermined" : concluded ? "excluded" : "pending"
-            const stateLabel = stateStatus === "selected" ? "当前研判" : stateStatus === "excluded" ? "非当前研判" : stateStatus === "undetermined" ? "未形成结论" : "待研判"
-            return <span key={state} className="qccPwState" data-state={stateStatus}><b>{state}</b><small>{stateLabel}</small></span>
-          })}
-        </div>
+        {insights.state ? <h3>{insights.state}</h3> : <p>尚未形成经营研判；先展示已返回的经营事实，不以查询成功推断经营良好。</p>}
+        {Array.from(new Map((props.hostedTask?.runs ?? []).filter(run => run.result && (run.result.summary || run.result.facts.length) && ["registration", "profile", "annual_reports", "changes", "financing", "bidding", "recruitment", "investments"].includes(run.dimension)).map(run => [run.dimension, run])).values()).map(run => <div key={run.id}><h4>{dimensionLabel(run.dimension)}</h4>{run.result?.summary ? <p>{run.result.summary}</p> : null}{run.result?.facts.map(fact => <p key={fact}>{fact}</p>)}</div>)}
         {insights.stateUndetermined ? <p className="qccPwNote">状态未定：公开证据不足，本次降级为清单式简报。</p> : null}
         {insights.industryLink === null ? null : <p className="qccPwNote">产业链环节：{insights.industryLink}</p>}
       </div>
@@ -338,6 +347,7 @@ function RiskPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask
       <ExecutionProgress task={props.hostedTask} status={props.status} />
       <Steps steps={steps} />
       <Dimensions title="核验结果" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核验结果"} />
+      <ScanFindings task={props.hostedTask} />
       <div className="qccPwCard">
         <div className="qccPwCardHeader"><div><h3>风险分级</h3></div></div>
         {!judged
@@ -350,7 +360,7 @@ function RiskPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask
                   return (
                     <div key={level} className="qccPwRiskTile" data-level={level} data-clear={cleared} data-empty={items.length === 0}>
                       <div className="qccPwRiskTileTop"><b>{level}</b><strong>{items.length}</strong></div>
-                      <p>{items[0]?.text ?? (cleared ? "已核查，本次未发现公开记录" : "未形成明确结论")}</p>
+                      {items.length ? items.map((item, index) => <p key={index}>{item.text}</p>) : <p>{cleared ? "已核查，本次未发现公开记录" : "未形成明确结论"}</p>}
                     </div>
                   )
                 })}
@@ -443,6 +453,8 @@ export function HistoryPanel(props: {
   onBack(): void
   onDownload(item: HostedTask): void
 }): JSX.Element {
+  const [historyPhase, setHistoryPhase] = useState<PrevisitPhase>("output")
+  useEffect(() => { setHistoryPhase("output") }, [props.selected?.id])
   const selectedReport = props.selected?.reportMarkdown?.trim()
   if (props.selected !== null) {
     const item = props.selected
@@ -471,7 +483,11 @@ export function HistoryPanel(props: {
             >{props.downloadingTaskId === item.id ? "正在下载…" : "下载报告 ↓"}</button>
           </div>
         </div>
-        {reportHtml === null
+        <nav className="qccPwStages" aria-label="历史任务阶段" role="tablist">{PREVISIT_PHASES.map(phase => <button key={phase} type="button" role="tab" aria-selected={historyPhase === phase} className="qccPwStage" data-selected={historyPhase === phase} onClick={() => setHistoryPhase(phase)}><span className="qccPwStageIcon"><Icon name={phase} /></span><strong>{PHASE_LABELS[phase]}</strong></button>)}</nav>
+        {historyPhase === "target" || historyPhase === "scope" ? <div className="qccPwCard"><h3>{PHASE_LABELS[historyPhase]} · 保存记录</h3><p>原始检索：{item.query}</p><p>已锚定主体：{item.entity?.fullName ?? "未保存"}</p><p>统一社会信用代码：{item.entity?.creditCode ?? "未保存"}</p><p>深度：{item.depth}</p><p>仅展示历史保存字段；未保存的角色、关注范围不使用当前任务补填。</p></div> : null}
+        {historyPhase === "collect" ? <OpportunityPanel task={undefined} hostedTask={item} status={status} events={hostedToolEvents(item)} insights={parseCardInsights(selectedReport ?? "")} /> : null}
+        {historyPhase === "verify" ? <RiskPanel task={undefined} hostedTask={item} status={status} events={hostedToolEvents(item)} insights={parseCardInsights(selectedReport ?? "")} /> : null}
+        {historyPhase !== "output" ? null : reportHtml === null
           ? <Feedback tone="notice" title={item.reportReady ? "正在读取报告" : "报告尚未生成"}>{item.reportReady ? "已找到报告制品，但正文暂未返回；请返回清单后重试。" : "任务详情已恢复，报告生成后可在这里查看并下载。"}</Feedback>
           : <div className="qccPwCard qccPwReportCard"><ReportViewer html={reportHtml} /></div>}
         <p className="qccPwNote">历史详情只读取该任务所属 Session 的 Host 制品，不会重新调用企查查，也不会覆盖当前会话任务。</p>
@@ -805,7 +821,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         <button type="button" data-selected={shared.view !== "history"} onClick={() => setView("target")}>当前任务</button>
         <button type="button" data-selected={shared.view === "history"} onClick={() => setView("history")}>任务历史</button>
       </nav>
-      <nav className="qccPwStages" aria-label="访前任务阶段" role="tablist">
+      {shared.view === "history" ? null : <nav className="qccPwStages" aria-label="访前任务阶段" role="tablist">
         {PREVISIT_PHASES.map(current => {
           const phaseState = phaseStates.find(item => item.id === current)
           const selected = shared.view === current
@@ -816,7 +832,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
             </button>
           )
         })}
-      </nav>
+      </nav>}
       <div className="qccPwBody">
         {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}

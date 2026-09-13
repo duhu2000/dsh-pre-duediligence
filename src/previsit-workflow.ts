@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 
 import type { ToolOutcome } from "./tool-outcome.js"
+import type { ResultSummary } from "./result-summary.js"
 
 export const PREVISIT_TASK_STATES = [
   "needs-entity-search",
@@ -27,6 +28,7 @@ export type PrevisitRun = {
   startedAt: string
   completedAt?: string
   message?: string
+  result?: ResultSummary
 }
 
 export type PrevisitArtifact = {
@@ -359,13 +361,14 @@ export class PrevisitWorkflowStore {
     })
   }
 
-  async finishRun(id: string, runId: string, status: ToolOutcome, message?: string): Promise<PrevisitTaskRecord> {
+  async finishRun(id: string, runId: string, status: ToolOutcome, message?: string, result?: ResultSummary): Promise<PrevisitTaskRecord> {
     const timestamp = nowIso()
     return this.update(id, current => {
       const runs: PrevisitRun[] = current.runs.map(run => run.id === runId ? {
         ...run,
         status,
         completedAt: timestamp,
+        ...(result === undefined ? {} : { result }),
         ...(message === undefined ? {} : { message: message.slice(0, 500) }),
       } : run)
       const run = runs.find(item => item.id === runId)

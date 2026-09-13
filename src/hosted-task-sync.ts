@@ -129,7 +129,7 @@ export function hostedToolEvents(task: HostedTask): ToolEvent[] {
   ]
 }
 
-function dimensionLabel(dimension: string): string {
+export function dimensionLabel(dimension: string): string {
   return DIMENSION_LABELS[dimension] ?? dimension.replaceAll("_", " ")
 }
 

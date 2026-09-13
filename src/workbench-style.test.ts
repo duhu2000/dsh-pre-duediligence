@@ -59,7 +59,8 @@ describe("访前工作台企查查蓝主题", () => {
   it("用真实查询事件持续展示当前动作、完成数量和耗时", () => {
     expect(WORKBENCH_CSS).toContain(".qccPwLiveProgress")
     expect(WORKBENCH_CSS).toContain("@keyframes qccPwPulse")
-    expect(workbenchSource).toContain("<ExecutionProgress task={props.hostedTask} status={props.status} />")
+    expect(workbenchSource).toContain("<ExecutionProgress task={hostedTask} status={status}")
+    expect(WORKBENCH_CSS).toContain(".qccPwShell>.qccPwLiveProgress")
     expect(workbenchSource).toContain("查询 {progress.queryCount}")
     expect(workbenchSource).toContain("闭环 {progress.completedCount}")
     expect(hostedSyncSource).toContain("本轮查询已返回，正在研判与整理")

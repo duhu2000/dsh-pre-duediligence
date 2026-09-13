@@ -5,12 +5,12 @@ import { PREVISIT_LOGO_PATH } from "./previsit-brand.js"
 import { isPrevisitSession } from "./previsit-session.js"
 import type { PrevisitView } from "./previsit-store.js"
 
-export const PREVISIT_HOME_TITLE = "访前尽调一页纸智能体"
+export const PREVISIT_HOME_TITLE = "访前尽调智能体"
 export const PREVISIT_HOME_SUMMARY = "明确拜访对象与目标，核验企业信息并准备访前材料。"
 
 export type PrevisitHomeProps = {
   sessionId: string
-  useSession<T>(selector: (state: { composerPhase: string }) => T): T
+  useSession<T>(selector: (state: { composerPhase?: string; blank?: boolean; awaitingFirstTurn?: boolean; running?: boolean; promptAttempted?: boolean }) => T): T
   openWorkbench?: (view?: PrevisitView) => void
 }
 
@@ -86,6 +86,8 @@ type HeroChrome = { scope: HTMLElement; title: HTMLElement }
  * `[data-phase="hero"]` 的后代。优先沿用旧结构，再向上寻找同时包含原生输入区与标题的最小祖先。
  */
 export function resolvePrevisitHeroChrome(anchor: HTMLElement): HeroChrome | null {
+  const phaseRoot = anchor.closest<HTMLElement>("[data-phase]")
+  if (phaseRoot?.getAttribute?.("data-phase") === "active") return null
   const direct = anchor.closest<HTMLElement>('[data-phase="hero"]')
   const findTitle = (scope: HTMLElement): HTMLElement | null => {
     const spans = [...scope.querySelectorAll<HTMLElement>("span")]
@@ -177,7 +179,7 @@ export function setPrevisitHeadline(anchor: HTMLElement): () => void {
 }
 
 export function PrevisitHome({ sessionId, useSession, openWorkbench }: PrevisitHomeProps): JSX.Element | null {
-  const blank = useSession(state => state.composerPhase === "blank")
+  const blank = useSession(state => state.composerPhase === "blank" || (state.composerPhase === undefined && (state.blank === true || state.awaitingFirstTurn === true) && !state.running && !state.promptAttempted))
   const enabled = isPrevisitSession(sessionId)
   const marker = useRef<HTMLDivElement>(null)
   const [menuMount, setMenuMount] = useState<HTMLElement | null>(null)
@@ -190,7 +192,8 @@ export function PrevisitHome({ sessionId, useSession, openWorkbench }: PrevisitH
   }, [enabled, sessionId, blank])
 
   useEffect(() => {
-    if (!enabled || !blank || marker.current === null) return
+    // The native Hero DOM is authoritative; newer Hosts no longer expose composerPhase.
+    if (!enabled || marker.current === null) return
     return setPrevisitHeadline(marker.current)
   }, [enabled, blank, sessionId])
 

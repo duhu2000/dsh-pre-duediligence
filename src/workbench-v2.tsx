@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 
 import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
 import { PrevisitLogo } from "./previsit-brand.js"
+import { processingStatus } from "./processing-status.js"
 import { dimensionLabel } from "./hosted-task-sync.js"
 import { PrevisitFields, usePrevisitComposer } from "./previsit-dock.js"
 import { resolveSessionInput, clearSubmittedDraft, type SessionInput } from "./session-input.js"
@@ -97,6 +98,7 @@ type ClientContext = LeftSidebarHost & {
 }
 
 type RuntimeState = {
+  available: boolean
   running: boolean
   partial: boolean
   lastAgentError: string | null
@@ -106,6 +108,7 @@ type RuntimeState = {
 }
 
 const EMPTY_RUNTIME: RuntimeState = {
+  available: false,
   running: false,
   partial: false,
   lastAgentError: null,
@@ -129,7 +132,7 @@ function Icon({ name }: { name: "target" | "scope" | "collect" | "verify" | "out
   return <svg className="qccPwIcon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>
 }
 
-function collectRuntime(snapshot: ConversationSnapshot, baseline: number): Omit<RuntimeState, "running" | "partial" | "lastAgentError"> {
+function collectRuntime(snapshot: ConversationSnapshot, baseline: number): Omit<RuntimeState, "available" | "running" | "partial" | "lastAgentError"> {
   const toolNames = new Set<string>()
   const toolEvents: ToolEvent[] = []
   for (const node of (snapshot.nodes ?? []).slice(baseline)) {
@@ -159,13 +162,20 @@ function Feedback(props: { tone: "notice" | "success" | "error"; title: string; 
   )
 }
 
-function ExecutionProgress(props: { task: HostedTask | null; status: WorkbenchStatus }): JSX.Element | null {
+function ExecutionProgress(props: { task: HostedTask | null; status: WorkbenchStatus; modelRunning?: boolean | undefined; syncError?: string | undefined }): JSX.Element | null {
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    if (props.task === null || props.status === "ready") return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [props.task?.id, props.status])
   if (props.task === null || props.status === "ready") return null
   const progress = hostedLiveProgress(props.task)
+  const activity = processingStatus({ running: props.modelRunning, error: props.syncError, waiting: props.task.state === "needs-entity-confirmation", querying: progress.current !== null, secondsSinceResult: (now - Date.parse(props.task.updatedAt)) / 1000 })
   return (
-    <div className="qccPwLiveProgress" data-running={progress.current !== null}>
+    <div className="qccPwLiveProgress" data-running={activity.busy}>
       <span className="qccPwLivePulse" aria-hidden="true" />
-      <div className="qccPwLiveCopy" role="status" aria-live="polite"><strong>{progress.title}</strong><p>{progress.detail}</p></div>
+      <div className="qccPwLiveCopy" role="status"><strong>{activity.title}</strong><p>{activity.detail}</p><p>{progress.title} · {progress.detail}</p></div>
       <div className="qccPwLiveMetrics" aria-label="实时执行统计">
         <span>查询 {progress.queryCount}</span>
         <span data-tone="success">闭环 {progress.completedCount}</span>
@@ -308,7 +318,6 @@ function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTask: Hos
   const dims = opportunityDimensions(props.events)
   return (
     <StagePanel eyebrow="COLLECT" title="资料采集" task={props.task}>
-      <ExecutionProgress task={props.hostedTask} status={props.status} />
       <Steps steps={steps} />
       <Dimensions title="采集结果" items={dims} empty={running ? "正在建立主体与信号集…" : "尽调开始后显示采集结果"} />
       <ScanFindings task={props.hostedTask} />
@@ -344,7 +353,6 @@ function RiskPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask
   const judged = insights.sections.includes("红线提示")
   return (
     <StagePanel eyebrow="VERIFY" title="证据核验" task={props.task}>
-      <ExecutionProgress task={props.hostedTask} status={props.status} />
       <Steps steps={steps} />
       <Dimensions title="核验结果" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核验结果"} />
       <ScanFindings task={props.hostedTask} />
@@ -626,6 +634,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   useEffect(() => {
     const face = props.ctx.sessions.binding?.(sessionId)?.session
     if (face === undefined) {
+      setRuntime(EMPTY_RUNTIME)
       return
     }
     const refresh = () => {
@@ -643,6 +652,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       const baseline = task?.nodeBaseline ?? (snapshot.nodes?.length ?? 0)
       const calls = collectRuntime(snapshot, baseline)
       setRuntime({
+        available: typeof snapshot.running === "boolean",
         running: snapshot.running === true,
         partial: snapshot.partial !== null && snapshot.partial !== undefined,
         lastAgentError: snapshot.lastAgentError ?? null,
@@ -833,6 +843,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
           )
         })}
       </nav>}
+      {shared.view !== "history" ? <ExecutionProgress task={hostedTask} status={status} modelRunning={runtime.available ? runtime.running : undefined} syncError={hostError ?? runtime.lastAgentError ?? undefined} /> : null}
       <div className="qccPwBody">
         {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}

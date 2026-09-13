@@ -1,11 +1,15 @@
 import { type ReactNode } from "react";
 import type { PrevisitView } from "./previsit-store.js";
-export declare const PREVISIT_HOME_TITLE = "\u8BBF\u524D\u5C3D\u8C03\u4E00\u9875\u7EB8\u667A\u80FD\u4F53";
+export declare const PREVISIT_HOME_TITLE = "\u8BBF\u524D\u5C3D\u8C03\u667A\u80FD\u4F53";
 export declare const PREVISIT_HOME_SUMMARY = "\u660E\u786E\u62DC\u8BBF\u5BF9\u8C61\u4E0E\u76EE\u6807\uFF0C\u6838\u9A8C\u4F01\u4E1A\u4FE1\u606F\u5E76\u51C6\u5907\u8BBF\u524D\u6750\u6599\u3002";
 export type PrevisitHomeProps = {
     sessionId: string;
     useSession<T>(selector: (state: {
-        composerPhase: string;
+        composerPhase?: string;
+        blank?: boolean;
+        awaitingFirstTurn?: boolean;
+        running?: boolean;
+        promptAttempted?: boolean;
     }) => T): T;
     openWorkbench?: (view?: PrevisitView) => void;
 };

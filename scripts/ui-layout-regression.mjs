@@ -107,7 +107,7 @@ for (const [theme, width, height] of scenarios) {
   assert.equal(attr("history-stage-review"), "true")
   assert.equal(attr("history-risk-highlight"), "true")
   assert.ok(Number(attr("logo-count")) >= 3)
-  assert.equal(attr("hero-title"), "访前尽调一页纸智能体")
+  assert.equal(attr("hero-title"), "访前尽调智能体")
   assert.equal(attr("prompt-fixed"), "fixed")
   assert.equal(attr("prompt-overflow"), "auto")
   assert.equal(attr("prompt-fits"), "true")

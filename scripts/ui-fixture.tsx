@@ -116,8 +116,8 @@ apply(ctx)
 function useStaticInput<T>(selector: (state: { draft: string; phase: string }) => T): T {
   return selector({ draft: "", phase: "blank" })
 }
-function useStaticSession<T>(selector: (state: { composerPhase: string }) => T): T {
-  return selector({ composerPhase: "blank" })
+function useStaticSession<T>(selector: (state: { blank: boolean; running: boolean; promptAttempted: boolean }) => T): T {
+  return selector({ blank: true, running: false, promptAttempted: false })
 }
 
 function Fixture(): JSX.Element {

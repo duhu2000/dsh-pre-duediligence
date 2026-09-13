@@ -91,6 +91,8 @@ describe("session-specific previsit home", () => {
     <PrevisitHome sessionId={sessionId} useSession={selector => selector({ composerPhase })} />,
   )
   it("renders the concise home and navigation only in the owned Session", () => {
+    expect(renderToStaticMarkup(<PrevisitHome sessionId={id} useSession={selector => selector({ blank: true, running: false })} />)).toContain(PREVISIT_HOME_SUMMARY)
+    expect(renderToStaticMarkup(<PrevisitHome sessionId={id} useSession={selector => selector({ blank: true, running: true })} />)).not.toContain(PREVISIT_HOME_SUMMARY)
     expect(render(id, "blank")).toContain(PREVISIT_HOME_SUMMARY)
     expect(render(id, "blank")).toContain("访前尽调能力菜单")
     expect(render(id, "blank")).toContain("对象与目标")

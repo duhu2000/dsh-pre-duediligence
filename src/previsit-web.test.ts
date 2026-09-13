@@ -4,6 +4,7 @@ import { mountPrevisitWebRoutes, type WebServer } from "./previsit-web.js"
 import { PrevisitWorkflowStore } from "./previsit-workflow.js"
 
 const sessionId = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
+const otherSessionId = "session-dsh-pre-duediligence-87654321-4321-4321-8321-cba987654321"
 const report = "# 访前尽调报告 · 合成公司股份有限公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map((section, index) => `## ${index + 1}、${section}\n合成内容`).join("\n")
 
 describe("previsit Host routes", () => {
@@ -46,6 +47,12 @@ describe("previsit Host routes", () => {
     expect(listed.status).toBe(200)
     expect(JSON.parse(listed.body).tasks[0]).toMatchObject({ id: task.id, state: "completed", reportReady: true })
     expect(listed.body).not.toContain("reportMarkdown")
+
+    const otherTask = await workflow.create({ id: "PV-20260911-WEB2", sessionId: otherSessionId, workspace: "/synthetic", query: "另一家合成公司", depth: "fast" })
+    const allSessions = await call("/previsit/api/tasks")
+    expect(allSessions.status).toBe(200)
+    expect(JSON.parse(allSessions.body).tasks.map((item: { id: string }) => item.id).sort()).toEqual([otherTask.id, task.id].sort())
+    expect(JSON.parse(listed.body).tasks.map((item: { id: string }) => item.id)).toEqual([task.id])
 
     const downloaded = await call(`/previsit/api/tasks/${task.id}/report?sessionId=${encodeURIComponent(sessionId)}`)
     expect(downloaded.status).toBe(200)

@@ -104,4 +104,12 @@ describe("访前工作台企查查蓝主题", () => {
     expect(workbenchSource).not.toContain("panelOpen: false")
     expect(workbenchSource).not.toContain("bottomOpen: false")
   })
+
+  it("任务历史跨访前 Session 汇总，但当前任务仍按 Session 隔离", () => {
+    expect(workbenchSource).toContain("const records = await fetchHostedTasks(sessionId)")
+    expect(workbenchSource).toContain("const records = await fetchHostedTasks()")
+    expect(workbenchSource).toContain("汇总当前 DSH Profile 中所有访前尽调 Session")
+    expect(workbenchSource).toContain("来源：{item.workspace} · {item.sessionId}")
+    expect(workbenchSource).not.toContain("不会把其它 Session 的任务合并到这里")
+  })
 })

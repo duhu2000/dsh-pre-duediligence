@@ -18,6 +18,7 @@ import {
 import { registerLeftSidebarLauncher, type LeftSidebarHost } from "./left-sidebar.js"
 import { PrevisitHome } from "./previsit-home.js"
 import { openWorkbench } from "./better-sidebar.js"
+import { fetchHostedTask, fetchHostedTasks } from "./hosted-task-api.js"
 import { HOSTED_TERMINAL, hostedLiveProgress, hostedProgressCopy, hostedStatus, hostedTaskView, hostedToolEvents, selectHostedTask, syncHostedTaskState, type HostedTask } from "./hosted-task-sync.js"
 import { installOrdinarySessionGuard, type WorkspaceNavigation } from "./ordinary-session-guard.js"
 import {
@@ -77,21 +78,6 @@ type ConversationSnapshot = {
   runningCalls?: Array<{ name?: string }>
   nodes?: ConversationNode[]
   lastAgentError?: string | null
-}
-
-async function fetchHostedTask(taskId: string, sessionId: string): Promise<HostedTask | null> {
-  const response = await fetch(`/previsit/api/tasks/${encodeURIComponent(taskId)}?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "application/json" } })
-  if (response.status === 404) return null
-  const payload = await response.json() as { ok?: boolean; task?: HostedTask; message?: string }
-  if (!response.ok || payload.ok === false || payload.task === undefined) throw new Error(payload.message ?? `任务状态读取失败（HTTP ${response.status}）`)
-  return payload.task
-}
-
-async function fetchHostedHistory(sessionId: string): Promise<HostedTask[]> {
-  const response = await fetch(`/previsit/api/tasks?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "application/json" } })
-  const payload = await response.json() as { ok?: boolean; tasks?: HostedTask[]; message?: string }
-  if (!response.ok || payload.ok === false || !Array.isArray(payload.tasks)) throw new Error(payload.message ?? `任务历史读取失败（HTTP ${response.status}）`)
-  return payload.tasks
 }
 
 type SessionConversation = {
@@ -449,24 +435,24 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: Hosted
 function HistoryPanel(props: { task: ActiveTask | undefined; status: WorkbenchStatus; hosted: HostedTask[] }): JSX.Element {
   return (
     <section className="qccPwPanel">
-      <header className="qccPwPageHeading"><div><p className="qccPwEyebrow">HISTORY</p><h2>任务历史</h2><p>任务状态与报告制品由 Host 保存；完整消息和证据引用仍保留在 DSH 原生会话。</p></div></header>
+      <header className="qccPwPageHeading"><div><p className="qccPwEyebrow">HISTORY</p><h2>任务历史</h2><p>汇总当前 DSH Profile 中所有访前尽调 Session；任务状态与报告制品由 Host 保存。</p></div></header>
       {props.hosted.length > 0 ? props.hosted.map(item => {
         const status = hostedStatus(item)
         return (
           <div className="qccPwCard" key={item.id}>
-            <div className="qccPwCardHeader"><div><h3>{item.entity?.fullName ?? item.query}</h3><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p></div><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span></div>
+            <div className="qccPwCardHeader"><div><h3>{item.entity?.fullName ?? item.query}</h3><p>{item.id} · {new Date(item.createdAt).toLocaleString("zh-CN")}</p><p className="qccPwHistorySource" title={`${item.workspace} · ${item.sessionId}`}>来源：{item.workspace} · {item.sessionId}</p></div><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span></div>
             <p className="qccPwNote">企查查查询 {item.used} 次 · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
           </div>
         )
       }) : props.task === undefined ? (
-        <Feedback tone="notice" title="当前没有已认领任务">从提示词生成器回填并发送，或在会话中直接发起访前尽调后，这里会显示当前任务。</Feedback>
+        <Feedback tone="notice" title="暂无历史任务">从提示词生成器回填并发送，或在任一访前会话中直接发起尽调后，这里会汇总显示。</Feedback>
       ) : (
         <div className="qccPwCard">
           <div className="qccPwCardHeader"><div><h3>{props.task.id}</h3><p>{new Date(props.task.createdAt).toLocaleString("zh-CN")}</p></div><span className="qccPwStatus" data-status={props.status}>{STATUS_LABELS[props.status]}</span></div>
           <pre className="qccPwPrompt">{props.task.prompt}</pre>
         </div>
       )}
-      <p className="qccPwNote">工作台不创建脱离会话的浏览器历史库，也不会把其它 Session 的任务合并到这里。</p>
+      <p className="qccPwNote">这里跨访前 Session 汇总 Host 任务记录；完整对话和证据引用仍保留在各自的 DSH 原生会话中。</p>
     </section>
   )
 }
@@ -507,7 +493,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     const refresh = async () => {
       try {
         const current = props.shared.get(sessionId)
-        const records = await fetchHostedHistory(sessionId)
+        const records = await fetchHostedTasks(sessionId)
         const summary = selectHostedTask(records, current.task, current.dismissedTaskIds)
         // 列表只传轻量状态；报告就绪后再按 ID 读取正文。
         const record = summary?.reportReady === true ? (await fetchHostedTask(summary.id, sessionId) ?? summary) : summary
@@ -543,7 +529,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     let timer: ReturnType<typeof setTimeout> | undefined
     const refresh = async () => {
       try {
-        const records = await fetchHostedHistory(sessionId)
+        const records = await fetchHostedTasks()
         if (disposed) return
         setHostedHistory(records)
         setHostError(undefined)

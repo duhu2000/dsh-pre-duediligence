@@ -18,6 +18,7 @@ const historyTasks = [
     sessionId: "session-dsh-pre-duediligence-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     workspace: "/fixture/这是一个用于验证窄屏截断行为的历史工作空间路径",
     query: "历史企业甲", depth: "fast", limit: 0, used: 3, state: "completed", stage: "output", runs: [], reportReady: true,
+    entity: { fullName: "历史企业甲", creditCode: "913200000000000001" },
     createdAt: "2026-09-12T08:00:00.000Z", updatedAt: "2026-09-12T08:03:00.000Z", completedAt: "2026-09-12T08:03:00.000Z",
   },
   {
@@ -29,6 +30,7 @@ const historyTasks = [
 let currentTasks: HostedTask[] = []
 globalThis.fetch = (async (input) => {
   const url = String(input)
+  if (url.includes("/files?")) return new Response(JSON.stringify({ok:true,files:[],deliveries:[]}),{status:200})
   const current = currentTasks.find(task => url.includes(`/previsit/api/tasks/${task.id}?`))
   if (current !== undefined) return new Response(JSON.stringify({ ok: true, task: current }), { status: 200 })
   const detail = historyTasks.find(task => url.includes(`/previsit/api/tasks/${encodeURIComponent(task.id)}?sessionId=`))

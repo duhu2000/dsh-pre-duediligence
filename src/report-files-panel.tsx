@@ -3,7 +3,7 @@ import type { ReportFile, DeliveryRequest } from "./report-files.js"
 export function ReportFilesPanel({taskId,sessionId}:{taskId:string;sessionId:string}) {
   const [files,setFiles]=useState<ReportFile[]>([]),[deliveries,setDeliveries]=useState<DeliveryRequest[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("")
   const url=`/previsit/api/tasks/${encodeURIComponent(taskId)}/files?sessionId=${encodeURIComponent(sessionId)}`
-  useEffect(()=>{let active=true;setFiles([]);setDeliveries([]);setError(""); void fetch(url).then(async res=>{const body=await res.json();if(!res.ok||!body.ok)throw new Error(body.message??"文件读取失败");if(active){setFiles(body.files);setDeliveries(body.deliveries)}}).catch(e=>{if(active)setError(String(e))});return()=>{active=false}},[url])
+  useEffect(()=>{let active=true;setFiles([]);setDeliveries([]);setError(""); void fetch(url).then(async res=>{const body=await res.json();if(!res.ok||!body.ok||!Array.isArray(body.files)||!Array.isArray(body.deliveries))throw new Error(body.message??"文件读取失败：返回结构不完整");if(active){setFiles(body.files);setDeliveries(body.deliveries)}}).catch(e=>{if(active)setError(String(e))});return()=>{active=false}},[url])
   const generate=async(format:"pdf"|"docx")=>{
     setBusy(true);setError("")
     try {const res=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({format})});const body=await res.json();if(!res.ok||!body.ok)throw new Error(body.message??"导出失败");setFiles(previous=>[...previous.filter(f=>f.id!==body.file.id),body.file])}

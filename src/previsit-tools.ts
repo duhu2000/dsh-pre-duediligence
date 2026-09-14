@@ -1,3 +1,6 @@
+import { ImageIntakeError, type ImageIntakeStore } from "./image-intake.js"
+import { REPORT_SECTIONS } from "./previsit-task.js"
+import type { TaskBrief } from "./previsit-workflow.js"
 import { randomUUID } from "node:crypto"
 import { ReportFiles } from "./report-files.js"
 import { boundedText } from "./material-evidence.js"
@@ -60,7 +63,7 @@ export type ToolHost = {
 type Task = { id: string; owner: string; query: string; depth: keyof typeof DEPTHS; used: number; search: unknown; personnel?: unknown; risk?: unknown; entity?: { fullName: string; creditCode: string }; busy: boolean }
 const DEPTHS = { fast: true, standard: true, deep: true } as const
 const RISK_DETAIL_DIMENSIONS = ["dishonest", "enforcement", "terminated_cases", "equity_freeze", "business_exception", "administrative_penalty", "tax_abnormal", "judicial_documents"] as const
-const qccTool = (name: string) => /^mcp__(?:qcc(?:[-_][A-Za-z0-9_-]+)?|company|risk|ipr|operation|executive)__/.test(name)
+const qccTool = (name: string) => !/^mcp__qcc[-_]document(?:[-_](?:mcp|local))?__/.test(name) && /^mcp__(?:qcc(?:[-_][A-Za-z0-9_-]+)?|company|risk|ipr|operation|executive)__/.test(name)
 const ownerOf = (agent: Agent) => JSON.stringify([agent.id, agent.session.id, agent.session.header?.cwd ?? ""])
 const object = (value: unknown): Record<string, unknown> => {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("参数必须为对象")
@@ -73,6 +76,19 @@ const string = (value: unknown) => {
 const reportString = (value: unknown) => {
   if (typeof value !== "string" || value.trim().length < 80 || value.length > 240_000) throw new Error("缺少有效的完整报告")
   return value.trim()
+}
+const optionalString = (value: unknown): string | undefined => value === undefined || value === null || value === "" ? undefined : string(value)
+// 任务简报：谁、什么场合、关注什么、要什么输出。只做长度与类型约束，不做业务校验——它是记录，不是门。
+const stringList = (value: unknown, max: number): string[] => Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.trim() !== "").map(v => v.trim().slice(0, 60)).slice(0, max) : []
+function brief(args: Record<string, unknown>): TaskBrief {
+  const out: TaskBrief = { focus: stringList(args.focus, 8) }
+  const role = optionalString(args.role), scene = optionalString(args.scene), output = optionalString(args.output)
+  if (role !== undefined) out.role = role
+  if (scene !== undefined) out.scene = scene
+  if (output !== undefined) out.output = output
+  const sections = stringList(args.sections, 8).filter(sec => (REPORT_SECTIONS as readonly string[]).includes(sec))
+  if (sections.length > 0) out.sections = sections
+  return out
 }
 function structured(result: Result): unknown {
   const value = result.value
@@ -118,8 +134,11 @@ function containsEntity(value: unknown, name: string, code: string, depth = 0): 
 }
 
 /** Host-owned admission, entity binding, progress and fixed-route ToolRuntime dispatch. */
-export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWorkflowStore(), files = new ReportFiles()): () => void {
+export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWorkflowStore(), options: { images?: ImageIntakeStore; files?: ReportFiles } = {}): () => void {
+  const files = options.files ?? new ReportFiles()
   const tasks = new Map<string, Task>()
+  const plans = new Map<string, { id: string; owner: string; candidates: Array<{ name: string; source?: string }>; createdAt: string }>()
+  const imagePlans = new Map<string, Record<string, unknown>>()
   const beginning = new Set<string>()
   const permits = new Map<string, { owner: string; name: string; parent: unknown }>()
   const controllers = new Set<AbortController>()
@@ -150,14 +169,76 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       },
     }))
   }
-  register("previsit_begin", "开始访前尽调。用户发送任务即同意在固定业务路由内连续执行；不要再次请求 MCP 权限确认。深度只控制覆盖优先级与目标时长，不设置插件调用次数上限。若提示中含 PV 任务 ID，必须作为 requestId 传入，以便工作台同步。", {
+  // 完整 id 优先；模型可能只抄到确认消息里的前几位，故允许 >=8 位且唯一的前缀。
+  const resolvePlan = (owner: string, planId: string) => {
+    const exact = plans.get(planId)
+    if (exact !== undefined) return exact.owner === owner ? exact : undefined
+    if (planId.length < 8) return undefined
+    const matches = [...plans.values()].filter(p => p.owner === owner && p.id.startsWith(planId))
+    return matches.length === 1 ? matches[0] : undefined
+  }
+  const createPlan = (agent: Agent, raw: unknown, note: string | undefined) => {
+    const items = Array.isArray(raw) ? raw : []
+    const candidates: Array<{ name: string; source?: string }> = []
+    for (const item of items.slice(0, 50)) {
+      const name = typeof item === "string" ? optionalString(item) : item !== null && typeof item === "object" ? optionalString((item as { name?: unknown }).name) : undefined
+      if (name === undefined || candidates.some(c => c.name === name)) continue
+      const source = item !== null && typeof item === "object" ? optionalString((item as { source?: unknown }).source) : undefined
+      candidates.push(source === undefined ? { name } : { name, source })
+    }
+    if (candidates.length === 0) throw new Error("计划里至少要有一家候选企业")
+    const plan = { id: randomUUID(), owner: ownerOf(agent), candidates, createdAt: new Date().toISOString() }
+    plans.set(plan.id, plan)
+    return { planId: plan.id, candidates, createdAt: plan.createdAt, ...(note === undefined ? {} : { note }), depths: Object.keys(DEPTHS).map(depth => ({ depth, unlimited: true })), sections: REPORT_SECTIONS, status: "awaiting-selection" as const }
+  }
+  register("previsit_plan", "登记一份多主体尽调计划：把从图片、表格或文字里识别出的候选企业名单交给用户挑选。不查询企业数据；返回 planId 后必须等待用户在对话或工作台里确认要查哪几家、多深、关注什么、输出什么，再按家调用 previsit_begin（传同一个 planId）。", {
+    candidates: { type: "array", items: { type: "object", properties: { name: { type: "string" }, source: { type: "string" } }, required: ["name"] } },
+    note: { type: "string" },
+  }, ["candidates"], async (args, _exec, agent) => createPlan(agent, args.candidates, optionalString(args.note)))
+  if (options.images !== undefined) {
+    const images = options.images
+    register("previsit_extract_image_companies", "识别用户在工作台导入并暂存在宿主的商机图片/PDF（凭证 pvi-*）：宿主内调用一次本机企查查文档解析（parse_document，必要时轮询 get_parse_result），抽出企业名并直接登记为尽调计划。不调用企业查询工具；文档解析服务的权限和额度以服务配置为准。只有在用户消息里出现“安全图片凭证：pvi-…”时才调用，参数只传 commandId。", {
+      commandId: { type: "string" },
+    }, ["commandId"], async (args, exec, agent) => {
+      const commandId = string(args.commandId)
+      if (!commandId.startsWith("pvi-")) throw new Error("图片凭证格式不正确")
+      try {
+        images.status(commandId, agent.session.id)
+        const priorPlan = imagePlans.get(commandId)
+        if (priorPlan !== undefined) return priorPlan
+        const extracted = await images.run(commandId, { agent, rootCallId: exec.rootCallId, token: exec.token, signal: exec.signal })
+        if (extracted.entries.length === 0) {
+          return { commandId, fileName: extracted.fileName, entries: [], text: extracted.text, status: "no-company", message: "图片文字已识别，但没有抽出企业全称；请把识别文字里的企业名整理后由用户确认，或让用户手动给出企业名。" }
+        }
+        const cachedPlan = imagePlans.get(commandId)
+        if (cachedPlan !== undefined) return cachedPlan
+        const plan = createPlan(agent, extracted.entries.map((name, i) => ({ name, source: `图片「${extracted.fileName}」第 ${i + 1} 项` })), `来自商机图片「${extracted.fileName}」，识别出 ${extracted.entries.length} 家`)
+        const response = { commandId, fileName: extracted.fileName, entries: extracted.entries, ...plan }
+        imagePlans.set(commandId, response)
+        return response
+      } catch (error) {
+        if (error instanceof ImageIntakeError) return { commandId, status: "failed", code: error.code, message: error.message }
+        throw error
+      }
+    })
+  }
+  register("previsit_begin", "开始访前尽调。用户发送任务即同意在固定业务路由内连续执行；不要再次请求 MCP 权限确认。深度只控制覆盖优先级与目标时长，不设置插件调用次数上限。role/scene/focus/output/sections 记录用户选择，sections 为重点展开段落，最终报告仍保留八段。多企业计划传完整 planId 与 entities，逐家完成并保存报告；发送计划确认即授权固定路由内连续执行。若提示中含 PV 任务 ID，只在对应单家任务作为 requestId 传入，不得多家复用。", {
     query: { type: "string" }, depth: { type: "string", enum: Object.keys(DEPTHS) }, requestId: { type: "string" },
+    role: { type: "string" }, scene: { type: "string" }, focus: { type: "array", items: { type: "string" } }, output: { type: "string" },
+    sections: { type: "array", items: { type: "string" } }, planId: { type: "string" }, entities: { type: "integer", minimum: 1, maximum: 50 },
   }, ["query", "depth"], async (args, exec, agent) => {
     const query = string(args.query)
     const depth = string(args.depth) as keyof typeof DEPTHS
     if (!Object.hasOwn(DEPTHS, depth)) throw new Error("无效尽调档位")
     const owner = ownerOf(agent)
     if (beginning.has(owner) || tasks.get(owner)?.busy) throw new Error("当前任务仍有未完成操作，请等待完成")
+    const requestedPlanId = optionalString(args.planId)
+    const plan = requestedPlanId === undefined ? undefined : resolvePlan(owner, requestedPlanId)
+    const planWarning = requestedPlanId !== undefined && plan === undefined
+      ? "未找到该计划（可能宿主已重启）；按本次确认的单家范围继续，不重复请求额度审批。" : undefined
+    // Unknown IDs are informational only; they cannot borrow another session's plan.
+    const planId = plan?.id
+    const entities = plan === undefined ? undefined : Math.min(Math.max(Number.isInteger(args.entities) ? Number(args.entities) : 1, 1), plan.candidates.length)
     beginning.add(owner)
     try {
       exec.signal.throwIfAborted()
@@ -170,12 +251,15 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
         query,
         depth,
         limit: 0,
+        ...(["role", "scene", "focus", "output", "sections"].some(key => args[key] !== undefined) ? { brief: brief(args) } : {}),
+        ...(planId === undefined ? {} : { planId }),
+        ...(entities === undefined ? {} : { planEntities: entities }),
       })
       const task: Task = prior?.id === record.id && prior.entity === undefined
         ? { ...prior, query, depth, used: record.used, search: null, personnel: undefined, risk: undefined, busy: false }
         : { id: record.id, owner, query, depth, used: record.used, search: null, busy: false }
       tasks.set(owner, task)
-      return { taskId: task.id, query, unlimited: true, used: task.used, status: "needs-entity-search" }
+      return { taskId: task.id, query, depth, startedAt: record.createdAt, ...record.brief, ...(planId === undefined ? {} : { planId, entities }), ...(planWarning === undefined ? {} : { planWarning }), unlimited: true, used: task.used, status: "needs-entity-search" }
     } finally { beginning.delete(owner) }
   })
   const requireTask = (args: Record<string, unknown>, agent: Agent) => {
@@ -391,6 +475,6 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
     disposed = true
     for (const controller of controllers) controller.abort()
     for (const dispose of disposers.reverse()) dispose()
-    tasks.clear(); permits.clear(); beginning.clear()
+    tasks.clear(); plans.clear(); imagePlans.clear(); permits.clear(); beginning.clear()
   }
 }

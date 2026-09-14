@@ -5,6 +5,9 @@ import { flushSync } from "react-dom"
 import { PREVISIT_LOGO_PATH, PrevisitLogo } from "../src/previsit-brand.js"
 import { apply } from "../src/workbench-v2.js"
 import { verifySessionIsolation } from "./session-isolation-fixture.js"
+import { verifyProductPlan } from "./product-plan-fixture.js"
+import type { CardNode } from "../src/report-export.js"
+import type { HostedTask } from "../src/hosted-task-sync.js"
 
 const sessionId = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 document.documentElement.dataset.theme = new URLSearchParams(location.search).get("theme") === "dark" ? "dark" : "light"
@@ -23,8 +26,11 @@ const historyTasks = [
     createdAt: "2026-09-11T08:00:00.000Z", updatedAt: "2026-09-11T08:03:00.000Z", completedAt: "2026-09-11T08:03:00.000Z",
   },
 ]
+let currentTasks: HostedTask[] = []
 globalThis.fetch = (async (input) => {
   const url = String(input)
+  const current = currentTasks.find(task => url.includes(`/previsit/api/tasks/${task.id}?`))
+  if (current !== undefined) return new Response(JSON.stringify({ ok: true, task: current }), { status: 200 })
   const detail = historyTasks.find(task => url.includes(`/previsit/api/tasks/${encodeURIComponent(task.id)}?sessionId=`))
   if (detail !== undefined) {
     return new Response(JSON.stringify({
@@ -37,7 +43,7 @@ globalThis.fetch = (async (input) => {
       },
     }), { status: 200, headers: { "content-type": "application/json" } })
   }
-  const tasks = url.includes("?sessionId=") ? [] : historyTasks
+  const tasks = url.includes("?sessionId=") ? currentTasks : historyTasks
   return new Response(JSON.stringify({ ok: true, tasks }), { status: 200, headers: { "content-type": "application/json" } })
 }) as typeof fetch
 
@@ -49,22 +55,24 @@ const conversationSnapshot = {
   running: false,
   partial: null,
   runningCalls: [],
-  nodes: [],
+  nodes: [] as CardNode[],
   lastAgentError: null,
 }
+const conversationListeners = new Set<() => void>()
 const conversationStore = {
   getSnapshot: () => conversationSnapshot,
-  subscribe: () => () => {},
+  subscribe(listener: () => void) { conversationListeners.add(listener); return () => { conversationListeners.delete(listener) } },
 }
 let nativeDraft = "原生草稿保持不变"
 let nativeDraftWrites = 0
 let conversationSends = 0
+let lastSentPrompt = ""
 const sessionInput = {
   state: { getSnapshot: () => ({ draft: nativeDraft, phase: "blank" }), subscribe: () => () => {} },
   setDraft(text: string) { nativeDraft = text; nativeDraftWrites += 1 },
 }
 const conversation = {
-  send: async () => { conversationSends += 1 },
+  send: async (prompt: string) => { conversationSends += 1; lastSentPrompt = prompt },
   input: { for: () => sessionInput },
 }
 let sidebarState = { panelOpen: true, bottomOpen: false }
@@ -168,6 +176,7 @@ function Fixture(): JSX.Element {
 
 void (async () => {
 await verifySessionIsolation()
+await verifyProductPlan()
 document.body.dataset.sessionIsolation = "true"
 flushSync(() => createRoot(document.getElementById("app")!).render(<Fixture />))
 
@@ -246,6 +255,7 @@ window.setTimeout(() => {
         flushSync(() => companyInput?.dispatchEvent(companyEnter))
         document.removeEventListener("keydown", countCompanyEnter)
         document.body.dataset.companyEnterIsolated = String(companyInput !== null && leakedCompanyEnter === 0 && companyEnter.defaultPrevented)
+        document.body.dataset.imageImportAvailable = String(document.querySelector(".qccImportBtn") !== null)
         document.body.dataset.logoCount = String(document.querySelectorAll(`path[d="${PREVISIT_LOGO_PATH}"]`).length)
         document.body.dataset.heroTitle = title?.textContent ?? "missing"
         document.body.dataset.homeSubtitleCount = String(document.querySelectorAll(".qccPrevisitHomeSummary").length)
@@ -282,7 +292,30 @@ window.setTimeout(() => {
             document.body.dataset.historyBack = String(document.querySelectorAll(".qccPwHistoryCard").length === 2)
             document.body.dataset.noHorizontalOverflow = String(document.documentElement.scrollWidth <= window.innerWidth)
             document.body.dataset.viewportWidth = String(window.innerWidth)
-            document.body.dataset.uiReady = "true"
+            // Restore a pending plan while the current Session also has an old
+            // completed task. Polling and report reveal must leave the plan visible.
+            currentTasks = [{
+              ...historyTasks[0], sessionId, id: "PVT-44444444-4444-4444-8444-444444444444",
+              query: "本会话上一家企业", depth: "fast", state: "completed", stage: "output",
+              schemaVersion: 1, createdAt: new Date(Date.now() - 30_000).toISOString(),
+            } as HostedTask]
+            const pendingId = "6fe5c1c3-75c6-49b7-9ba4-d353b31d387c"
+            conversationSnapshot.nodes = [
+              { kind: "message", message: { role: "user", content: "请按名单登记计划" } },
+              { kind: "tool-result", call: { name: "previsit_plan" }, content: [{ type: "text", text: JSON.stringify({ planId: pendingId, candidates: [{ name: "合成待确认企业" }], status: "awaiting-selection" }) }] },
+            ]
+            const currentTab = document.querySelector<HTMLButtonElement>(".qccPwTabs button")
+            flushSync(() => { currentTab?.click(); for (const listener of conversationListeners) listener() })
+            window.setTimeout(() => {
+              document.body.dataset.pendingPlanRestored = String(document.querySelector(".qccPlan") !== null && document.querySelector(".qccPwSetupCard") === null && document.querySelector('.qccPwStage[aria-selected="true"]')?.textContent?.includes("对象与目标") === true)
+              const draftBefore = nativeDraft
+              const sendsBefore = conversationSends
+              flushSync(() => document.querySelector<HTMLButtonElement>(".qccPlan .qccPwPrimary")?.click())
+              window.setTimeout(() => {
+                document.body.dataset.planDraftPreserved = String(nativeDraft === draftBefore && conversationSends === sendsBefore + 1 && lastSentPrompt.includes(pendingId))
+                document.body.dataset.uiReady = "true"
+              }, 80)
+            }, 2200)
           }, 100)
         }, 120)
       }, 120)

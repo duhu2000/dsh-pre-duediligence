@@ -44,7 +44,7 @@ describe("PrevisitWorkflowStore", () => {
     const storage = storageFixture()
     const first = new PrevisitWorkflowStore()
     await first.attach(storage.domain)
-    let task = await first.create({ id: "PV-20260911-ABCD", sessionId: "session-dsh-pre-duediligence-test", workspace: "/synthetic", query: "合成公司", depth: "standard", limit: 18 })
+    let task = await first.create({ id: "PV-20260911-ABCD", sessionId: "session-dsh-pre-duediligence-test", workspace: "/synthetic", query: "合成公司", depth: "standard", limit: 18, planId: "plan-1", planEntities: 2, brief: { role: "银行/信贷客户经理", focus: ["风险与涉诉"], output: "一页纸简报", sections: ["现场必问"] } })
     task = await first.startRun(task.id, { runId: "run-search", dimension: "entity_search", toolName: "mcp__qcc_company__get_company_by_query", quotaUsed: true })
     task = await first.finishRun(task.id, "run-search", "done", undefined, { summary: "合成结果", facts: [], factors: [] })
     task = await first.confirmEntity(task.id, { fullName: "合成公司股份有限公司", creditCode: "913200000000000001" })
@@ -58,7 +58,7 @@ describe("PrevisitWorkflowStore", () => {
 
     const restored = new PrevisitWorkflowStore()
     await restored.attach(storage.domain)
-    await expect(restored.get(task.id)).resolves.toMatchObject({ entity: { fullName: "合成公司股份有限公司" }, reportMarkdown: report })
+    await expect(restored.get(task.id)).resolves.toMatchObject({ entity: { fullName: "合成公司股份有限公司" }, reportMarkdown: report, planId: "plan-1", planEntities: 2, brief: { role: "银行/信贷客户经理", focus: ["风险与涉诉"], output: "一页纸简报", sections: ["现场必问"] } })
     expect((await restored.get(task.id))?.runs[0]?.result?.summary).toBe("合成结果")
   })
 

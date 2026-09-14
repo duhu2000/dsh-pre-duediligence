@@ -23,6 +23,13 @@ export type PrevisitArtifact = {
     mediaType: "text/html; charset=utf-8";
     createdAt: string;
 };
+export type TaskBrief = {
+    role?: string;
+    scene?: string;
+    focus: string[];
+    output?: string;
+    sections?: string[];
+};
 export type PrevisitTaskRecord = {
     materials?: Material[];
     evidenceFacts?: EvidenceFact[];
@@ -41,6 +48,9 @@ export type PrevisitTaskRecord = {
     workspace: string;
     query: string;
     depth: "fast" | "standard" | "deep";
+    planId?: string;
+    planEntities?: number;
+    brief?: TaskBrief;
     limit: number;
     used: number;
     state: PrevisitTaskState;
@@ -110,6 +120,9 @@ export declare class PrevisitWorkflowStore {
         workspace: string;
         query: string;
         depth: "fast" | "standard" | "deep";
+        planId?: string;
+        planEntities?: number;
+        brief?: TaskBrief;
         limit?: number;
     }): Promise<PrevisitTaskRecord>;
     update(id: string, updater: (record: PrevisitTaskRecord) => PrevisitTaskRecord): Promise<PrevisitTaskRecord>;

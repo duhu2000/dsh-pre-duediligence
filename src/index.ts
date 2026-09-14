@@ -1,3 +1,5 @@
+import { ImageIntakeStore } from "./image-intake.js"
+import { mountImageRoutes } from "./image-web.js"
 import { readFileSync } from "node:fs"
 import { ReportFiles } from "./report-files.js"
 import { fileURLToPath } from "node:url"
@@ -52,7 +54,7 @@ export function loadBundledSkill(): SkillRegistration {
     },
     metadata: {
       author: "QCC",
-      version: "0.1.28",
+      version: "0.1.30",
       industry: "enterprise-services",
       mcpServers: ["qcc-company", "qcc-risk", "qcc-ipr", "qcc-operation", "qcc-executive"],
     },
@@ -62,8 +64,13 @@ export function loadBundledSkill(): SkillRegistration {
 export function apply(ctx: HostContext): void {
   const workflow = new PrevisitWorkflowStore()
   const files = new ReportFiles()
-  ctx.effect(() => registerPrevisitTools(ctx, workflow, files))
+  const images = new ImageIntakeStore(ctx.tools)
+  ctx.effect(() => registerPrevisitTools(ctx, workflow, { images, files }))
+  ctx.effect(() => () => { void images.dispose() })
   ctx.skills.register(loadBundledSkill())
+  ctx.inject?.(["webServer"], webCtx => {
+    webCtx.effect(() => mountImageRoutes(webCtx.webServer, images))
+  })
   try {
     ctx.inject?.(["webServer", "storageDomain"], webCtx => {
       void workflow.attach(webCtx.storageDomain, ctx.logger)

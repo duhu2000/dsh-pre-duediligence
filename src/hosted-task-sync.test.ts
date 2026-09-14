@@ -40,6 +40,15 @@ describe("Host 任务接管", () => {
     expect(selectHostedTask([parent, child], {...active,id:parent.id}, [])?.id).toBe(child.id)
     expect(selectHostedTask([parent, child], {...active,id:parent.id}, [child.id])?.id).toBe(parent.id)
   })
+  it("上一家报告完成后跟随同会话下一家或新计划，不认领其他会话", () => {
+    const first = makeHosted({ planId: "plan-1", state: "completed", reportReady: true })
+    const second = makeHosted({ id: "PVT-22222222-2222-4222-8222-222222222222", planId: "plan-1", createdAt: "2026-09-11T12:05:00.000Z", updatedAt: "2026-09-11T12:05:00.000Z" })
+    const unrelated = makeHosted({ id: "PVT-33333333-3333-4333-8333-333333333333", planId: "plan-2", createdAt: "2026-09-11T12:06:00.000Z", updatedAt: "2026-09-11T12:06:00.000Z" })
+    expect(selectHostedTask([first, second], { ...active, id: first.id }, [])?.id).toBe(second.id)
+    expect(selectHostedTask([unrelated, first, second], { ...active, id: first.id }, [])?.id).toBe(unrelated.id)
+    expect(selectHostedTask([{ ...unrelated, sessionId: "other" }, first], { ...active, id: first.id }, [])?.id).toBe(first.id)
+    expect(selectHostedTask([first, second], { ...active, id: first.id }, [second.id])?.id).toBe(first.id)
+  })
   it("明确展示完整来源和旧记录缺失来源，不猜测当前 Session", () => {
     expect(hostedTaskOrigin(makeHosted())).toEqual({
       workspace: "/tmp/workspace",

@@ -1,3 +1,4 @@
+import { DropZone, ImportButton, useImageImport } from "./image-import.js"
 // 输入框上方的提示词生成器可回填 DSH 草稿；右侧工作台表单则保持本地隔离，
 // 仅在点击“开始尽调”后发送带任务 ID 的正式请求。
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
@@ -190,14 +191,15 @@ export function usePrevisitComposer(args: {
 }
 
 // 六行表单 + 底部动作（两处渲染同一份）
-export function PrevisitFields(props: { actions: ComposerActions; idPrefix: string; startLabel?: string }): JSX.Element {
+export function PrevisitFields(props: { actions: ComposerActions; idPrefix: string; startLabel?: string; sessionId?: string; send?: (prompt: string) => Promise<void> }): JSX.Element {
+  const imports = useImageImport(props.sessionId ?? "", props.send ?? (async () => { throw new Error("当前会话尚未就绪") }))
   const { actions: a } = props
   const st = a.state
   return (
-    <div className="qccDockBody">
+    <DropZone className="qccDockBody" onFile={file => { if (props.send !== undefined) void imports.accept(file) }}>
       <div className="qccDockRow">
         <label className="qccDockLabel" htmlFor={`${props.idPrefix}-company`}>拜访客户</label>
-        <input
+        <div className="qccDockCompanyRow"><input
           id={`${props.idPrefix}-company`}
           className="qccDockCompany"
           value={st.company}
@@ -211,7 +213,10 @@ export function PrevisitFields(props: { actions: ComposerActions; idPrefix: stri
           onCompositionUpdateCapture={isolateCompanyInputEvent}
           onCompositionEndCapture={isolateCompanyInputEvent}
         />
+        {props.send === undefined ? null : <ImportButton busy={imports.busy} onFile={file => { void imports.accept(file) }} />}
+        </div>
       </div>
+      {imports.status === undefined && imports.error === undefined ? null : <div className="qccImportState" role="status" data-state={imports.error === undefined ? imports.command?.state : "failed"}>{imports.error ?? imports.status}</div>}
       <div className="qccDockRow"><span className="qccDockLabel">我是</span><Chips options={ROLE_OPTIONS} selected={st.selection.role === undefined ? [] : [st.selection.role]} onToggle={id => a.toggleSingle("role", id)} /></div>
       <div className="qccDockRow"><span className="qccDockLabel">场合</span><Chips options={PURPOSE_OPTIONS} selected={st.selection.purpose === undefined ? [] : [st.selection.purpose]} onToggle={id => a.toggleSingle("purpose", id)} /></div>
       <div className="qccDockRow"><span className="qccDockLabel">关注</span><Chips options={FOCUS_OPTIONS} selected={st.selection.focus} onToggle={a.toggleFocus} /></div>
@@ -227,7 +232,7 @@ export function PrevisitFields(props: { actions: ComposerActions; idPrefix: stri
           <button type="button" className="qccDockBtn qccDockPrimary" disabled={a.submitting} onClick={() => void a.startTask()}>{a.submitting ? "发送中…" : (props.startLabel ?? "开始尽调 →")}</button>
         </div>
       </div>
-    </div>
+    </DropZone>
   )
 }
 
@@ -295,7 +300,7 @@ export function PrevisitDock(props: PrevisitDockProps): JSX.Element {
           {open ? <span className="qccDockWorkbench" role="button" tabIndex={0} title="打开右侧工作台" onClick={e => { e.stopPropagation(); props.open() }} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); props.open() } }}>工作台</span> : null}
           <span className="qccDockChevron" aria-hidden="true" />
         </button>
-        {open ? <PrevisitFields actions={actions} idPrefix={`qccDock-${sessionId}`} /> : null}
+        {open ? <PrevisitFields actions={actions} idPrefix={`qccDock-${sessionId}`} sessionId={sessionId} send={async prompt => { await props.start(prompt) }} /> : null}
       </div>
     </div>
     </>

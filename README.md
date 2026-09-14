@@ -1,13 +1,13 @@
 # dsh-pre-duediligence
 
-0.1.28 按 DSH-UX-001 v1.5.5 / UX-48，在任务正式接纳后自动展开对应工作台；菜单进入和提示词回填仍保持关闭。重复回调、历史恢复及后台事件不会重复拉开手动收起的面板，并保留 0.1.27 首页规范修复。详见 [发布说明](docs/RELEASE-0.1.28.md)。
+0.1.30 新增继续尽调、报告版本、补充材料与交叉核验、PDF/DOCX衍生文件，并保留0.1.29图片导入和多企业计划。PDF需配置中文字体；导出为保留Markdown标记的正文版，真实上传尚未接通。详见 [发布说明](docs/RELEASE-0.1.30.md)。
 
 ## 安装与三分钟上手
 
 访前尽调智能体：面向拜访前调查，提供企业尽调、客户尽调、客户背景调查、工商核验与风险信息整理；使用企查查 MCP，提供固定路由连续调用、主体确认、动态进度和可下载报告。
 
 ```sh
-dsh plugin --profile web add dsh-pre-duediligence@0.1.28
+dsh plugin --profile web add dsh-pre-duediligence@0.1.30
 ```
 
 请先满足下文的 DSH 与连接器要求；Better Sidebar 仅在需要可视化工作台时选装。安装后完整停止并重启对应 Profile。
@@ -23,7 +23,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.28
 相关智能体：[数据清洗补全](https://github.com/duhu2000/dsh-data-cleaning-agent) · [AI填表](https://github.com/duhu2000/dsh-form-fill-agent) · [访前尽调](https://github.com/duhu2000/dsh-pre-duediligence) · [招投标](https://github.com/duhu2000/dsh-tender-workbench)
 
 
-版本：**0.1.28**。本版保持 DSH-UX-001 v1.5.2 的 Workspace / Session 隔离、工作台初始关闭和核验完成门，并修复 Host 布局变化后的首页标题定位、菜单加载态文案以及历史详情与报告下载。当前任务、阶段进度、报告回写及下载仍绑定当前 Session；历史详情只读取记录所属 Session，不重新调用企查查。旧记录缺少来源时继续明确显示“未记录（旧记录）”，只进入 Profile 历史且不会被当前 Session 认领。本轮自动化使用合成 Host 记录，不声明生产账号全链路验收通过。详见 [更新日志](CHANGELOG.md)、[作用域契约](docs/TASK-SCOPE-HISTORY-CONTRACT.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
+版本：**0.1.30**。本版保持 DSH-UX-001 v1.5.2 的 Workspace / Session 隔离、工作台初始关闭和核验完成门，并修复 Host 布局变化后的首页标题定位、菜单加载态文案以及历史详情与报告下载。当前任务、阶段进度、报告回写及下载仍绑定当前 Session；历史详情只读取记录所属 Session，不重新调用企查查。旧记录缺少来源时继续明确显示“未记录（旧记录）”，只进入 Profile 历史且不会被当前 Session 认领。本轮自动化使用合成 Host 记录，不声明生产账号全链路验收通过。详见 [更新日志](CHANGELOG.md)、[作用域契约](docs/TASK-SCOPE-HISTORY-CONTRACT.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 
@@ -92,7 +92,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligenc
 安装脚本默认向 DSH Web profile 安装两个基础 Bundle：
 
 1. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-2. `dsh-pre-duediligence@0.1.28`：提供左侧智能体入口、原生会话首页、提示词生成器、Host 执行门和 Skill。
+2. `dsh-pre-duediligence@0.1.30`：提供左侧智能体入口、原生会话首页、提示词生成器、Host 执行门和 Skill。
 
 默认不会安装 Better Sidebar。需要 Session 级可视化工作台时显式开启：
 
@@ -120,7 +120,7 @@ dsh web
 
 ~~~bash
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add dsh-pre-duediligence@0.1.28 --allow-build=node-pty,dsh-pre-duediligence
+dsh plugin --profile web add dsh-pre-duediligence@0.1.30 --allow-build=node-pty,dsh-pre-duediligence
 dsh web
 ~~~
 
@@ -136,7 +136,7 @@ dsh web
 dsh plugin --profile web list --depth 0
 ~~~
 
-应始终看到所选基线的 Connector 和 `dsh-pre-duediligence@0.1.28`；仅在显式启用或原本已安装时看到 Sidebar。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”进入初始原生会话。无 Sidebar 时可继续生成提示词、回填/发送草稿并在会话中阅读报告；五项流程按钮会提示安装可选工作台。安装 Sidebar 时，右侧工作台初始仍关闭；点击业务按钮可主动打开，正式发送任务被接纳后会自动展开一次。仅回填不会展开，收起后轮询不会重新打开。其右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
+应始终看到所选基线的 Connector 和 `dsh-pre-duediligence@0.1.30`；仅在显式启用或原本已安装时看到 Sidebar。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”进入初始原生会话。无 Sidebar 时可继续生成提示词、回填/发送草稿并在会话中阅读报告；五项流程按钮会提示安装可选工作台。安装 Sidebar 时，右侧工作台初始仍关闭；点击业务按钮可主动打开，正式发送任务被接纳后会自动展开一次。仅回填不会展开，收起后轮询不会重新打开。其右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
 
 ### 无 Sidebar 功能边界
 
@@ -172,6 +172,8 @@ dsh plugin --profile web remove qcc-previsit-dsh
 连接器只复制旧授权，不会自动删除旧插件或旧凭据；确认新连接可用后再移除旧插件。
 
 ## 本地开发
+
+0.1.30 包含产品 fix11 合并增量：工作台「拜访客户」旁可导入 PNG、JPEG、WebP 或 PDF（最大 8 MiB），原生输入框支持拖入、粘贴。识别需要已连接支持本机 `file_path` 的文档解析 MCP；缺失时可改发文字名单。候选企业在计划卡或会话交互中确认后逐家执行，每家独立保存报告。报告框架可选择重点展开段落，最终仍保留八段。图片凭证仅在来源会话使用，15 分钟后过期。具体合并范围见 [fix11 合并记录](docs/MERGE-PRODUCT-FIX11.md)。
 
 ~~~bash
 git clone https://github.com/duhu2000/dsh-pre-duediligence.git

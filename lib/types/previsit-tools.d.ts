@@ -1,3 +1,4 @@
+import { type ImageIntakeStore } from "./image-intake.js";
 import { ReportFiles } from "./report-files.js";
 import { PrevisitWorkflowStore } from "./previsit-workflow.js";
 export declare const QUERY_ROUTES: {
@@ -98,5 +99,8 @@ export type ToolHost = {
     get?(name: string): unknown;
 };
 /** Host-owned admission, entity binding, progress and fixed-route ToolRuntime dispatch. */
-export declare function registerPrevisitTools(ctx: ToolHost, workflow?: PrevisitWorkflowStore, files?: ReportFiles): () => void;
+export declare function registerPrevisitTools(ctx: ToolHost, workflow?: PrevisitWorkflowStore, options?: {
+    images?: ImageIntakeStore;
+    files?: ReportFiles;
+}): () => void;
 export {};

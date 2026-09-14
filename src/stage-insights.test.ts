@@ -68,6 +68,10 @@ describe("parseCardInsights", () => {
     expect(i.risks[1]?.text).toBe("司法诉讼活跃：裁判文书 89")
     expect(i.sections).toContain("红线提示")
   })
+  it("兼容带前缀与优先级备注的假设标题", () => {
+    const i = parseCardInsights("## 4、业务假设\n### SS-H1 · P1（谨慎） · 近期存在流动性/收缩压力（推理说明）\n支持证据：…")
+    expect(i.hypotheses).toEqual([{ id: "H1", priority: "P1", text: "近期存在流动性/收缩压力" }])
+  })
   it("状态未定与空输入", () => {
     expect(parseCardInsights("## 1、核心研判\n状态未定，本卡降级为清单式简报。").stateUndetermined).toBe(true)
     expect(parseCardInsights(null).found).toBe(false)

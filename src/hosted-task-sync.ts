@@ -199,8 +199,13 @@ export function selectHostedTask(records: HostedTask[], active: ActiveTask | und
   if (active === undefined) return available[0] ?? null
   const direct = available.find(record => record.id === active.id)
   if (direct !== undefined) {
+    // After a completed task, follow the newest task started in this Session,
+    // including the next company or a newly confirmed plan.
     if (HOSTED_TERMINAL.has(direct.state)) {
-      const continuation = available.find(record => record.rootTaskId === (direct.rootTaskId ?? direct.id) && (record.reportVersion ?? 1) > (direct.reportVersion ?? 1))
+      const next = available.filter(record => record.sessionId === direct.sessionId && record.createdAt > direct.createdAt)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+      if (next !== undefined) return next
+      const continuation = available.find(record => record.sessionId === direct.sessionId && record.rootTaskId === (direct.rootTaskId ?? direct.id) && (record.reportVersion ?? 1) > (direct.reportVersion ?? 1))
       if (continuation) return continuation
     }
     return direct

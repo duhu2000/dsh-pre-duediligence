@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { adoptTaskFromSnapshot, buildPrevisitReportFromRenderedHtml, buildPrevisitReportHtml, captureTaskReport, extractCardText, renderCardMarkdown } from "./report-export.js"
+import { adoptTaskFromSnapshot, buildPrevisitReportFromRenderedHtml, buildPrevisitReportHtml, captureTaskReport, extractCardText, renderCardMarkdown, taskDisplayLabel } from "./report-export.js"
 const ownedSession = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 
 describe("renderCardMarkdown", () => {
@@ -126,6 +126,20 @@ describe("adoptTaskFromSnapshot", () => {
   it("识别 DSH 原生 message.role 节点并从正文认领任务", () => {
     const snap = { nodes: [{ kind: "message", seq: 7, message: { role: "user", content: [{ type: "text", text: "我是银行对公客户经理，准备拜访思必驰" }] } }] }
     expect(adoptTaskFromSnapshot(snap, ownedSession)).toEqual({ id: "turn:7", prompt: "我是银行对公客户经理，准备拜访思必驰", nodeBaseline: 0 })
+  })
+})
+
+describe("跟进回复归入同一任务", () => {
+  it("候选序号与信用代码回复不会成为新任务，报告完成后的新消息才是", () => {
+    const first = { kind: "user", text: "我是银行对公客户经理，准备首次拜访科达科技，做一次速览尽调。" }
+    const pick = { kind: "user", text: "1" }
+    const snap = { nodes: [first, { kind: "assistant", text: "请回复序号" }, pick, { kind: "tool-result", call: { name: "previsit_confirm_entity" } }] }
+    expect(adoptTaskFromSnapshot(snap, ownedSession)).toEqual({ id: "turn:0", prompt: first.text, nodeBaseline: 0 })
+    const report = "# 访前尽调报告 · 合成企业\n## 1、核心研判\n…\n## 8、覆盖说明\n…"
+    const later = { nodes: [...snap.nodes, { kind: "assistant", text: report }, { kind: "user", text: "换一家" }] }
+    expect(adoptTaskFromSnapshot(later, ownedSession)).toEqual({ id: "turn:5", prompt: "换一家", nodeBaseline: 5 })
+    expect(taskDisplayLabel("turn:5")).toBe("会话内发起")
+    expect(taskDisplayLabel("PV-20260902-08SR")).toBe("PV-20260902-08SR")
   })
 })
 

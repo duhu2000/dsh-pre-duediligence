@@ -142,6 +142,7 @@ function Fixture(): JSX.Element {
           <span className="fixture_headlineText">探索未至之境</span>
           <span>预览版</span>
         </div>
+        <div className="fixtureNativeOptions"><button type="button">workspace</button><button type="button">标准模式</button></div>
         <div data-composer-seat>
           <div className="fixtureComposerStack">
             <Home sessionId={sessionId} useSession={useStaticSession} {...homeInjected} />
@@ -247,6 +248,12 @@ window.setTimeout(() => {
         document.body.dataset.companyEnterIsolated = String(companyInput !== null && leakedCompanyEnter === 0 && companyEnter.defaultPrevented)
         document.body.dataset.logoCount = String(document.querySelectorAll(`path[d="${PREVISIT_LOGO_PATH}"]`).length)
         document.body.dataset.heroTitle = title?.textContent ?? "missing"
+        document.body.dataset.homeSubtitleCount = String(document.querySelectorAll(".qccPrevisitHomeSummary").length)
+        const nativeOptions = document.querySelector(".fixtureNativeOptions")
+        const input = document.querySelector("[data-composer-card]")
+        document.body.dataset.homeOrder = String(Boolean(title && nativeOptions && input
+          && (title.compareDocumentPosition(nativeOptions) & Node.DOCUMENT_POSITION_FOLLOWING)
+          && (nativeOptions.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING)))
         const historyButton = [...document.querySelectorAll<HTMLButtonElement>(".qccPwTabs button")].find(button => button.textContent?.trim() === "任务历史")
         flushSync(() => historyButton?.click())
         window.setTimeout(() => {

@@ -6,7 +6,6 @@ import { isPrevisitSession } from "./previsit-session.js"
 import type { PrevisitView } from "./previsit-store.js"
 
 export const PREVISIT_HOME_TITLE = "访前尽调智能体"
-export const PREVISIT_HOME_SUMMARY = "明确拜访对象与目标，核验企业信息并准备访前材料。"
 
 export type PrevisitHomeProps = {
   sessionId: string
@@ -90,17 +89,18 @@ export function resolvePrevisitHeroChrome(anchor: HTMLElement): HeroChrome | nul
   if (phaseRoot?.getAttribute?.("data-phase") === "active") return null
   const direct = anchor.closest<HTMLElement>('[data-phase="hero"]')
   const findTitle = (scope: HTMLElement): HTMLElement | null => {
+    const eligible = (node: HTMLElement) => ["探索未至之境", "Into the Unknown"].includes(node.textContent?.trim() ?? "")
+      || (node.dataset.previsitHeroTitle === "true" && node.textContent === PREVISIT_HOME_TITLE)
     const spans = [...scope.querySelectorAll<HTMLElement>("span")]
-    return spans.find(node => node.dataset.previsitHeroTitle === "true")
-      ?? spans.find(node => ["探索未至之境", "Into the Unknown"].includes(node.textContent?.trim() ?? ""))
-      ?? scope.querySelector<HTMLElement>('[class*="headlineText"]')
+    const title = spans.find(eligible) ?? scope.querySelector<HTMLElement>('[class*="headlineText"]')
+    return title !== null && title !== undefined && eligible(title) ? title : null
   }
   if (direct !== null) {
     const title = findTitle(direct)
     if (title !== null) return { scope: direct, title }
   }
   let scope = anchor.closest<HTMLElement>("[data-composer-seat]") ?? anchor.parentElement
-  while (scope !== null) {
+  while (scope !== null && scope.tagName !== "BODY" && scope.tagName !== "HTML") {
     const title = findTitle(scope)
     if (title !== null) return { scope, title }
     scope = scope.parentElement
@@ -117,9 +117,31 @@ export function setPrevisitHeadline(anchor: HTMLElement): () => void {
   const logos = new Map<HTMLElement, HTMLElement>()
   let observer: MutationObserver | null = null
 
+  const restore = () => {
+    for (const logo of logos.values()) logo.remove()
+    for (const [mark, display] of originalMarks) mark.style.display = display
+    for (const [badge, display] of originalBadges) {
+      badge.style.display = display
+      delete badge.dataset.previsitHeroBadge
+    }
+    for (const [row, flag] of originalRows) {
+      if (flag === null) row.removeAttribute("data-previsit-hero-row")
+      else row.setAttribute("data-previsit-hero-row", flag)
+    }
+    for (const [title, text] of originalTitles) {
+      if (title.textContent === PREVISIT_HOME_TITLE) title.textContent = text
+      delete title.dataset.previsitHeroTitle
+    }
+    originalTitles.clear()
+    originalMarks.clear()
+    originalBadges.clear()
+    originalRows.clear()
+    logos.clear()
+  }
+
   const sync = () => {
     const chrome = resolvePrevisitHeroChrome(anchor)
-    if (chrome === null) return
+    if (chrome === null) { restore(); return }
     const { scope, title } = chrome
     if (!originalTitles.has(title)) originalTitles.set(title, title.textContent)
     title.dataset.previsitHeroTitle = "true"
@@ -154,28 +176,13 @@ export function setPrevisitHeadline(anchor: HTMLElement): () => void {
 
   sync()
   const observationRoot = resolvePrevisitHeroChrome(anchor)?.scope
-    ?? (typeof document === "undefined" ? null : document.body)
+    ?? anchor.closest<HTMLElement>("[data-phase]")
+    ?? anchor.closest<HTMLElement>("[data-composer-seat]")?.parentElement
     ?? anchor.parentElement
   observer = typeof MutationObserver === "function" ? new MutationObserver(sync) : null
-  if (observationRoot !== null) observer?.observe(observationRoot, { childList: true, subtree: true })
+  if (observationRoot !== null && observationRoot.tagName !== "BODY" && observationRoot.tagName !== "HTML") observer?.observe(observationRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-phase"] })
 
-  return () => {
-    observer?.disconnect()
-    for (const logo of logos.values()) logo.remove()
-    for (const [mark, display] of originalMarks) mark.style.display = display
-    for (const [badge, display] of originalBadges) {
-      badge.style.display = display
-      delete badge.dataset.previsitHeroBadge
-    }
-    for (const [row, flag] of originalRows) {
-      if (flag === null) row.removeAttribute("data-previsit-hero-row")
-      else row.setAttribute("data-previsit-hero-row", flag)
-    }
-    for (const [title, text] of originalTitles) {
-      if (title.textContent === PREVISIT_HOME_TITLE) title.textContent = text
-      delete title.dataset.previsitHeroTitle
-    }
-  }
+  return () => { observer?.disconnect(); restore() }
 }
 
 export function PrevisitHome({ sessionId, useSession, openWorkbench }: PrevisitHomeProps): JSX.Element | null {
@@ -205,7 +212,6 @@ export function PrevisitHome({ sessionId, useSession, openWorkbench }: PrevisitH
   return (
     <div ref={marker} className={`qccPrevisitExperience${blank ? " is-home" : ""}`} data-session-id={sessionId}>
       {menuMount === null ? menu : createPortal(menu, menuMount)}
-      {blank ? <p className="qccPrevisitHomeSummary">{PREVISIT_HOME_SUMMARY}</p> : null}
       {error === undefined ? null : <p role="status">{error}</p>}
     </div>
   )

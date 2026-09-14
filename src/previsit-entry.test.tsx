@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { createPrevisitSession, isPrevisitSession, resolvePrevisitWorkspaceId, type PrevisitSessionHost } from "./previsit-session.js"
-import { PREVISIT_HOME_FLOWS, PREVISIT_HOME_SUMMARY, PREVISIT_HOME_TITLE, PrevisitHome, resolvePrevisitHeroChrome, setPrevisitHeadline } from "./previsit-home.js"
+import { PREVISIT_HOME_FLOWS, PREVISIT_HOME_TITLE, PrevisitHome, resolvePrevisitHeroChrome, setPrevisitHeadline } from "./previsit-home.js"
 
 const id = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 function host(expectedWorkspaceId = "current") {
@@ -91,9 +91,9 @@ describe("session-specific previsit home", () => {
     <PrevisitHome sessionId={sessionId} useSession={selector => selector({ composerPhase })} />,
   )
   it("renders the concise home and navigation only in the owned Session", () => {
-    expect(renderToStaticMarkup(<PrevisitHome sessionId={id} useSession={selector => selector({ blank: true, running: false })} />)).toContain(PREVISIT_HOME_SUMMARY)
-    expect(renderToStaticMarkup(<PrevisitHome sessionId={id} useSession={selector => selector({ blank: true, running: true })} />)).not.toContain(PREVISIT_HOME_SUMMARY)
-    expect(render(id, "blank")).toContain(PREVISIT_HOME_SUMMARY)
+    expect(renderToStaticMarkup(<PrevisitHome sessionId={id} useSession={selector => selector({ blank: true, running: false })} />)).not.toContain("qccPrevisitHomeSummary")
+    expect(renderToStaticMarkup(<PrevisitHome sessionId={id} useSession={selector => selector({ blank: true, running: true })} />)).not.not.toContain("qccPrevisitHomeSummary")
+    expect(render(id, "blank")).not.toContain("qccPrevisitHomeSummary")
     expect(render(id, "blank")).toContain("访前尽调能力菜单")
     expect(render(id, "blank")).toContain("对象与目标")
     expect(render(id, "blank")).not.toContain("打开尽调设定")
@@ -101,7 +101,7 @@ describe("session-specific previsit home", () => {
       expect(render(foreign, "blank")).toBe("")
     }
     expect(render(id, "active")).toContain("任务历史")
-    expect(render(id, "active")).not.toContain(PREVISIT_HOME_SUMMARY)
+    expect(render(id, "active")).not.not.toContain("qccPrevisitHomeSummary")
   })
   it("maps each v1.5.0 flow button to one view in the same business Tab", () => {
     expect(PREVISIT_HOME_FLOWS.map(({ view, label }) => ({ view, label }))).toEqual([
@@ -123,6 +123,16 @@ describe("session-specific previsit home", () => {
     title.textContent = "数据清洗补全智能体"
     next()
     expect(title.textContent).toBe("数据清洗补全智能体")
+  })
+  it("does not cross document scope or replace a user headline", () => {
+    const title = { textContent: "我的业务会话", dataset: {}, parentElement: null }
+    const region = { parentElement: null, querySelectorAll: () => [title], querySelector: () => title }
+    const anchor = { closest: () => region } as unknown as HTMLElement
+    expect(resolvePrevisitHeroChrome(anchor)).toBeNull()
+    const body = { ...region, tagName: "BODY" }
+    title.textContent = "探索未至之境"
+    const isolated = { closest: () => null, parentElement: body } as unknown as HTMLElement
+    expect(resolvePrevisitHeroChrome(isolated)).toBeNull()
   })
   it("finds the headline when the Host mounts the dock beside the hero instead of inside data-phase", () => {
     const title = { textContent: "探索未至之境", dataset: {}, parentElement: null }

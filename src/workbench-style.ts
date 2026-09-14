@@ -64,7 +64,6 @@ export const WORKBENCH_CSS = String.raw`
 .qccPrevisitHeroLogo{display:inline-flex;color:#128BED;flex:none}
 html[data-theme="dark"] .qccPrevisitHeroLogo,html.dark .qccPrevisitHeroLogo{color:#55ADFF}
 .qccPrevisitExperience{width:100%;box-sizing:border-box;text-align:center}
-.qccPrevisitHomeSummary{max-width:620px;margin:0 auto 18px;color:var(--qcc-secondary);font-size:14px;line-height:1.7}
 .qccPrevisitCapabilityMount{width:100%;padding:8px 0;box-sizing:border-box;flex:none}
 .qccPrevisitCapabilities{display:flex;align-items:center;justify-content:safe center;gap:8px;width:100%;max-width:var(--dsh-composer-card-max-width,780px);margin:0 auto;padding:2px 16px 0;box-sizing:border-box;overflow-x:auto;scrollbar-width:none}
 .qccPrevisitCapabilities::-webkit-scrollbar{display:none}

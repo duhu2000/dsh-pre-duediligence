@@ -173,6 +173,8 @@ dsh plugin --profile web remove qcc-previsit-dsh
 
 ## 本地开发
 
+当前源码另包含产品 fix11 合并增量：工作台「拜访客户」旁可导入 PNG、JPEG、WebP 或 PDF（最大 8 MiB），原生输入框支持拖入、粘贴。识别需要已连接支持本机 `file_path` 的文档解析 MCP；缺失时可改发文字名单。候选企业在计划卡或会话交互中确认后逐家执行，每家独立保存报告。报告框架可选择重点展开段落，最终仍保留八段。图片凭证仅在来源会话使用，15 分钟后过期。此增量尚未发布 npm 版本，具体合并范围见 [fix11 合并记录](docs/MERGE-PRODUCT-FIX11.md)。
+
 ~~~bash
 git clone https://github.com/duhu2000/dsh-pre-duediligence.git
 cd dsh-pre-duediligence

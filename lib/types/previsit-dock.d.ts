@@ -67,6 +67,8 @@ export declare function PrevisitFields(props: {
     actions: ComposerActions;
     idPrefix: string;
     startLabel?: string;
+    sessionId?: string;
+    send?: (prompt: string) => Promise<void>;
 }): JSX.Element;
 export declare function PrevisitDock(props: PrevisitDockProps): JSX.Element;
 export declare function DiligenceModeBar(props: {

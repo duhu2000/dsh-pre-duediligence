@@ -41,6 +41,31 @@ function fixture() {
 }
 
 describe("Agent-owned paid-query boundary", () => {
+  it("将计划内各企业保存为独立任务，记录范围且不恢复额度审批", async () => {
+    const f = fixture()
+    const plan = await f.call("previsit_plan", { candidates: [{ name: company.fullName }, { name: companyB.fullName }, { name: company.fullName }] })
+    expect(plan.candidates).toHaveLength(2)
+    const first = await f.call("previsit_begin", { query: company.fullName, depth: "fast", planId: String(plan.planId).slice(0, 8), entities: 2, role: "银行/信贷客户经理", scene: "首次拜访", focus: ["风险与涉诉"], output: "一页纸简报", sections: ["现场必问"] })
+    expect(first).toMatchObject({ planId: plan.planId, depth: "fast", unlimited: true, role: "银行/信贷客户经理" })
+    await expect(f.workflow.get(String(first.taskId))).resolves.toMatchObject({ planId: plan.planId, planEntities: 2, brief: { scene: "首次拜访", focus: ["风险与涉诉"], sections: ["现场必问"] }, limit: 0 })
+    const second = await f.call("previsit_begin", { query: companyB.fullName, depth: "deep", planId: plan.planId, entities: 2 })
+    expect(second.taskId).not.toBe(first.taskId)
+    expect(await f.workflow.list(sessionId)).toHaveLength(2)
+    const foreign = await f.call("previsit_begin", { query: company.fullName, depth: "fast", planId: plan.planId }, { agent: { ...f.agent, session: { id: "session-dsh-pre-duediligence-87654321-4321-4321-8321-cba987654321" } } })
+    expect(foreign.planId).toBeUndefined()
+    expect(foreign.planWarning).toContain("未找到")
+    const missing = await f.call("previsit_begin", { query: company.fullName, depth: "fast", planId: "expired-plan" })
+    expect(missing).toMatchObject({ unlimited: true, planWarning: expect.stringContaining("不重复") })
+    expect(f.approval).not.toHaveBeenCalled()
+    expect(f.dispatch).not.toHaveBeenCalled()
+  })
+  it("只放行文档服务，企业查询仍需经过固定路由", () => {
+    const f = fixture()
+    expect(f.guard(f.execution("mcp__qcc-document-mcp__parse_document"))).toBeUndefined()
+    expect(f.guard(f.execution("mcp__qcc-document__parse_document"))).toBeUndefined()
+    expect(f.guard(f.execution("mcp__qcc_company__get_company_profile"))).toContain("禁止绕过")
+    expect(f.guard(f.execution("mcp__qcc-document-business__query"))).toContain("禁止绕过")
+  })
   it("persists provider risk findings before report generation", async () => {
     const f = fixture(), taskId = await f.begin()
     await f.anchor(taskId)

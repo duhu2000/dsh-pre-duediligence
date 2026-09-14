@@ -60,7 +60,7 @@ for (const [theme, width, height] of scenarios) {
     "--allow-file-access-from-files",
     `--user-data-dir=${profile}`,
     `--window-size=${width},${height}`,
-    "--virtual-time-budget=1800",
+    "--virtual-time-budget=4500",
     `--screenshot=${screenshot}`,
     "--dump-dom",
     url,
@@ -75,6 +75,10 @@ for (const [theme, width, height] of scenarios) {
   const attr = (name) => new RegExp(`data-${name}="([^"]*)"`).exec(dom)?.[1]
   assert.equal(attr("ui-ready"), "true")
   assert.equal(attr("session-isolation"), "true")
+  assert.equal(attr("product-plan"), "true")
+  assert.equal(attr("image-import-available"), "true")
+  assert.equal(attr("pending-plan-restored"), "true")
+  assert.equal(attr("plan-draft-preserved"), "true")
   assert.equal(attr("brand"), theme === "dark" ? "#55ADFF" : "#128BED")
   assert.equal(attr("menu-placed"), "true")
   assert.equal(attr("capability-count"), "5")

@@ -126,7 +126,7 @@ export function parseCardInsights(md: string | null): CardInsights {
   const conf = /状态置信度[：:]\s*(中高|低|中|高)/.exec(md)
   const link = /产业链环节[：:]\s*([^\n｜|;；。]+)/.exec(md)
   const hypotheses: Hypothesis[] = []
-  const hypoRe = /(H\d+)\s*[·・:：\-–]\s*\**\s*(P[012])\**\s*[·・:：\-–]\s*([^\n]+)/g
+  const hypoRe = /(H\d+)\s*[·・:：\-–]\s*\**\s*(P[012])\**\s*(?:（[^）\n]*）|\([^)\n]*\))?\s*[·・:：\-–]\s*([^\n]+)/g
   const hypoSrc = section(md, "业务假设") || md
   let hm: RegExpExecArray | null
   while ((hm = hypoRe.exec(hypoSrc)) !== null) {

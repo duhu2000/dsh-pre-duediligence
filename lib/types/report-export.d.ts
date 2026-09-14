@@ -30,16 +30,20 @@ export type CardSnapshot = {
     nodes?: CardNode[];
     running?: boolean;
 };
+export declare function nodeText(node: CardNode): string;
 export declare function adoptTaskFromSnapshot(snapshot: CardSnapshot, sessionId: string, minimumBaseline?: number): {
     id: string;
     prompt: string;
     nodeBaseline: number;
 } | null;
+export declare function isFollowUpReply(text: string): boolean;
+export declare function taskDisplayLabel(id: string): string;
 export declare function captureTaskReport(snapshot: CardSnapshot, sessionId: string, task: {
     id: string;
     nodeBaseline: number;
     prompt: string;
 }): string | null;
+export declare function reportSectionsComplete(text: string, _prompt?: string): boolean;
 export declare function extractCardText(snapshot: CardSnapshot, baseline: number): string | null;
 export declare function humanizeCell(text: string): string;
 export declare function stripFactIds(text: string): string;

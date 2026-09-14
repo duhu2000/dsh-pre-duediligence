@@ -38,7 +38,7 @@ function contentText(value: unknown): string {
 }
 
 // 防御式提取助手输出的作战卡正文：DSH 会话节点形态未知，逐种可能字段尝试。
-function nodeText(node: CardNode): string {
+export function nodeText(node: CardNode): string {
   if (Array.isArray(node.blocks)) return node.blocks.filter(b => b.kind === "text").map(b => b.text ?? "").join("\n")
   if (typeof node.text === "string") return node.text
   if (typeof node.content === "string") return node.content
@@ -74,13 +74,39 @@ export function adoptTaskFromSnapshot(snapshot: CardSnapshot, sessionId: string,
   }
   // Native composer submissions inherit the explicitly owned Session. Never infer
   // ownership from QCC calls (shared by cleaning, form-fill and tender plugins).
+  const isUser = (node: CardNode | undefined): node is CardNode => node !== undefined && /^(user|human)$/i.test(nodeRole(node))
+  const cardBetween = (from: number, to: number): boolean => nodes.slice(from + 1, to).some(n => !isUser(n) && CARD_SHAPE(nodeText(n)))
   for (let idx = nodes.length - 1; idx >= minimumBaseline; idx--) {
     const node = nodes[idx]
-    if (node === undefined || !/^(user|human)$/i.test(nodeRole(node))) continue
+    if (!isUser(node)) continue
     const prompt = nodeText(node).trim()
-    if (prompt !== "" && !JUNK.test(prompt)) return { id: `turn:${node.seq ?? node.id ?? idx}`, prompt, nodeBaseline: idx }
+    if (prompt === "" || JUNK.test(prompt)) continue
+    // 候选序号、信用代码、“好/确认”这类跟进回复属于同一任务：只要中间没有完成的报告，就回溯到发起该任务的那条消息。
+    let start = idx
+    while (isFollowUpReply(nodeText(nodes[start] ?? {}).trim())) {
+      let prev = start - 1
+      while (prev >= minimumBaseline && !isUser(nodes[prev])) prev--
+      if (prev < minimumBaseline || cardBetween(prev, start)) break
+      const text = nodeText(nodes[prev] ?? {}).trim()
+      if (text === "" || JUNK.test(text)) break
+      start = prev
+    }
+    const origin = nodes[start] ?? node
+    return { id: `turn:${origin.seq ?? origin.id ?? start}`, prompt: nodeText(origin).trim(), nodeBaseline: start }
   }
   return null
+}
+
+// 跟进回复：不含尽调任务要素的短消息（选择候选序号、粘贴信用代码、“1”“确认”“好的”等）。
+export function isFollowUpReply(text: string): boolean {
+  if (text === "") return false
+  if (/^\s*\d{1,2}\s*$/.test(text) || /^[0-9A-Z]{18}$/.test(text)) return true
+  return /^(?:好[的啊]?|确认|确定|是的?|对[的]?|没错|可以|继续|同意|第?\s*\d{1,2}\s*(?:家|个|项|条))[。！!\s]*$/u.test(text)
+}
+
+// 工作台上展示的任务名：正式提交的 PV 编号原样展示；会话内直接发起的任务不暴露内部序号。
+export function taskDisplayLabel(id: string): string {
+  return id.startsWith("turn:") ? "会话内发起" : id
 }
 
 const FULL_REPORT_SECTIONS = ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"]
@@ -95,8 +121,12 @@ export function captureTaskReport(snapshot: CardSnapshot, sessionId: string, tas
   const next = nodes.findIndex((n, i) => i > task.nodeBaseline && /^(user|human)$/i.test(nodeRole(n)) && /访前任务 ID[：:]\s*PV-/.test(nodeText(n)))
   const text = extractCardText({ nodes: next === -1 ? nodes : nodes.slice(0, next) }, task.nodeBaseline + 1)
   if (text === null) return null
+  return reportSectionsComplete(text) ? text : null
+}
+
+export function reportSectionsComplete(text: string, _prompt = ""): boolean {
   const sections = [...text.matchAll(/^#{1,4}\s+(.+)$/gm)].map(m => normalizeHeading(m[1] ?? "").replace(/^\d+、\s*/, "").replace(/\*\*/g, "").trim())
-  return FULL_REPORT_SECTIONS.every(s => sections.some(title => title === s || title.startsWith(s + "（") || title.startsWith(s + "："))) ? text : null
+  return FULL_REPORT_SECTIONS.every(s => sections.some(title => title === s || title.startsWith(s + "（") || title.startsWith(s + "：")))
 }
 
 export function extractCardText(snapshot: CardSnapshot, baseline: number): string | null {

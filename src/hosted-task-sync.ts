@@ -198,7 +198,16 @@ export function selectHostedTask(records: HostedTask[], active: ActiveTask | und
   const available = records.filter(record => !dismissed.has(record.id)).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
   if (active === undefined) return available[0] ?? null
   const direct = available.find(record => record.id === active.id)
-  if (direct !== undefined) return direct
+  if (direct !== undefined) {
+    // After a completed task, follow the newest task started in this Session,
+    // including the next company or a newly confirmed plan.
+    if (HOSTED_TERMINAL.has(direct.state)) {
+      const next = available.filter(record => record.sessionId === direct.sessionId && record.createdAt > direct.createdAt)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+      if (next !== undefined) return next
+    }
+    return direct
+  }
   const startedAfter = new Date(active.createdAt).getTime() - 60_000
   return available.find(record => new Date(record.createdAt).getTime() >= startedAfter) ?? null
 }

@@ -39,6 +39,8 @@ export type PrevisitArtifact = {
   createdAt: string
 }
 
+export type TaskBrief = { role?: string; scene?: string; focus: string[]; output?: string; sections?: string[] }
+
 export type PrevisitTaskRecord = {
   id: string
   schemaVersion: 1
@@ -47,6 +49,9 @@ export type PrevisitTaskRecord = {
   workspace: string
   query: string
   depth: "fast" | "standard" | "deep"
+  planId?: string
+  planEntities?: number
+  brief?: TaskBrief
   limit: number
   used: number
   state: PrevisitTaskState
@@ -287,6 +292,9 @@ export class PrevisitWorkflowStore {
     workspace: string
     query: string
     depth: "fast" | "standard" | "deep"
+    planId?: string
+    planEntities?: number
+    brief?: TaskBrief
     limit?: number
   }): Promise<PrevisitTaskRecord> {
     const timestamp = nowIso()
@@ -301,6 +309,9 @@ export class PrevisitWorkflowStore {
           ...retained,
           query: input.query,
           depth: input.depth,
+          ...(input.planId === undefined ? {} : { planId: input.planId }),
+          ...(input.planEntities === undefined ? {} : { planEntities: input.planEntities }),
+          ...(input.brief === undefined ? {} : { brief: structuredClone(input.brief) }),
           limit: 0,
           state: "needs-entity-search",
           stage: "target",
@@ -315,6 +326,9 @@ export class PrevisitWorkflowStore {
       workspace: input.workspace,
       query: input.query,
       depth: input.depth,
+      ...(input.planId === undefined ? {} : { planId: input.planId }),
+      ...(input.planEntities === undefined ? {} : { planEntities: input.planEntities }),
+      ...(input.brief === undefined ? {} : { brief: structuredClone(input.brief) }),
       limit: 0,
       used: 0,
       state: "needs-entity-search",

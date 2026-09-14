@@ -1,3 +1,5 @@
+import { ImageIntakeStore } from "./image-intake.js"
+import { mountImageRoutes } from "./image-web.js"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
@@ -60,8 +62,13 @@ export function loadBundledSkill(): SkillRegistration {
 
 export function apply(ctx: HostContext): void {
   const workflow = new PrevisitWorkflowStore()
-  ctx.effect(() => registerPrevisitTools(ctx, workflow))
+  const images = new ImageIntakeStore(ctx.tools)
+  ctx.effect(() => registerPrevisitTools(ctx, workflow, { images }))
+  ctx.effect(() => () => { void images.dispose() })
   ctx.skills.register(loadBundledSkill())
+  ctx.inject?.(["webServer"], webCtx => {
+    webCtx.effect(() => mountImageRoutes(webCtx.webServer, images))
+  })
   try {
     ctx.inject?.(["webServer", "storageDomain"], webCtx => {
       void workflow.attach(webCtx.storageDomain, ctx.logger)

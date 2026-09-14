@@ -1,3 +1,6 @@
+import { installComposerImageBridge } from "./image-bridge.js"
+import { PlanCard } from "./plan-card.js"
+import { DEPTH_LABELS, derivePlans, deriveTasks, type PrevisitPlan } from "./previsit-task.js"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 
 import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
@@ -33,7 +36,7 @@ import {
   type WorkbenchStatus,
 } from "./workbench-state.js"
 import { WORKBENCH_CSS } from "./workbench-style.js"
-import { adoptTaskFromSnapshot, buildPrevisitReportHtml, captureTaskReport } from "./report-export.js"
+import { adoptTaskFromSnapshot, buildPrevisitReportHtml, captureTaskReport, taskDisplayLabel } from "./report-export.js"
 import { BUSINESS_STATES, isRiskFindingText, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
 
 export const inject = ["slots", "sessions", "workspaces", "conversation"] as const
@@ -190,7 +193,7 @@ function ExecutionProgress(props: { task: HostedTask | null; status: WorkbenchSt
   )
 }
 
-function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: ActiveTask | undefined; input: SessionInput | undefined; start: (prompt: string) => Promise<number>; onStarted: () => void }): JSX.Element {
+function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: ActiveTask | undefined; input: SessionInput | undefined; send: (prompt: string) => Promise<void>; start: (prompt: string) => Promise<number>; onStarted: () => void }): JSX.Element {
   useSyncExternalStore(listener => props.input?.state.subscribe?.(listener) ?? (() => {}), () => props.input?.state.getSnapshot().draft ?? "")
   // 与输入框上方的设定条共用同一份状态与逻辑；草稿直接读写 DSH 输入框
   const actions = usePrevisitComposer({
@@ -209,10 +212,10 @@ function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: Acti
     <section className="qccPwPanel">
       <header className="qccPwPageHeading">
         <div><p className="qccPwEyebrow">TARGET</p><h2>对象与目标</h2><p>确认拜访主体、角色与目标；前端不预设业务结论。</p></div>
-        {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
+        {props.task === undefined ? null : <span className="qccPwTaskId">{taskDisplayLabel(props.task.id)}</span>}
       </header>
       <div className="qccPwCard qccPwSetupCard">
-        <PrevisitFields actions={actions} idPrefix={`qccPw-${props.sessionId}`} />
+        <PrevisitFields actions={actions} idPrefix={`qccPw-${props.sessionId}`} sessionId={props.sessionId} send={props.send} />
       </div>
       {props.task === undefined ? null : (
         <div className="qccPwCard">
@@ -227,16 +230,18 @@ function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: Acti
 const optionLabel = (options: readonly ComposerOption[], id: string | undefined): string =>
   id === undefined ? "未选择" : (options.find(option => option.id === id)?.label ?? "未选择")
 
-function ScopePanel(props: { state: PrevisitSessionState; task: ActiveTask | undefined }): JSX.Element {
-  const focus = props.state.selection.focus.map(id => optionLabel(FOCUS_OPTIONS, id)).join("、") || "按 Skill 标准范围"
+function ScopePanel(props: { state: PrevisitSessionState; task: ActiveTask | undefined; hostedTask: HostedTask | null }): JSX.Element {
+  const brief = props.hostedTask?.brief
+  const selection = props.task?.selection ?? props.state.selection
+  const focus = selection.focus.map(id => optionLabel(FOCUS_OPTIONS, id)).join("、") || "按 Skill 标准范围"
   const submittedCompany = props.task?.company?.trim() || props.state.company.trim()
   const rows = [
     ["拜访对象", submittedCompany || "尚未填写"],
-    ["我的角色", optionLabel(ROLE_OPTIONS, props.state.selection.role)],
-    ["拜访场景", optionLabel(PURPOSE_OPTIONS, props.state.selection.purpose)],
-    ["重点关注", focus],
-    ["尽调深度", optionLabel(BUDGET_OPTIONS, props.state.selection.budget)],
-    ["输出形态", optionLabel(OUTPUT_OPTIONS, props.state.selection.output)],
+    ["我的角色", brief?.role ?? optionLabel(ROLE_OPTIONS, selection.role)],
+    ["拜访场景", brief?.scene ?? optionLabel(PURPOSE_OPTIONS, selection.purpose)],
+    ["重点关注", brief === undefined ? focus : brief.focus.join("、") || "按 Skill 标准范围"],
+    ["尽调深度", props.hostedTask === null ? optionLabel(BUDGET_OPTIONS, selection.budget) : DEPTH_LABELS[props.hostedTask.depth]],
+    ["输出形态", brief?.output ?? optionLabel(OUTPUT_OPTIONS, selection.output)],
   ]
   return (
     <StagePanel eyebrow="SCOPE" title="范围确认" task={props.task}>
@@ -291,7 +296,7 @@ function StagePanel(props: { eyebrow: string; title: string; task: ActiveTask | 
     <section className="qccPwPanel">
       <header className="qccPwPageHeading">
         <div><p className="qccPwEyebrow">{props.eyebrow}</p><h2>{props.title}</h2></div>
-        {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
+        {props.task === undefined ? null : <span className="qccPwTaskId">{taskDisplayLabel(props.task.id)}</span>}
       </header>
       {props.children}
     </section>
@@ -401,7 +406,7 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: Hosted
       <section className="qccPwPanel">
         <header className="qccPwPageHeading">
           <div><p className="qccPwEyebrow">OUTPUT</p><h2>访前材料</h2></div>
-          {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
+          {props.task === undefined ? null : <span className="qccPwTaskId">{taskDisplayLabel(props.task.id)}</span>}
         </header>
         <div className="qccPwCard qccPwReportCard"><ReportViewer html={props.reportHtml} /></div>
       </section>
@@ -422,7 +427,7 @@ function DeliveryPanel(props: { task: ActiveTask | undefined; hostedTask: Hosted
     <section className="qccPwPanel">
       <header className="qccPwPageHeading">
         <div><p className="qccPwEyebrow">OUTPUT</p><h2>访前材料</h2><p>不是资料堆砌，只回答四件事：去不去、见谁、聊什么、什么不能碰。</p></div>
-        {props.task === undefined ? null : <span className="qccPwTaskId">{props.task.id}</span>}
+        {props.task === undefined ? null : <span className="qccPwTaskId">{taskDisplayLabel(props.task.id)}</span>}
       </header>
       {props.task === undefined
         ? (props.cardCaptured ? <Feedback tone="success" title="报告可下载">当前会话中已有尽调报告，可直接下载；新的尽调将重新计数。</Feedback> : <Feedback tone="notice" title="等待设定">完成尽调设定后，报告结构与执行进度会显示在这里。</Feedback>)
@@ -528,7 +533,7 @@ export function HistoryPanel(props: {
         <Feedback tone="notice" title="暂无历史任务">从提示词生成器回填并发送，或在任一访前会话中直接发起尽调后，这里会汇总显示。</Feedback>
       ) : (
         <div className="qccPwCard">
-          <div className="qccPwCardHeader"><div><h3>{props.task.id}</h3><p>{new Date(props.task.createdAt).toLocaleString("zh-CN")}</p></div><span className="qccPwStatus" data-status={props.status}>{STATUS_LABELS[props.status]}</span></div>
+          <div className="qccPwCardHeader"><div><h3>{taskDisplayLabel(props.task.id)}</h3><p>{new Date(props.task.createdAt).toLocaleString("zh-CN")}</p></div><span className="qccPwStatus" data-status={props.status}>{STATUS_LABELS[props.status]}</span></div>
           <pre className="qccPwPrompt">{props.task.prompt}</pre>
         </div>
       )}
@@ -541,7 +546,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   ctx: ClientContext
   shared: PrevisitStore
   reveal: ReturnType<typeof createRevealController>
-  startPrompt: (sessionId: string, prompt: string) => Promise<number>
+  startPrompt: (sessionId: string, prompt: string, preserveDraft?: boolean) => Promise<number>
 }): JSX.Element {
   const sessionId = props.scope.sessionId
   const shared = useSyncExternalStore(props.shared.subscribe, () => props.shared.get(sessionId))
@@ -551,6 +556,11 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const setView = (view: PrevisitView) => { locatePrevisitView(props.shared, sessionId, view) }
   const setPhase = (next: PrevisitPhase) => setView(next)
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
+  const [plans, setPlans] = useState<PrevisitPlan[]>([])
+  const [dismissedPlanIds, setDismissedPlanIds] = useState<string[]>([])
+  const [sessionTasks, setSessionTasks] = useState<HostedTask[]>([])
+  const pendingPlan = [...plans].reverse().find(plan => plan.taskIds.length === 0 && !sessionTasks.some(task => task.planId === plan.id) && !dismissedPlanIds.includes(plan.id))
+  const lastPlanLocation = useRef<string>()
   const [hostedTask, setHostedTask] = useState<HostedTask | null>(null)
   const [hostedHistory, setHostedHistory] = useState<HostedTask[]>([])
   const [selectedHistory, setSelectedHistory] = useState<HostedTask | null>(null)
@@ -562,6 +572,9 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const [completedTaskId, setCompletedTaskId] = useState<string>()
   const [capturedReport, setCapturedReport] = useState<{ taskId: string; text: string } | null>(null)
   const [downloadNote, setDownloadNote] = useState<string>()
+  const planTasks = hostedTask?.planId === undefined ? [] : sessionTasks.filter(task => task.planId === hostedTask.planId)
+  const planTotal = Math.max(hostedTask?.planEntities ?? 0, planTasks.length)
+  const planDone = planTasks.filter(task => task.reportReady).length
 
   useWorkbenchReveal(props.reveal, props)
 
@@ -581,6 +594,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         // 列表只传轻量状态；报告就绪后再按 ID 读取正文。
         const record = summary?.reportReady === true ? (await fetchHostedTask(summary.id, sessionId) ?? summary) : summary
         if (disposed) return
+        setSessionTasks(records)
         setHostedTask(record)
         setHostError(undefined)
         if (record !== null) {
@@ -588,13 +602,14 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
           const adopted = snapshot === undefined ? null : adoptTaskFromSnapshot(snapshot, sessionId, current.minimumNodeBaseline)
           const desiredView = hostedTaskView(record)
           const location = `${record.id}:${desiredView}`
-          const shouldLocate = lastHostedLocation.current !== location
+          const awaitingPlan = snapshot === undefined ? undefined : derivePlans(snapshot).find(plan => plan.taskIds.length === 0 && !dismissedPlanIds.includes(plan.id) && !records.some(task => task.planId === plan.id))
+          const shouldLocate = awaitingPlan === undefined && lastHostedLocation.current !== location
           props.shared.update(sessionId, state => syncHostedTaskState(state, record, adopted, shouldLocate))
           lastHostedLocation.current = location
         } else {
           lastHostedLocation.current = undefined
         }
-        if (record === null || (!record.reportReady && !HOSTED_TERMINAL.has(record.state))) timer = setTimeout(refresh, 1000)
+        timer = setTimeout(refresh, record !== null && HOSTED_TERMINAL.has(record.state) ? 2000 : 1000)
       } catch (error) {
         if (!disposed) {
           setHostError(error instanceof Error ? error.message : String(error))
@@ -604,7 +619,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     }
     void refresh()
     return () => { disposed = true; if (timer !== undefined) clearTimeout(timer) }
-  }, [props.visible, sessionId, props.ctx, props.shared, shared.dismissedTaskIds.join("|")])
+  }, [props.visible, sessionId, props.ctx, props.shared, shared.dismissedTaskIds.join("|"), dismissedPlanIds.join("|")])
 
   useEffect(() => {
     if (!props.visible || shared.view !== "history") return
@@ -640,6 +655,13 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     }
     const refresh = () => {
       const snapshot = face.getSnapshot()
+      const derivedPlans = derivePlans(snapshot)
+      setPlans(derivedPlans)
+      const pending = [...derivedPlans].reverse().find(plan => plan.taskIds.length === 0 && !dismissedPlanIds.includes(plan.id))
+      if (pending !== undefined && pending.id !== lastPlanLocation.current) {
+        lastPlanLocation.current = pending.id
+        if (props.shared.get(sessionId).view !== "history") locatePrevisitView(props.shared, sessionId, "target")
+      }
       // 设定条 / 会话内直接发起的尽调：工作台自己从会话认领任务，不依赖谁点了按钮
       if (task === undefined) {
         const adopted = adoptTaskFromSnapshot(snapshot, sessionId, shared.minimumNodeBaseline)
@@ -663,12 +685,13 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         setTask(current => current === undefined || current.seenRunning ? current : { ...current, seenRunning: true })
       }
       const captureTask = task === undefined ? undefined : { ...task, id: task.captureId ?? task.id }
-      const captured = captureTask === undefined ? null : captureTaskReport(snapshot, sessionId, captureTask)
+      const projected = task === undefined ? undefined : deriveTasks(snapshot).find(projected => projected.id === task.id)
+      const captured = snapshot.running === true ? null : projected !== undefined ? projected.report : captureTask === undefined ? null : captureTaskReport(snapshot, sessionId, captureTask)
       setCapturedReport(captured === null || task === undefined ? null : { taskId: task.id, text: captured })
     }
     refresh()
     return face.subscribe?.(refresh)
-  }, [props.ctx, sessionId, task?.id, task?.nodeBaseline, shared.minimumNodeBaseline, shared.dismissedTaskIds.join("|")])
+  }, [props.ctx, sessionId, task?.id, task?.nodeBaseline, shared.minimumNodeBaseline, shared.dismissedTaskIds.join("|"), dismissedPlanIds.join("|")])
 
   useEffect(() => {
     const report = capturedReport !== null && capturedReport.taskId === task?.id ? capturedReport.text : undefined
@@ -713,8 +736,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       return
     }
     setCompletedTaskId(task.id)
-    if (shared.view !== "history") setPhase("output")
-  }, [completedTaskId, status, task, shared.view])
+    if (shared.view !== "history" && pendingPlan === undefined) setPhase("output")
+  }, [completedTaskId, status, task, shared.view, pendingPlan?.id])
 
   const newTask = () => {
     props.shared.update(sessionId, state => ({
@@ -826,7 +849,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
           <span className="qccPwBrandIcon"><PrevisitLogo size={24} /></span>
           <div className="qccPwBrandCopy"><div className="qccPwTitleRow"><h1 className="qccPwTitle">访前尽调</h1><span className="qccPwLiveDot" data-status={status} /></div><p className="qccPwSubtitle">企查查事实驱动 · 机会与风险双引擎</p></div>
         </div>
-        <div className="qccPwMeta"><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span><span className="qccPwSession">当前 Session · {sessionId.slice(0, 12)}</span></div>
+        <div className="qccPwMeta"><span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span><span className="qccPwSession">{hostedTask?.planId === undefined ? `当前 Session · ${sessionId.slice(0, 12)}` : `计划 ${planDone}/${planTotal} 家已出报告 · ${planTasks.length} 家已开始`}</span></div>
       </header>
       <nav className="qccPwTabs" aria-label="工作台视图">
         <button type="button" data-selected={shared.view !== "history"} onClick={() => setView("target")}>当前任务</button>
@@ -846,8 +869,9 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       </nav>}
       {shared.view !== "history" ? <ExecutionProgress task={hostedTask} status={status} modelRunning={runtime.available ? runtime.running : undefined} syncError={hostError ?? runtime.lastAgentError ?? undefined} /> : null}
       <div className="qccPwBody">
-        {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
-        {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
+        {shared.view === "target" && pendingPlan !== undefined ? <PlanCard key={pendingPlan.id} plan={pendingPlan} onConfirm={async message => { await props.startPrompt(sessionId, message, true); setDismissedPlanIds(ids => [...ids, pendingPlan.id]) }} onDismiss={() => setDismissedPlanIds(ids => [...ids, pendingPlan.id])} /> : null}
+        {shared.view === "target" && pendingPlan === undefined ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} send={async prompt => { await props.startPrompt(sessionId, prompt, true) }} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
+        {shared.view === "scope" ? <ScopePanel state={shared} task={task} hostedTask={hostedTask} /> : null}
         {shared.view === "collect" ? <OpportunityPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "verify" ? <RiskPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "output" ? <DeliveryPanel task={task} hostedTask={hostedTask} status={status} toolCount={hostedTask?.used ?? runtime.toolNames.length} failedToolCount={hostedTask?.runs.filter(run => run.status === "failed").length ?? runtime.failedToolCount} cardCaptured={cardText !== null} reportHtml={reportHtml} /> : null}
@@ -899,7 +923,7 @@ export function apply(ctx: ClientContext): void {
     reveal.dispose()
     unavailableNotice?.remove()
   })
-  const startPrompt = async (sessionId: string, prompt: string): Promise<number> => {
+  const startPrompt = async (sessionId: string, prompt: string, preserveDraft = false): Promise<number> => {
     if (!active || !isPrevisitSession(sessionId)) throw new Error("访前会话不可用")
     const input = resolveSessionInput(ctx, sessionId)
     const draft = input?.state.getSnapshot().draft
@@ -907,7 +931,7 @@ export function apply(ctx: ClientContext): void {
     if (conversation === undefined) throw new Error("conversation unavailable")
     const baseline = ctx.sessions.binding?.(sessionId)?.session.getSnapshot().nodes?.length ?? 0
     await submissions.submit(sessionId, prompt, () => conversation.send(prompt))
-    if (active && draft !== undefined) clearSubmittedDraft(input, draft)
+    if (active && !preserveDraft && draft !== undefined) clearSubmittedDraft(input, draft)
     return baseline
   }
   const openForSession = (sessionId: string, view?: PrevisitView) => {
@@ -936,6 +960,22 @@ export function apply(ctx: ClientContext): void {
     }
   })
   ctx.effect(() => () => submissions.dispose(), "dsh-pre-duediligence: accepted submission reveal")
+  ctx.effect(() => installComposerImageBridge({
+    owned: isPrevisitSession,
+    currentSessionId: () => ctx.sessions.list?.getSnapshot().current,
+    send: async (sessionId, prompt) => { await startPrompt(sessionId, prompt, true) },
+    onError: (_sessionId, message) => {
+      unavailableNotice?.remove()
+      const notice = document.createElement("div")
+      notice.className = "qccImportNotice"
+      notice.setAttribute("role", "alert")
+      notice.textContent = message
+      const dismiss = document.createElement("button")
+      dismiss.type = "button"; dismiss.textContent = "知道了"
+      dismiss.addEventListener("click", () => notice.remove())
+      notice.append(dismiss); document.body.append(notice); unavailableNotice = notice
+    },
+  }), "dsh-pre-duediligence: composer image import")
   ctx.effect(() => installStyles(), "dsh-pre-duediligence: QCC blue UI styles")
   ctx.effect(
     () => installOrdinarySessionGuard(ctx, ctx.workspaces ?? {}),

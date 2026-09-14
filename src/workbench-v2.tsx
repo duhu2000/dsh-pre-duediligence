@@ -6,6 +6,7 @@ import { processingStatus } from "./processing-status.js"
 import { dimensionLabel } from "./hosted-task-sync.js"
 import { PrevisitFields, usePrevisitComposer } from "./previsit-dock.js"
 import { resolveSessionInput, clearSubmittedDraft, type SessionInput } from "./session-input.js"
+import { installSubmissionReveal } from "./submission-reveal.js"
 import { isPrevisitSession } from "./previsit-session.js"
 import { toolEvent, TOOL_OUTCOME_LABELS } from "./tool-outcome.js"
 import { PrevisitPromptGenerator } from "./previsit-prompt.js"
@@ -892,9 +893,11 @@ export function apply(ctx: ClientContext): void {
   let active = true
   const shared = createPrevisitStore()
   const reveal = createRevealController()
+  let unavailableNotice: HTMLElement | undefined
   ctx.effect(() => () => {
     active = false
     reveal.dispose()
+    unavailableNotice?.remove()
   })
   const startPrompt = async (sessionId: string, prompt: string): Promise<number> => {
     if (!active || !isPrevisitSession(sessionId)) throw new Error("访前会话不可用")
@@ -903,7 +906,7 @@ export function apply(ctx: ClientContext): void {
     const conversation = ctx.sessions.scope?.(sessionId)?.get("conversation") as SessionConversation | undefined
     if (conversation === undefined) throw new Error("conversation unavailable")
     const baseline = ctx.sessions.binding?.(sessionId)?.session.getSnapshot().nodes?.length ?? 0
-    await conversation.send(prompt)
+    await submissions.submit(sessionId, prompt, () => conversation.send(prompt))
     if (active && draft !== undefined) clearSubmittedDraft(input, draft)
     return baseline
   }
@@ -913,6 +916,26 @@ export function apply(ctx: ClientContext): void {
     if (!openWorkbench(service, { sessionId }, reveal)) throw new Error("访前工作台已在 Sidebar 设置中禁用；当前草稿和业务状态已保留，请启用后重试。")
     if (view !== undefined) locatePrevisitView(shared, sessionId, view)
   }
+  const submissions = installSubmissionReveal(ctx, sessionId => {
+    try { openForSession(sessionId, "collect") }
+    catch (cause) {
+      // No native notification service is required. Keep a single dismissible,
+      // non-modal notice, without claiming that an already accepted send failed.
+      unavailableNotice?.remove()
+      const notice = document.createElement("div")
+      notice.setAttribute("role", "status")
+      notice.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:9999;max-width:420px;padding:16px;border:1px solid #94a3b8;border-radius:12px;background:#fff;color:#334155;box-shadow:0 4px 20px #0002"
+      const detail = cause instanceof Error ? cause.message : "工作台暂不可用"
+      const message = document.createElement("p")
+      message.textContent = `任务已提交，但右侧工作台未展开。${detail} 请在原生会话中继续查看进展，无需重复提交。`
+      const dismiss = document.createElement("button")
+      dismiss.type = "button"; dismiss.textContent = "知道了"
+      dismiss.addEventListener("click", () => notice.remove())
+      notice.append(message, dismiss); document.body.append(notice)
+      unavailableNotice = notice
+    }
+  })
+  ctx.effect(() => () => submissions.dispose(), "dsh-pre-duediligence: accepted submission reveal")
   ctx.effect(() => installStyles(), "dsh-pre-duediligence: QCC blue UI styles")
   ctx.effect(
     () => installOrdinarySessionGuard(ctx, ctx.workspaces ?? {}),

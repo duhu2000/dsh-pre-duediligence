@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { parseAnalysisRecord, type AnalysisRecord } from "./analysis-records.js"
 import { createMaterial, createFact, compareFacts, type Material, type EvidenceFact, type EvidenceComparison } from "./material-evidence.js"
 
 import type { ToolOutcome } from "./tool-outcome.js"
@@ -43,6 +44,7 @@ export type PrevisitArtifact = {
 export type TaskBrief = { role?: string; scene?: string; focus: string[]; output?: string; sections?: string[] }
 
 export type PrevisitTaskRecord = {
+  analysisRecords?: AnalysisRecord[]
   activity?: { phase: "analysis" | "verification" | "writing"; summary: string; updatedAt: string }
   materials?: Material[]
   evidenceFacts?: EvidenceFact[]
@@ -355,7 +357,7 @@ export class PrevisitWorkflowStore {
     if (existing !== undefined && existing.sessionId !== input.sessionId) throw new Error("任务标识已属于其他会话")
     if (existing !== undefined) {
       assertTaskOpen(existing)
-      if (existing.materials?.length || existing.parentTaskId) throw new Error("已有补充任务或材料不可重新开始并重置主体，请继续原任务或创建独立新任务")
+      if (existing.materials?.length || existing.parentTaskId || existing.analysisRecords?.length) throw new Error("已有补充任务、分析或材料不可重新开始并重置主体，请继续原任务或创建独立新任务")
       return this.update(id, current => {
         const { entity: _entity, lastError: _lastError, reportMarkdown: _report, artifact: _artifact, completedAt: _completedAt, ...retained } = current
         return {
@@ -464,6 +466,23 @@ export class PrevisitWorkflowStore {
   }
 
   private finalizationQueue: Promise<unknown> = Promise.resolve()
+  recordAnalysis(id: string, input: Record<string, unknown>): Promise<PrevisitTaskRecord> {
+    const entry = parseAnalysisRecord(input)
+    const operation = this.finalizationQueue.then(() => this.update(id, current => {
+      assertTaskOpen(current)
+      if (!current.entity) throw new Error("请先确认主体")
+      const references = new Set([...current.runs.filter(run => run.completedAt && ["done", "no-data"].includes(run.status)).map(run => run.id), ...(current.evidenceFacts ?? []).map(fact => fact.id)])
+      if (entry.evidenceIds.some(ref => !references.has(ref))) throw new Error("证据引用必须来自本任务已返回的 runId 或 factId")
+      const history = current.analysisRecords ?? []
+      const previous = history.filter(row => row.id === entry.id).at(-1)
+      if (previous && previous.kind !== entry.kind) throw new Error("不可改变记录类型")
+      if (history.length >= 200) throw new Error("分析记录已达容量上限")
+      const record = { ...entry, revision: (previous?.revision ?? 0) + 1, updatedAt: new Date().toISOString() }
+      return { ...current, analysisRecords: [...history, record] }
+    }))
+    this.finalizationQueue = operation.catch(() => {})
+    return operation
+  }
   reportProgress(id: string, activity: NonNullable<PrevisitTaskRecord["activity"]>): Promise<PrevisitTaskRecord> {
     const operation = this.finalizationQueue.then(() => this.update(id, current => {
       assertTaskOpen(current)

@@ -274,6 +274,18 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
     const record = await workflow.reportProgress(task.id, { phase, summary, updatedAt: new Date().toISOString() })
     return { taskId: task.id, activity: record.activity }
   })
+  register("previsit_record_analysis", "在取得关键资料后及时保存用户可见的核验或机会假设；同一 id 更新会追加修订，不能等最终报告才记录。支持/反证必须引用本任务真实 runId 或 factId；使用 previsit_history 查看引用。仅保存简短结论、证据边界与下一步，不保存内部思考。查询完成不等于判断成立。", {
+    taskId: { type: "string" }, id: { type: "string", maxLength: 80 },
+    kind: { type: "string", enum: ["verification", "hypothesis"] },
+    title: { type: "string", maxLength: 160 }, summary: { type: "string", maxLength: 600 },
+    status: { type: "string", enum: ["pending", "supported", "partial", "contradicted", "insufficient", "onsite"] },
+    ...Object.fromEntries(["support", "counter", "unknown", "evidenceIds"].map(key => [key, { type: "array", maxItems: 12, items: { type: "string", maxLength: 600 } }])),
+    nextAction: { type: "string", maxLength: 600 },
+  }, ["taskId", "id", "kind", "title", "summary", "status", "support", "counter", "unknown", "evidenceIds", "nextAction"], async (args, _exec, agent) => {
+    const task = requireTask(args, agent)
+    const record = await workflow.recordAnalysis(task.id, args)
+    return { taskId: task.id, record: record.analysisRecords?.at(-1) }
+  })
   const requireTask = (args: Record<string, unknown>, agent: Agent) => {
     const owner = ownerOf(agent)
     if (beginning.has(owner)) throw new Error("新任务仍在初始化，请串行执行")
@@ -452,7 +464,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       } else if (dimension === "personnel" && (outcome === "done" || outcome === "unknown")) {
         await recordSyntheticOutcome(task, "executive_risk", "not-executed", "已取得关键人员，等待董监高风险扫描", true)
       }
-      return { taskId: task.id, dimension, ...(requestedDimension === dimension ? {} : { requestedDimension }), toolName: selected.name, outcome, used: task.used, unlimited: true, data: result.isError ? { message: result.error?.message ?? "查询失败" } : data }
+      return { taskId: task.id, runId: callId, dimension, ...(requestedDimension === dimension ? {} : { requestedDimension }), toolName: selected.name, outcome, used: task.used, unlimited: true, data: result.isError ? { message: result.error?.message ?? "查询失败" } : data }
     } catch (error) {
       if (runStarted) await workflow.finishRun(task.id, callId, "failed", error instanceof Error ? error.message : String(error)).catch(() => {})
       throw error

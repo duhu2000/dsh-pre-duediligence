@@ -3,6 +3,7 @@ import { PlanCard } from "./plan-card.js"
 import { DEPTH_LABELS, derivePlans, deriveTasks, type PrevisitPlan } from "./previsit-task.js"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 
+import { AnalysisPanel, CollectionCards } from "./analysis-panels.js"
 import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
 import { PrevisitLogo } from "./previsit-brand.js"
 import { ReportFilesPanel } from "./report-files-panel.js"
@@ -337,16 +338,11 @@ function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTask: Hos
             ? <span className="qccPwMode" data-tone="review">状态未定</span>
             : <span className="qccPwMode" data-tone={running ? undefined : "neutral"}>{running ? "正在研判" : finished ? "未识别结论" : "待研判"}</span>}</div>
         {insights.state ? <h3>{insights.state}</h3> : <p>尚未形成经营研判；先展示已返回的经营事实，不以查询成功推断经营良好。</p>}
-        {Array.from(new Map((props.hostedTask?.runs ?? []).filter(run => ["registration", "profile", "annual_reports", "changes", "financing", "bidding", "recruitment", "investments"].includes(run.dimension)).map(run => [run.dimension, run])).values()).map(run => <div key={run.id}><h4>{dimensionLabel(run.dimension)}</h4><p className="qccPwNote">{run.status === "done" ? "数据已取得 · 以下为来源摘要与样本字段，不代表全量明细或最终研判" : run.status === "no-data" ? "查询成功，未发现记录" : `查询状态：${run.status}`}</p>{run.result?.summary ? <p>{run.result.summary}</p> : null}{run.result?.facts.map(fact => <p key={fact}>{fact}</p>)}{run.status === "done" && !run.result?.summary && !run.result?.facts.some(fact => !fact.startsWith("企业名称：")) ? <p className="qccPwNote">数据已返回，暂未提取到业务摘要；不代表无数据，可在原会话查看工具结果。</p> : null}</div>)}
+        <CollectionCards task={props.hostedTask} />
         {insights.stateUndetermined ? <p className="qccPwNote">状态未定：公开证据不足，本次降级为清单式简报。</p> : null}
         {insights.industryLink === null ? null : <p className="qccPwNote">产业链环节：{insights.industryLink}</p>}
       </div>
-      <div className="qccPwCard">
-        <div className="qccPwCardHeader"><div><h3>业务假设</h3></div>{insights.hypotheses.length === 0 ? null : <span className="qccPwMode">{insights.hypotheses.length} 条</span>}</div>
-        {insights.hypotheses.length === 0
-          ? <p className="qccPwEmpty">{finished ? (insights.stateUndetermined ? "状态未定，未生成假设；相关未知已转入现场必问" : insights.found ? "报告中未识别出假设" : "报告未捕获") : running ? "状态判定后生成" : "尽调开始后显示"}</p>
-          : <ol className="qccPwHypos">{insights.hypotheses.map(h => <li key={h.id}><span className="qccPwPri" data-p={h.priority}>{h.priority}</span><b>{h.id}</b><span>{h.text}</span></li>)}</ol>}
-      </div>
+      <AnalysisPanel task={props.hostedTask} kind="hypothesis" legacy={insights.hypotheses} />
     </StagePanel>
   )
 }
@@ -364,7 +360,10 @@ function RiskPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask
     <StagePanel eyebrow="VERIFY" title="证据核验" task={props.task}>
       <Steps steps={steps} />
       <Dimensions title="核验结果" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核验结果"} />
-      <ScanFindings task={props.hostedTask} />
+      <p className="qccPwNote">扫描发现见「资料采集」；这里展示明细查询范围、核验结论与下一步。</p>
+      <CollectionCards task={props.hostedTask} verification />
+      <AnalysisPanel task={props.hostedTask} kind="verification" />
+      <AnalysisPanel task={props.hostedTask} kind="hypothesis" legacy={insights.hypotheses} />
       <div className="qccPwCard">
         <div className="qccPwCardHeader"><div><h3>风险分级</h3></div></div>
         {!judged
@@ -593,7 +592,6 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const [hostError, setHostError] = useState<string>()
   const reconcilingReports = useRef(new Set<string>())
   const lastHostedLocation = useRef<string>()
-  const [completedTaskId, setCompletedTaskId] = useState<string>()
   const [capturedReport, setCapturedReport] = useState<{ taskId: string; text: string } | null>(null)
   const [downloadNote, setDownloadNote] = useState<string>()
   const planTasks = hostedTask?.planId === undefined ? [] : sessionTasks.filter(task => task.planId === hostedTask.planId)
@@ -757,14 +755,6 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const insights = useMemo(() => parseCardInsights(cardText), [cardText])
   const reportHtml = useMemo(() => cardText === null ? null : buildPrevisitReportHtml(cardText), [cardText])
 
-  useEffect(() => {
-    if (status !== "ready" || task === undefined || completedTaskId === task.id) {
-      return
-    }
-    setCompletedTaskId(task.id)
-    if (shared.view !== "history" && pendingPlan === undefined) setPhase("output")
-  }, [completedTaskId, status, task, shared.view, pendingPlan?.id])
-
   const newTask = () => {
     props.shared.update(sessionId, state => ({
       ...state,
@@ -893,6 +883,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
           )
         })}
       </nav>}
+      {shared.view !== "history" && status === "ready" && shared.view !== "output" ? <div className="qccPwCard" role="status">报告已生成，已保留当前阅读页面。<button type="button" onClick={() => setPhase("output")}>查看报告</button></div> : null}
       {shared.view !== "history" ? <ExecutionProgress task={hostedTask} status={status} modelRunning={runtime.available ? runtime.running : undefined} syncError={hostError ?? runtime.lastAgentError ?? undefined} /> : null}
       <div className="qccPwBody">
         {shared.view === "output" && hostedTask?.reportReady ? <ReportFilesPanel key={hostedTask.id} taskId={hostedTask.id} sessionId={hostedTask.sessionId} /> : null}

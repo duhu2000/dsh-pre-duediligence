@@ -1,3 +1,4 @@
+import { type AnalysisRecord } from "./analysis-records.js";
 import { type Material, type EvidenceFact, type EvidenceComparison } from "./material-evidence.js";
 import type { ToolOutcome } from "./tool-outcome.js";
 import type { ResultSummary } from "./result-summary.js";
@@ -31,6 +32,7 @@ export type TaskBrief = {
     sections?: string[];
 };
 export type PrevisitTaskRecord = {
+    analysisRecords?: AnalysisRecord[];
     activity?: {
         phase: "analysis" | "verification" | "writing";
         summary: string;
@@ -143,6 +145,7 @@ export declare class PrevisitWorkflowStore {
         creditCode: string;
     }): Promise<PrevisitTaskRecord>;
     private finalizationQueue;
+    recordAnalysis(id: string, input: Record<string, unknown>): Promise<PrevisitTaskRecord>;
     reportProgress(id: string, activity: NonNullable<PrevisitTaskRecord["activity"]>): Promise<PrevisitTaskRecord>;
     /** Serialize evidence writes with publication: no late mutation of a published version. */
     addEvidence(id: string, kind: "material" | "fact" | "comparison", input: Record<string, unknown>): Promise<PrevisitTaskRecord>;

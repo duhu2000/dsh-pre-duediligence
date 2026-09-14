@@ -5,7 +5,7 @@ whenToUse: 用户要求准备客户拜访、访前尽调、一页纸简报、授
 user-invocable: true
 metadata:
   author: QCC
-  version: 0.1.31
+  version: 0.1.32
 ---
 
 # 访前尽调
@@ -56,11 +56,15 @@ metadata:
 
 ### 用户可见工作阶段
 
+取得关键资料后，先保存可供用户阅读的阶段成果，不要等最终报告。使用 `previsit_record_analysis` 保存 verification（核验发现）或 hypothesis（机会假设）。每条填写稳定 id、title、status、summary、support、counter、unknown、nextAction、evidenceIds；同一 id 后续更新会追加修订，保留历史。证据引用使用本次 `previsit_query` 返回的 runId，或材料工具实际返回的 factId；不可编造引用。旧调用缺少 runId 时用 `previsit_history` 查看。仅保存可公开结论及依据，不写内部思考。
+
+先记录待验证问题（pending），新证据取得后更新为有支持（supported）、部分支持（partial）、有反证（contradicted）、证据不足（insufficient）或待现场确认（onsite）。没有支持或反证时列表留空并说明未知，不把空列表解释为不存在；证据不足时不得硬凑假设。支持/反证判断必须引用真实证据。核验记录写明当事人角色、已查看的样本范围、未取得的明细及下一步；查询成功不等于风险排除。写报告前复核这些记录与报告一致，遗漏项如实记录，不倒填虚构的过程时间。
+
 资料查询告一段落、开始风险核对、开始撰写报告时，调用 `previsit_progress(taskId, phase, summary)` 上报工作摘要。phase 为 analysis（整理经营事实）、verification（核对风险证据）、writing（撰写报告）。summary 限240字，只写当前正在做的工作，例如“核对裁判文书样本与行政处罚，整理现场待确认事项”，不写内部思考、推理草稿或尚未验证的结论。长任务在自然工作阶段转换时及时更新；不要按计时虚构完成比例，不要为刷新计时重复调用查询。单次模型生成期间无法保证定时上报，前端保留最近一次摘要及其时间。
 
 若保存报告返回异常，先用 `previsit_history(taskId)` 确认报告是否已保存。已保存时读取原版本，不重新生成不同正文覆盖；只有明确要求补充内容时创建子任务。相同正文的保存重试是幂等的。
 
-### Agent-owned 执行门（0.1.31）
+### Agent-owned 执行门（0.1.32）
 
 只在从“访前尽调”入口创建的专属 Session 内执行。首先调用 `previsit_begin`，传入用户提供的企业检索词和 fast / standard / deep 档位，并将用户给出的 role（角色）、scene（拜访场合）、focus（关注点数组）、output（输出形态）、sections（重点展开段落）传入；这些信息记录到 Host 任务供工作台展示，未提供的字段不要编造。提示中含“访前任务 ID：PV-...”时，必须原样作为 `requestId` 传入。用户发送任务已经构成本任务在固定业务路由内连续执行的明确授权，禁止再询问是否允许调用企查查 MCP，也不要弹出调用次数或额度二次确认。插件不设 8 / 18 / 40 次硬上限。
 

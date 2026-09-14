@@ -219,7 +219,7 @@ export function hostedTaskView(task: HostedTask): Exclude<PrevisitView, "target"
   if (task.reportReady || HOSTED_TERMINAL.has(task.state)) return "output"
   // 报告整理中的兼容任务可能先进入 finalizing/output，但制品仍未就绪。
   // 保留最后一个真实查询所在页，用户可以继续看到采集/核验明细变化；
-  // 只有报告制品真正就绪后才自动切到材料输出。
+  // 完成后的导航由用户主动触发；此函数仍供历史详情定位使用。
   if (task.stage === "output" || task.state === "finalizing") {
     const lastRun = [...task.runs].reverse().find(run => run.dimension !== "entity_search")
     if (lastRun !== undefined) return VERIFY_RUN.test(`${lastRun.dimension} ${lastRun.toolName ?? ""}`) ? "verify" : "collect"
@@ -277,7 +277,7 @@ export function syncHostedTaskState(
   // Host query is the authoritative snapshot after a task starts. This also
   // repairs a UI draft that continued changing after an accidental submit.
   const nextCompany = record.entity?.fullName ?? record.query
-  const nextView = locateCurrentStage && state.view !== "history" ? hostedTaskView(record) : state.view
+  const nextView = locateCurrentStage && !record.reportReady && !HOSTED_TERMINAL.has(record.state) && state.view !== "history" ? hostedTaskView(record) : state.view
   if (previous?.id === nextTask.id
     && previous.captureId === nextTask.captureId
     && previous.company === nextTask.company

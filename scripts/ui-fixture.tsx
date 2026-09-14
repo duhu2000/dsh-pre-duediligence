@@ -39,6 +39,7 @@ globalThis.fetch = (async (input) => {
       ok: true,
       task: {
         ...detail,
+        analysisRecords: [{ id:"verify-1",kind:"verification",title:"合成风险明细核对",status:"insufficient",summary:"合成风险因子命中12条，仅有计数",support:[],counter:[],unknown:["未取得明细"],nextAction:"补充明细并核对角色",evidenceIds:["scan"],revision:1,updatedAt:detail.completedAt }],
         runs: [
           { id: "scan", dimension: "risk_scan", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "合成扫描摘要", facts: [], factors: [{ name: "合成风险因子", count: 12 }] } },
           { id: "bidding", dimension: "bidding", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "", facts: ["总数：490", "records[1] · 项目名称：合成中标项目"], factors: [] } },
@@ -295,7 +296,7 @@ window.setTimeout(() => {
             const historyStage = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="历史任务阶段"] button')].find(button => button.textContent?.includes("证据核验"))
             flushSync(() => historyStage?.click())
             document.body.dataset.historyStageReview = String(document.querySelector('.qccPwTabs [data-selected="true"]')?.textContent === "任务历史" && document.querySelector(".qccPwBody")?.textContent?.includes("合成风险因子") === true)
-            document.body.dataset.historyRiskHighlight = String(document.querySelector('.qccPwRiskTile[data-level="关注"]')?.textContent?.includes("12") === true)
+            document.body.dataset.historyRiskHighlight = String(document.querySelector('.qccPwAnalysis')?.textContent?.includes("证据不足") === true && document.querySelector('.qccPwAnalysis')?.textContent?.includes("未取得明细") === true)
             const back = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryHeading button")].find(button => button.textContent?.includes("返回清单"))
             flushSync(() => back?.click())
             document.body.dataset.historyBack = String(document.querySelectorAll(".qccPwHistoryCard").length === 2)

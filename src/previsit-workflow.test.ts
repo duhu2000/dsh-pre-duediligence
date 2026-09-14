@@ -13,6 +13,19 @@ function storageFixture() {
 }
 
 describe("PrevisitWorkflowStore", () => {
+  it("persists public analysis revisions across restart and rejects resetting their subject", async () => {
+    const storage = storageFixture(), first = new PrevisitWorkflowStore()
+    await first.attach(storage.domain)
+    const input = {id:"PV-20260914-ANAL",sessionId:"session-dsh-pre-duediligence-analysis",workspace:"/synthetic",query:"合成公司",depth:"fast" as const}
+    const task = await first.create(input)
+    await first.confirmEntity(task.id,{fullName:"合成公司",creditCode:"913200000000000001"})
+    const entry = {id:"H1",kind:"hypothesis",title:"合成问题",status:"pending",summary:"等待证据",support:[],counter:[],unknown:["需求未知"],nextAction:"询问需求",evidenceIds:[]}
+    await Promise.all([first.recordAnalysis(task.id,entry),first.recordAnalysis(task.id,{...entry,summary:"进一步确认"})])
+    const second = new PrevisitWorkflowStore()
+    await second.attach(storage.domain)
+    expect((await second.get(task.id))?.analysisRecords?.map(row=>row.revision)).toEqual([1,2])
+    await expect(second.create(input)).rejects.toThrow("分析")
+  })
   it("保留缺少来源元数据的旧记录，仅进入 Profile 历史且不猜测当前 Session", async () => {
     const storage = storageFixture()
     storage.values.set("PV-20260911-OLD1", {

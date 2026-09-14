@@ -34,6 +34,14 @@ const active: ActiveTask = {
 }
 
 describe("Host 任务接管", () => {
+  it("completion and partial completion never navigate away from the reader", () => {
+    for (const state of ["completed", "partial"] as const) {
+      for (const view of ["collect", "verify", "history"] as const) {
+        const record = makeHosted({state,stage:"output",reportReady:true})
+        expect(syncHostedTaskState({...EMPTY_SESSION_STATE,view},record,null,true).view).toBe(view)
+      }
+    }
+  })
   it("adopts a new continuation instead of pinning the completed parent", () => {
     const parent = makeHosted({state: "completed",reportReady: true})
     const child = makeHosted({id:"PV-20260914-NEXT",rootTaskId:parent.id,parentTaskId:parent.id,reportVersion:2,state:"entity-confirmed",updatedAt:"2026-09-14T00:00:00Z"})

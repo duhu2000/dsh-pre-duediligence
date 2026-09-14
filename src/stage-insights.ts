@@ -134,6 +134,10 @@ export function parseCardInsights(md: string | null): CardInsights {
     if (hypotheses.some(h => h.id === id)) continue
     hypotheses.push({ id, priority: hm[2] ?? "", text: strip(hm[3] ?? "") })
   }
+  for (const match of hypoSrc.matchAll(/假设\s*(\d+)\s*(?:（[^）\n]*）|\([^\)\n]*\))?\s*[：:·、\-–]?\s*([^\n]+)/g)) {
+    const id = `H${match[1]}`
+    if (!hypotheses.some(item => item.id === id)) hypotheses.push({ id, priority: "", text: strip(match[2] ?? "") })
+  }
   const riskSrc = section(md, "红线提示")
   const risks: RiskItem[] = []
   for (const line of riskSrc.split("\n")) {
@@ -195,7 +199,7 @@ export function opportunitySteps(events: ToolEvent[], insights: CardInsights, fi
     { label: "主体锚定", state: stepOf(anchorDone, running(events, anchorTools) || (!finished && completed(events, ["get_company_by_query"])), reviewing(events, anchorTools), failed(events, anchorTools)) },
     { label: "基础信号", state: stepOf(basicDone >= 3, running(events, BASIC), reviewing(events, BASIC) || (finished && basicSeen > 0), failed(events, BASIC)), note: basicDone > 0 ? `${basicDone} 项完成` : basicSeen > 0 ? `${basicSeen} 项已返回` : undefined },
     { label: "状态判定", state: stepOf(stateDone, running(events, STATE_TOOLS), reviewing(events, STATE_TOOLS), failed(events, STATE_TOOLS)), note: insights.stateUndetermined ? "状态未定" : insights.state ?? undefined },
-    { label: "假设反证", state: stepOf(hypoDone, !finished && stateDone, finished && stateDone, false), note: hypoDone ? `${insights.hypotheses.length} 条` : undefined },
+    { label: "假设记录", state: stepOf(false, !finished && stateDone, finished && stateDone, false), note: hypoDone ? `${insights.hypotheses.length} 条报告假设 · 核验见证据记录` : undefined },
   ]
 }
 

@@ -1,5 +1,11 @@
 /** DSH-UX-001 v1.5.0：所有变量和组件选择器均限定在本插件拥有的节点内。 */
 export const WORKBENCH_CSS = String.raw`
+.qccPwSummaryGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;align-items:start}
+.qccPwSummaryGrid .qccPwCard{margin:0;min-width:0;overflow-wrap:anywhere}
+.qccPwSummaryGrid li,.qccPwAnalysis li{margin:6px 0;line-height:1.65}
+.qccPwSummaryGrid details,.qccPwAnalysis details{border-top:1px solid var(--qcc-border);padding-top:10px;margin-top:12px;overflow-wrap:anywhere}
+.qccPwSummaryGrid summary,.qccPwAnalysis summary{cursor:pointer;color:var(--qcc-action)}
+.qccPwAnalysis{padding:16px 0;border-top:1px solid var(--qcc-border);overflow-wrap:anywhere}
 .qccPwShell,.qccPromptPanel,.qccPromptLayer,.qccPrevisitCapabilities,.qccPrevisitExperience,.qccPrevisitLauncherContent{
   --qcc-brand:#128BED;
   --qcc-action:#0875D1;

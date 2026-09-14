@@ -45,6 +45,23 @@ function fixture() {
 }
 
 describe("Agent-owned paid-query boundary", () => {
+  it("records evidence-linked analysis revisions without extra queries and protects publication", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    const record = { taskId,id:"H1",kind:"hypothesis",title:"合成需求",status:"pending",summary:"待验证",support:[],counter:[],unknown:["需求未知"],nextAction:"现场确认",evidenceIds:[] }
+    await f.call("previsit_record_analysis", record)
+    const count = f.dispatch.mock.calls.length
+    await expect(f.call("previsit_record_analysis", {...record,status:"supported",support:["合成依据"],evidenceIds:["invented"]})).rejects.toThrow("证据引用")
+    const ref = (await f.workflow.get(taskId))!.runs[0]!.id
+    await f.call("previsit_record_analysis", {...record,status:"partial",support:["仅支持主体存在，不证明需求"],evidenceIds:[ref]})
+    const saved = await f.workflow.get(taskId)
+    expect(saved?.analysisRecords?.map(row => row.revision)).toEqual([1,2])
+    expect(f.dispatch).toHaveBeenCalledTimes(count)
+    await expect(f.call("previsit_record_analysis", {...record,taskId:"another"})).rejects.toThrow()
+    const report = "# 合成甲公司\n" + ["核心研判","产业定位","近期动态","业务假设","红线提示","现场必问","触达开场","覆盖说明"].map(t => `## ${t}\n合成文本`).join("\n")
+    await f.workflow.finalize(taskId,report,"partial")
+    await expect(f.call("previsit_record_analysis",record)).rejects.toThrow()
+  })
   it("persists public work summaries without querying data or reopening published reports", async () => {
     const f = fixture(), taskId = await f.begin()
     await f.anchor(taskId)

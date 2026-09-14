@@ -92,9 +92,9 @@ describe("阶段步骤", () => {
   })
   it("报告生成后：保留未执行步骤，展示已捕获的结论", () => {
     const steps = opportunitySteps(events, parseCardInsights(card), true)
-    expect(steps.map(s => s.state)).toEqual(["done", "failed", "done", "done"])
+    expect(steps.map(s => s.state)).toEqual(["done", "failed", "done", "review"])
     expect(steps[2]?.note).toBe("资本运作期")
-    expect(steps[3]?.note).toBe("2 条")
+    expect(steps[3]?.note).toContain("核验见证据记录")
     const risks = riskSteps(events, parseCardInsights(card), true)
     expect(risks[3]?.note).toBe("3 项")
     expect(risks[1]?.state).toBe("review")
@@ -106,7 +106,7 @@ describe("阶段步骤", () => {
       { name: "mcp__company__get_company_profile", status: "unknown" },
       { name: "mcp__risk__get_company_risk_scan", status: "unknown" },
     ]
-    expect(opportunitySteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["done", "review", "done", "done"])
+    expect(opportunitySteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["done", "review", "done", "review"])
     expect(riskSteps(pending, parseCardInsights(card), true).map(step => step.state)).toEqual(["review", "idle", "review", "done"])
   })
   it("风险扫描为零或无关键人员时，明确跳过的核验步骤按完成标绿", () => {

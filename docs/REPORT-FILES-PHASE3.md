@@ -6,7 +6,7 @@
 
 使用 docx 生成 OOXML ZIP、PDFKit 生成 PDF，不把 HTML 改后缀冒充 Word/PDF。当前为保真文本版：正文和 Markdown 标记原样保留，非 HTML 富排版复刻，不载入远程图片、链接资源或脚本。文件含主体、版本、任务标识；采用 Letter 纵向页面和自动换行。
 
-PDF 需管理员在启动 DSH 前设置 `DSH_PREVISIT_PDF_FONT` 为具有中文覆盖的独立 TTF/OTF 文件绝对路径。字体不随 npm 包分发，使用者须确认授权；未配置或无法读取时导出失败，无成功文件记录。须以实际部署字体进行中文及特殊字符视觉验收。
+自0.1.31起，PDF默认使用随包分发的 Noto Sans CJK SC Regular（SIL OFL 1.1），无需联网或管理员配置。可选 `DSH_PREVISIT_PDF_FONT` 指定具有中文覆盖的独立 TTF/OTF；显式配置不可读或字体无效时仍报错，不伪造成功记录。覆盖字体的授权及特殊字符显示需部署方确认。以下验收记录为三期初版历史记录。
 
 Word 默认指定 Arial Unicode MS，可用 `DSH_PREVISIT_DOCX_FONT` 更换为部署环境已安装的中文字体家族；DOCX 不嵌入字体，打开端须有该字体或有效替代字体。当前导出不是富排版PDF/Word模板引擎。
 

@@ -39,7 +39,11 @@ globalThis.fetch = (async (input) => {
       ok: true,
       task: {
         ...detail,
-        runs: [{ id: "scan", dimension: "risk_scan", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "合成扫描摘要", facts: [], factors: [{ name: "合成风险因子", count: 12 }] } }],
+        runs: [
+          { id: "scan", dimension: "risk_scan", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "合成扫描摘要", facts: [], factors: [{ name: "合成风险因子", count: 12 }] } },
+          { id: "bidding", dimension: "bidding", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "", facts: ["总数：490", "records[1] · 项目名称：合成中标项目"], factors: [] } },
+          { id: "profile", dimension: "profile", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "", facts: ["企业名称：历史企业甲"], factors: [] } },
+        ],
         artifact: { id: "history-report", format: "html", fileName: "历史企业甲访前报告.html", mediaType: "text/html; charset=utf-8", createdAt: detail.completedAt },
         reportMarkdown: "# 访前尽调报告 · 历史企业甲\n## 1、核心研判\n历史报告正文",
       },
@@ -285,6 +289,9 @@ window.setTimeout(() => {
             document.body.dataset.historyDownload = String(download !== undefined && !download.disabled)
             document.body.dataset.historyContinuation = String(document.querySelector('[aria-label="补充尽调要求"]') !== null && [...document.querySelectorAll<HTMLButtonElement>("button")].some(button => button.textContent === "创建补充任务" && button.disabled))
             document.body.dataset.historyVersions = String(document.querySelector('[aria-label="报告版本记录"]')?.textContent?.includes("V1") === true)
+            const collectStage = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="历史任务阶段"] button')].find(button => button.textContent?.includes("资料采集"))
+            flushSync(() => collectStage?.click())
+            document.body.dataset.businessSummary = String(document.querySelector(".qccPwBody")?.textContent?.includes("合成中标项目") === true && document.querySelector(".qccPwBody")?.textContent?.includes("暂未提取到业务摘要") === true)
             const historyStage = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="历史任务阶段"] button')].find(button => button.textContent?.includes("证据核验"))
             flushSync(() => historyStage?.click())
             document.body.dataset.historyStageReview = String(document.querySelector('.qccPwTabs [data-selected="true"]')?.textContent === "任务历史" && document.querySelector(".qccPwBody")?.textContent?.includes("合成风险因子") === true)

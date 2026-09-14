@@ -21,3 +21,8 @@ Copyright (c) 2026 dsh-data-cleaning-agent plugin contributors
 https://github.com/duhu2000/dsh-data-cleaning-agent
 
 No source code from that project is bundled in this package.
+# Noto Sans CJK SC
+
+The unmodified Noto Sans CJK SC Regular font (© 2014-2021 Adobe) is distributed
+under SIL Open Font License 1.1, not the package's MIT license.
+See assets/fonts/LICENSE.txt and assets/fonts/README.md.

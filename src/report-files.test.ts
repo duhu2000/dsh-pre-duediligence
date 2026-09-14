@@ -23,9 +23,12 @@ it("never claims delivery succeeded and restores immutable files",async()=>{
   expect(restored.list(task.id)).toEqual(files.list(task.id))
   expect(restored.get(file.id,task.id)).toEqual(files.get(file.id,task.id))
 })
-it("rejects incomplete reports and fails clearly without a PDF font",async()=>{
+it("rejects incomplete reports and supports offline Chinese PDF without configuration",async()=>{
   const {task}=await fixture(),files=new ReportFiles()
   await expect(files.export({...task,state:"running"},"docx")).rejects.toThrow("已保存")
-  await expect(renderReportFile(task,"pdf","")).rejects.toThrow("中文字体")
+  const pdf = await renderReportFile(task,"pdf","")
+  expect(pdf.subarray(0,5).toString()).toBe("%PDF-")
+  expect(pdf.length).toBeGreaterThan(1000)
+  await expect(renderReportFile(task,"pdf","/nonexistent/previsit-font.otf")).rejects.toThrow()
   expect(files.list(task.id).files).toEqual([])
 })

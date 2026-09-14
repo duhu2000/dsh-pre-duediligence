@@ -31,6 +31,11 @@ export type TaskBrief = {
     sections?: string[];
 };
 export type PrevisitTaskRecord = {
+    activity?: {
+        phase: "analysis" | "verification" | "writing";
+        summary: string;
+        updatedAt: string;
+    };
     materials?: Material[];
     evidenceFacts?: EvidenceFact[];
     evidenceComparisons?: EvidenceComparison[];
@@ -138,6 +143,7 @@ export declare class PrevisitWorkflowStore {
         creditCode: string;
     }): Promise<PrevisitTaskRecord>;
     private finalizationQueue;
+    reportProgress(id: string, activity: NonNullable<PrevisitTaskRecord["activity"]>): Promise<PrevisitTaskRecord>;
     /** Serialize evidence writes with publication: no late mutation of a published version. */
     addEvidence(id: string, kind: "material" | "fact" | "comparison", input: Record<string, unknown>): Promise<PrevisitTaskRecord>;
     finalize(id: string, reportMarkdown: string, state: "completed" | "partial"): Promise<PrevisitTaskRecord>;

@@ -22,8 +22,8 @@ export async function renderReportFile(task:PrevisitTaskRecord,format:"pdf"|"doc
       children:[new Paragraph({heading:HeadingLevel.TITLE,children:[new TextRun({text:task.entity?.fullName??task.query,font:fontName,size:32,color:"000000"})]}),new Paragraph({children:[new TextRun({text:`V${task.reportVersion??1} · ${task.id}`,font:fontName,size:20,color:"000000"})]}),...lines.map(line=>new Paragraph({children:[new TextRun({text:line,font:fontName,size:24,color:"000000"})]}))],
     }]}))
   }
-  if (!fontPath) throw new Error("PDF 导出需要管理员配置 DSH_PREVISIT_PDF_FONT 中文字体文件；未生成文件")
-  const font = await readFile(fontPath)
+  // An explicit override must work; otherwise use the licensed offline font shipped with the package.
+  const font = await readFile(fontPath || new URL("../assets/fonts/NotoSansCJKsc-Regular.otf", import.meta.url))
   if (font.length > 40_000_000) throw new Error("字体文件过大")
   return new Promise((resolve,reject)=>{
     const pdf = new PDFDocument({size:"LETTER",margin:54,info:{Title:identity,Creator:"访前尽调"}})

@@ -31,7 +31,11 @@ function fixture() {
   const workflow = new PrevisitWorkflowStore()
   const dispose = registerPrevisitTools(ctx, workflow)
   const execution = (name: string, extra: Partial<Execution> = {}): Execution => ({ agent, name, arguments: {}, callId: "outer", rootCallId: "root", token: {}, signal: new AbortController().signal, ...extra })
-  const call = (name: string, args: object, extra: Partial<Execution> = {}) => definitions.get(name)!.execute(args, execution(name, extra)) as Promise<Record<string, unknown>>
+  const call = async (name: string, args: object, extra: Partial<Execution> = {}) => {
+    const value = await definitions.get(name)!.execute(args, execution(name, extra)) as Record<string, unknown>
+    expect(JSON.parse(JSON.stringify(value))).toStrictEqual(value)
+    return value
+  }
   const begin = async () => (await call("previsit_begin", { query: "合成公司", depth: "fast" })).taskId as string
   const anchor = async (taskId: string) => {
     await call("previsit_query", { taskId, dimension: "entity_search" })
@@ -41,6 +45,19 @@ function fixture() {
 }
 
 describe("Agent-owned paid-query boundary", () => {
+  it("persists public work summaries without querying data or reopening published reports", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    const count = f.dispatch.mock.calls.length
+    await f.call("previsit_progress", { taskId, phase: "writing", summary: "整理已取得资料，撰写现场提问。" })
+    expect((await f.workflow.get(taskId))?.activity).toMatchObject({ phase: "writing" })
+    expect(f.dispatch).toHaveBeenCalledTimes(count)
+    const report = "# 合成甲公司\n" + ["核心研判","产业定位","近期动态","业务假设","红线提示","现场必问","触达开场","覆盖说明"].map(t => `## ${t}\n合成文本`).join("\n")
+    const saved = await f.workflow.finalize(taskId, report, "partial")
+    await expect(f.call("previsit_progress", { taskId, phase: "analysis", summary: "不能再修改" })).rejects.toThrow()
+    expect(await f.workflow.get(taskId)).toEqual(saved)
+    expect(await f.call("previsit_history", { taskId })).toMatchObject({ reportMarkdown: report })
+  })
   it("exports a historical version without new MCP calls and rejects another workspace", async () => {
     const f=fixture(),taskId=await f.begin();await f.anchor(taskId)
     const report="# 合成甲公司\n"+["核心研判","产业定位","近期动态","业务假设","红线提示","现场必问","触达开场","覆盖说明"].map(t=>`## ${t}\n合成文本`).join("\n")
@@ -296,6 +313,11 @@ describe("Agent-owned paid-query boundary", () => {
     f.setReply([])
     await f.call("previsit_query", { taskId, dimension: "personnel" })
     await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).resolves.toMatchObject({ taskId, status: "completed", used: 3, unlimited: true })
+    const saved = await f.workflow.get(taskId)
+    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report })).resolves.toMatchObject({ status: "completed" })
+    await expect(f.call("previsit_finalize", { taskId, reportMarkdown: report + "\n不同正文" })).rejects.toThrow("不可覆盖")
+    expect(await f.workflow.get(taskId)).toEqual(saved)
+    expect(await f.call("previsit_history", { taskId })).toMatchObject({ reportMarkdown: report })
     const calls = f.dispatch.mock.calls.length
     await expect(f.call("previsit_query", { taskId, dimension: "profile" })).rejects.toThrow("任务已结束")
     expect(f.dispatch).toHaveBeenCalledTimes(calls)

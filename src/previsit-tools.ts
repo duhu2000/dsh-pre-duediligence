@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto"
 import { ReportFiles } from "./report-files.js"
 import { boundedText } from "./material-evidence.js"
 import { summarizeResult } from "./result-summary.js"
+import { toolJson } from "./tool-json.js"
 import { isPrevisitSession } from "./previsit-session.js"
 import { classifyQccProviderOutcome } from "./tool-outcome.js"
 import { normalizePrevisitRequestId, previsitVerificationClosure, PrevisitWorkflowStore, validatePrevisitReport } from "./previsit-workflow.js"
@@ -164,7 +165,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
           concludeTurn: () => execution.concludeTurn?.(),
           deferContext: (context: unknown) => execution.deferContext?.(context),
         }
-        try { exec.signal.throwIfAborted(); return await execute(object(args), exec, execution.agent) }
+        try { exec.signal.throwIfAborted(); return toolJson(await execute(object(args), exec, execution.agent)) }
         finally { controllers.delete(controller) }
       },
     }))
@@ -261,6 +262,17 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       tasks.set(owner, task)
       return { taskId: task.id, query, depth, startedAt: record.createdAt, ...record.brief, ...(planId === undefined ? {} : { planId, entities }), ...(planWarning === undefined ? {} : { planWarning }), unlimited: true, used: task.used, status: "needs-entity-search" }
     } finally { beginning.delete(owner) }
+  })
+  register("previsit_progress", "上报简短的用户可见工作摘要。在资料返回后、风险核对及报告撰写开始时调用。只陈述当前工作，不包含内部思考、推理草稿或虚构进度。", {
+    taskId: { type: "string" }, phase: { type: "string", enum: ["analysis", "verification", "writing"] }, summary: { type: "string", maxLength: 240 },
+  }, ["taskId", "phase", "summary"], async (args, _exec, agent) => {
+    const task = requireTask(args, agent)
+    const phase = args.phase
+    if (phase !== "analysis" && phase !== "verification" && phase !== "writing") throw new Error("未知工作阶段")
+    const summary = string(args.summary)
+    if (!summary || summary.length > 240) throw new Error("工作摘要须为1至240字")
+    const record = await workflow.reportProgress(task.id, { phase, summary, updatedAt: new Date().toISOString() })
+    return { taskId: task.id, activity: record.activity }
   })
   const requireTask = (args: Record<string, unknown>, agent: Agent) => {
     const owner = ownerOf(agent)

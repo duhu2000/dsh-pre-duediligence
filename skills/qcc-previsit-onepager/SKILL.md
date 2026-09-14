@@ -5,7 +5,7 @@ whenToUse: 用户要求准备客户拜访、访前尽调、一页纸简报、授
 user-invocable: true
 metadata:
   author: QCC
-  version: 0.1.30
+  version: 0.1.31
 ---
 
 # 访前尽调
@@ -54,7 +54,13 @@ metadata:
 
 ## MCP 就绪检查
 
-### Agent-owned 执行门（0.1.30）
+### 用户可见工作阶段
+
+资料查询告一段落、开始风险核对、开始撰写报告时，调用 `previsit_progress(taskId, phase, summary)` 上报工作摘要。phase 为 analysis（整理经营事实）、verification（核对风险证据）、writing（撰写报告）。summary 限240字，只写当前正在做的工作，例如“核对裁判文书样本与行政处罚，整理现场待确认事项”，不写内部思考、推理草稿或尚未验证的结论。长任务在自然工作阶段转换时及时更新；不要按计时虚构完成比例，不要为刷新计时重复调用查询。单次模型生成期间无法保证定时上报，前端保留最近一次摘要及其时间。
+
+若保存报告返回异常，先用 `previsit_history(taskId)` 确认报告是否已保存。已保存时读取原版本，不重新生成不同正文覆盖；只有明确要求补充内容时创建子任务。相同正文的保存重试是幂等的。
+
+### Agent-owned 执行门（0.1.31）
 
 只在从“访前尽调”入口创建的专属 Session 内执行。首先调用 `previsit_begin`，传入用户提供的企业检索词和 fast / standard / deep 档位，并将用户给出的 role（角色）、scene（拜访场合）、focus（关注点数组）、output（输出形态）、sections（重点展开段落）传入；这些信息记录到 Host 任务供工作台展示，未提供的字段不要编造。提示中含“访前任务 ID：PV-...”时，必须原样作为 `requestId` 传入。用户发送任务已经构成本任务在固定业务路由内连续执行的明确授权，禁止再询问是否允许调用企查查 MCP，也不要弹出调用次数或额度二次确认。插件不设 8 / 18 / 40 次硬上限。
 
@@ -276,7 +282,7 @@ metadata:
 
 ### 报告格式与交付 三期
 
-用户要求转换已保存报告时，用 `previsit_report_export` 指定 taskId 和 pdf/docx，不新建尽调任务、不改原报告；`previsit_report_files` 查询衍生文件和交付申请。当前为保留Markdown标记的正文版，不声称完全复刻HTML排版。PDF缺少配置字体时明确告知失败。
+用户要求转换已保存报告时，用 `previsit_report_export` 指定 taskId 和 pdf/docx，不新建尽调任务、不改原报告；`previsit_report_files` 查询衍生文件和交付申请。当前为保留Markdown标记的正文版，不声称完全复刻HTML排版。PDF默认使用包内开源中文字体，无需用户配置；管理员可用 DSH_PREVISIT_PDF_FONT 覆盖。明确配置但无法读取的字体应报错，不声称导出成功。
 
 用户明确提出上传目标时可用 `previsit_delivery_request` 登记申请。当前尚无真实上传适配器，必须回复“待配置，尚未上传”，不得把申请当成功回执，不得自行向外部传送文件或收集令牌。
 

@@ -43,6 +43,7 @@ export type PrevisitArtifact = {
 export type TaskBrief = { role?: string; scene?: string; focus: string[]; output?: string; sections?: string[] }
 
 export type PrevisitTaskRecord = {
+  activity?: { phase: "analysis" | "verification" | "writing"; summary: string; updatedAt: string }
   materials?: Material[]
   evidenceFacts?: EvidenceFact[]
   evidenceComparisons?: EvidenceComparison[]
@@ -463,6 +464,14 @@ export class PrevisitWorkflowStore {
   }
 
   private finalizationQueue: Promise<unknown> = Promise.resolve()
+  reportProgress(id: string, activity: NonNullable<PrevisitTaskRecord["activity"]>): Promise<PrevisitTaskRecord> {
+    const operation = this.finalizationQueue.then(() => this.update(id, current => {
+      assertTaskOpen(current)
+      return { ...current, activity }
+    }))
+    this.finalizationQueue = operation.catch(() => {})
+    return operation
+  }
   /** Serialize evidence writes with publication: no late mutation of a published version. */
   addEvidence(id: string, kind: "material" | "fact" | "comparison", input: Record<string, unknown>): Promise<PrevisitTaskRecord> {
     const operation = this.finalizationQueue.then(() => this.update(id, record => {

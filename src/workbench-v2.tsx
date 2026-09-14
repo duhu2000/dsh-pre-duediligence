@@ -177,7 +177,8 @@ function ExecutionProgress(props: { task: HostedTask | null; status: WorkbenchSt
   }, [props.task?.id, props.status])
   if (props.task === null || props.status === "ready") return null
   const progress = hostedLiveProgress(props.task)
-  const activity = processingStatus({ running: props.modelRunning, error: props.syncError, waiting: props.task.state === "needs-entity-confirmation", querying: progress.current !== null, secondsSinceResult: (now - Date.parse(props.task.updatedAt)) / 1000 })
+  const lastResultAt = Math.max(Date.parse(props.task.createdAt), ...props.task.runs.map(run => Date.parse(run.completedAt ?? run.startedAt)))
+  const activity = processingStatus({ running: props.modelRunning, error: props.syncError, waiting: props.task.state === "needs-entity-confirmation", querying: progress.current !== null, secondsSinceResult: (now - lastResultAt) / 1000, ...(props.task.activity ? { activity: props.task.activity } : {}), now, lastResultAt })
   return (
     <div className="qccPwLiveProgress" data-running={activity.busy}>
       <span className="qccPwLivePulse" aria-hidden="true" />
@@ -336,7 +337,7 @@ function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTask: Hos
             ? <span className="qccPwMode" data-tone="review">状态未定</span>
             : <span className="qccPwMode" data-tone={running ? undefined : "neutral"}>{running ? "正在研判" : finished ? "未识别结论" : "待研判"}</span>}</div>
         {insights.state ? <h3>{insights.state}</h3> : <p>尚未形成经营研判；先展示已返回的经营事实，不以查询成功推断经营良好。</p>}
-        {Array.from(new Map((props.hostedTask?.runs ?? []).filter(run => run.result && (run.result.summary || run.result.facts.length) && ["registration", "profile", "annual_reports", "changes", "financing", "bidding", "recruitment", "investments"].includes(run.dimension)).map(run => [run.dimension, run])).values()).map(run => <div key={run.id}><h4>{dimensionLabel(run.dimension)}</h4>{run.result?.summary ? <p>{run.result.summary}</p> : null}{run.result?.facts.map(fact => <p key={fact}>{fact}</p>)}</div>)}
+        {Array.from(new Map((props.hostedTask?.runs ?? []).filter(run => ["registration", "profile", "annual_reports", "changes", "financing", "bidding", "recruitment", "investments"].includes(run.dimension)).map(run => [run.dimension, run])).values()).map(run => <div key={run.id}><h4>{dimensionLabel(run.dimension)}</h4><p className="qccPwNote">{run.status === "done" ? "数据已取得 · 以下为来源摘要与样本字段，不代表全量明细或最终研判" : run.status === "no-data" ? "查询成功，未发现记录" : `查询状态：${run.status}`}</p>{run.result?.summary ? <p>{run.result.summary}</p> : null}{run.result?.facts.map(fact => <p key={fact}>{fact}</p>)}{run.status === "done" && !run.result?.summary && !run.result?.facts.some(fact => !fact.startsWith("企业名称：")) ? <p className="qccPwNote">数据已返回，暂未提取到业务摘要；不代表无数据，可在原会话查看工具结果。</p> : null}</div>)}
         {insights.stateUndetermined ? <p className="qccPwNote">状态未定：公开证据不足，本次降级为清单式简报。</p> : null}
         {insights.industryLink === null ? null : <p className="qccPwNote">产业链环节：{insights.industryLink}</p>}
       </div>

@@ -102,6 +102,7 @@ for (const [theme, width, height] of scenarios) {
   assert.equal(attr("company-focus-retained"), "true")
   assert.equal(attr("company-typing-did-not-send"), "true")
   assert.equal(attr("history-count"), "2")
+  assert.equal(attr("business-summary"), "true")
   assert.equal(attr("history-origin-missing"), "true")
   assert.equal(attr("history-fits"), "true", `history source bounds ${attr("history-metrics")}`)
   assert.equal(attr("history-detail"), "true")

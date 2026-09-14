@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { createMaterial, createFact, compareFacts, type Material, type EvidenceFact, type EvidenceComparison } from "./material-evidence.js"
 
 import type { ToolOutcome } from "./tool-outcome.js"
 import type { ResultSummary } from "./result-summary.js"
@@ -40,6 +41,16 @@ export type PrevisitArtifact = {
 }
 
 export type PrevisitTaskRecord = {
+  materials?: Material[]
+  evidenceFacts?: EvidenceFact[]
+  evidenceComparisons?: EvidenceComparison[]
+  rootTaskId?: string
+  parentTaskId?: string
+  reportVersion?: number
+  supplementIntent?: string
+  inheritedRuns?: PrevisitRun[]
+  baselineCompletedAt?: string
+  baselinePartial?: boolean
   id: string
   schemaVersion: 1
   revision: number
@@ -90,6 +101,13 @@ const UNRESOLVED_VERIFICATION_STATUSES: ReadonlySet<ToolOutcome> = new Set([
  * `previsit-pending-*` runs remain open until a real Provider result replaces them.
  */
 export function previsitVerificationClosure(task: PrevisitTaskRecord): PrevisitVerificationClosure {
+  if (task.parentTaskId && !task.runs.some(run => /risk|personnel|dishonest|enforcement|terminated|freeze|exception|penalty|tax|judicial/.test(run.dimension))) {
+    const { parentTaskId: _parent, ...baselineTask } = task
+    const baseline = previsitVerificationClosure({ ...baselineTask, runs: task.inheritedRuns ?? [] })
+    return { gaps: [], partialRequired: task.baselinePartial === true || baseline.partialRequired || baseline.gaps.length > 0 }
+  }
+  // Baseline evidence keeps its original query dates and is not counted as new work.
+  if (task.parentTaskId && task.inheritedRuns) task = { ...task, runs: [...task.inheritedRuns, ...task.runs] }
   const verificationDimensions = new Set<string>([
     "risk_scan",
     "personnel",
@@ -186,7 +204,7 @@ function normalizeTerminalRecord(record: PrevisitTaskRecord): PrevisitTaskRecord
 
 function assertTaskOpen(record: PrevisitTaskRecord): void {
   if (PREVISIT_TERMINAL_STATES.has(record.state) || (record.reportMarkdown?.trim() ?? "") !== "") {
-    throw new Error("访前任务已结束；请新建尽调后再查询")
+    throw new Error("访前任务已结束；请使用 previsit_continue 基于原报告创建补充任务，不修改原任务")
   }
 }
 
@@ -208,7 +226,7 @@ export function reportArtifactFor(task: PrevisitTaskRecord, timestamp = nowIso()
   return {
     id: `PVA-${randomUUID()}`,
     format: "html",
-    fileName: `访前尽调报告_${company}.html`,
+    fileName: `访前尽调报告_${company}_V${task.reportVersion ?? 1}_${task.id}.html`,
     mediaType: "text/html; charset=utf-8",
     createdAt: timestamp,
   }
@@ -229,6 +247,39 @@ export function validatePrevisitReport(reportMarkdown: string, entityName?: stri
  * private memory; only progress, entity identity and the user-facing report are persisted.
  */
 export class PrevisitWorkflowStore {
+  private continuationQueue: Promise<unknown> = Promise.resolve()
+
+  continueFrom(input: { parentTaskId: string; requestId: string; sessionId: string; workspace: string; intent: string }): Promise<PrevisitTaskRecord> {
+    const operation = this.continuationQueue.then(async () => {
+      if (!input.intent.trim() || input.intent.length > 4000) throw new Error("请填写有效的补充尽调要求")
+      const id = normalizePrevisitRequestId(input.requestId)
+      if (!id) throw new Error("继续尽调需要有效且稳定的 requestId")
+      const parent = await this.get(input.parentTaskId)
+      if (!parent?.entity || !parent.reportMarkdown || !PREVISIT_TERMINAL_STATES.has(parent.state)) throw new Error("只能基于已保存报告和已确认主体继续尽调")
+      if (!input.workspace || parent.workspace !== input.workspace) throw new Error("仅允许在原工作区继续尽调")
+      const existing = await this.get(id)
+      if (existing) {
+        if (existing.parentTaskId !== parent.id || existing.sessionId !== input.sessionId || existing.supplementIntent !== input.intent.trim()) throw new Error("继续任务标识冲突")
+        return existing
+      }
+      const rootTaskId = parent.rootTaskId ?? parent.id
+      const versions = (await this.list()).filter(record => (record.rootTaskId ?? record.id) === rootTaskId)
+      const timestamp = nowIso()
+      const inherited = new Map<string, PrevisitRun>()
+      for (const run of [...(parent.inheritedRuns ?? []), ...parent.runs]) inherited.set(run.dimension, run)
+      return this.put({ id, schemaVersion: 1, revision: 1, sessionId: input.sessionId, workspace: input.workspace,
+        query: parent.query, depth: parent.depth, entity: { ...parent.entity }, limit: 0, used: 0,
+        state: "entity-confirmed", stage: "scope", runs: [], createdAt: timestamp, updatedAt: timestamp,
+        parentTaskId: parent.id, rootTaskId, reportVersion: Math.max(...versions.map(record => record.reportVersion ?? 1)) + 1,
+        supplementIntent: input.intent.trim(), inheritedRuns: structuredClone([...inherited.values()]),
+        baselineCompletedAt: parent.completedAt ?? parent.updatedAt, baselinePartial: parent.state !== "completed",
+        materials: structuredClone(parent.materials ?? []), evidenceFacts: structuredClone(parent.evidenceFacts ?? []),
+        evidenceComparisons: structuredClone(parent.evidenceComparisons ?? []),
+      })
+    })
+    this.continuationQueue = operation.catch(() => {})
+    return operation
+  }
   private readonly records = new Map<string, PrevisitTaskRecord>()
   private table: StorageTable | undefined
   private attachPromise: Promise<void> | undefined
@@ -295,6 +346,7 @@ export class PrevisitWorkflowStore {
     if (existing !== undefined && existing.sessionId !== input.sessionId) throw new Error("任务标识已属于其他会话")
     if (existing !== undefined) {
       assertTaskOpen(existing)
+      if (existing.materials?.length || existing.parentTaskId) throw new Error("已有补充任务或材料不可重新开始并重置主体，请继续原任务或创建独立新任务")
       return this.update(id, current => {
         const { entity: _entity, lastError: _lastError, reportMarkdown: _report, artifact: _artifact, completedAt: _completedAt, ...retained } = current
         return {
@@ -396,12 +448,50 @@ export class PrevisitWorkflowStore {
     })
   }
 
-  async finalize(id: string, reportMarkdown: string, state: "completed" | "partial"): Promise<PrevisitTaskRecord> {
+  private finalizationQueue: Promise<unknown> = Promise.resolve()
+  /** Serialize evidence writes with publication: no late mutation of a published version. */
+  addEvidence(id: string, kind: "material" | "fact" | "comparison", input: Record<string, unknown>): Promise<PrevisitTaskRecord> {
+    const operation = this.finalizationQueue.then(() => this.update(id, record => {
+      assertTaskOpen(record)
+      if (!record.entity) throw new Error("请先确认主体")
+      const materials = record.materials ?? [], facts = record.evidenceFacts ?? [], comparisons = record.evidenceComparisons ?? []
+      if (kind === "material") {
+        const material = createMaterial(input, id)
+        if (materials.some(m => m.sha256 === material.sha256 && m.locator === material.locator && m.sourceDate === material.sourceDate)) return record
+        if (materials.length >= 30 || materials.reduce((n, m) => n + m.text.length, material.text.length) > 1_000_000) throw new Error("材料容量已满：最多30份、合计100万字符")
+        return { ...record, materials: [...materials, material] }
+      }
+      if (kind === "fact") {
+        if (facts.length >= 200) throw new Error("证据条目已达200条")
+        return { ...record, evidenceFacts: [...facts, createFact(input, materials, record.entity.fullName)] }
+      }
+      if (comparisons.length >= 200) throw new Error("比对条目已达200条")
+      return { ...record, evidenceComparisons: [...comparisons, compareFacts(String(input.leftId), String(input.rightId), facts, materials)] }
+    }))
+    this.finalizationQueue = operation.catch(() => {})
+    return operation
+  }
+  finalize(id: string, reportMarkdown: string, state: "completed" | "partial"): Promise<PrevisitTaskRecord> {
+    const operation = this.finalizationQueue.then(() => this.finalizeRecord(id, reportMarkdown, state))
+    this.finalizationQueue = operation.catch(() => {})
+    return operation
+  }
+  private async finalizeRecord(id: string, reportMarkdown: string, state: "completed" | "partial"): Promise<PrevisitTaskRecord> {
     const timestamp = nowIso()
     const current = await this.get(id)
     if (current === undefined) throw new Error("访前任务不存在")
-    if (PREVISIT_TERMINAL_STATES.has(current.state) && current.reportMarkdown !== undefined) return current
+    if (PREVISIT_TERMINAL_STATES.has(current.state) && current.reportMarkdown !== undefined) {
+      if (current.reportMarkdown !== reportMarkdown.trim()) throw new Error("已发布报告不可覆盖，请创建补充任务生成新版本")
+      return current
+    }
     const report = validatePrevisitReport(reportMarkdown, current.entity?.fullName)
+    for (const material of current.materials ?? []) {
+      if (!report.includes(material.id)) throw new Error(`覆盖说明必须引用材料 ${material.id}，说明使用或未使用原因及来源日期`)
+    }
+    for (const comparison of current.evidenceComparisons ?? []) {
+      if (!report.includes(comparison.id)) throw new Error(`覆盖说明必须披露比对 ${comparison.id}（${comparison.status}），不得遗漏冲突或不可比项`)
+    }
+    if ((current.evidenceComparisons ?? []).some(c => c.status === "conflict" || c.status === "incomparable")) state = "partial"
     const artifact = reportArtifactFor(current, timestamp)
     return this.update(id, record => {
       const { lastError: _lastError, ...retained } = record

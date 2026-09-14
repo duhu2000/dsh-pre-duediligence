@@ -34,6 +34,12 @@ const active: ActiveTask = {
 }
 
 describe("Host 任务接管", () => {
+  it("adopts a new continuation instead of pinning the completed parent", () => {
+    const parent = makeHosted({state: "completed",reportReady: true})
+    const child = makeHosted({id:"PV-20260914-NEXT",rootTaskId:parent.id,parentTaskId:parent.id,reportVersion:2,state:"entity-confirmed",updatedAt:"2026-09-14T00:00:00Z"})
+    expect(selectHostedTask([parent, child], {...active,id:parent.id}, [])?.id).toBe(child.id)
+    expect(selectHostedTask([parent, child], {...active,id:parent.id}, [child.id])?.id).toBe(parent.id)
+  })
   it("明确展示完整来源和旧记录缺失来源，不猜测当前 Session", () => {
     expect(hostedTaskOrigin(makeHosted())).toEqual({
       workspace: "/tmp/workspace",

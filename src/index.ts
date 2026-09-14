@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs"
+import { ReportFiles } from "./report-files.js"
 import { fileURLToPath } from "node:url"
 
 import { parseSkillFile } from "./skill-file.js"
@@ -60,12 +61,14 @@ export function loadBundledSkill(): SkillRegistration {
 
 export function apply(ctx: HostContext): void {
   const workflow = new PrevisitWorkflowStore()
-  ctx.effect(() => registerPrevisitTools(ctx, workflow))
+  const files = new ReportFiles()
+  ctx.effect(() => registerPrevisitTools(ctx, workflow, files))
   ctx.skills.register(loadBundledSkill())
   try {
     ctx.inject?.(["webServer", "storageDomain"], webCtx => {
       void workflow.attach(webCtx.storageDomain, ctx.logger)
-      webCtx.effect(() => mountPrevisitWebRoutes(webCtx.webServer, workflow))
+      void files.attach(webCtx.storageDomain).catch(error => ctx.logger?.warn?.(`报告文件存储未就绪：${String(error)}`))
+      webCtx.effect(() => mountPrevisitWebRoutes(webCtx.webServer, workflow, files))
     })
   } catch (error) {
     ctx.logger?.warn?.(`[dsh-pre-duediligence] Host task routes unavailable: ${error instanceof Error ? error.message : String(error)}`)

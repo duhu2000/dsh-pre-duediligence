@@ -102,6 +102,8 @@ for (const [theme, width, height] of scenarios) {
   assert.equal(attr("history-fits"), "true", `history source bounds ${attr("history-metrics")}`)
   assert.equal(attr("history-detail"), "true")
   assert.equal(attr("history-download"), "true")
+  assert.equal(attr("history-continuation"), "true")
+  assert.equal(attr("history-versions"), "true")
   assert.equal(attr("history-back"), "true")
   assert.equal(attr("history-nav-hidden"), "true")
   assert.equal(attr("history-stage-review"), "true")

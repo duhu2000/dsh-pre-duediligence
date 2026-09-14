@@ -1,4 +1,5 @@
 import { buildPrevisitReportHtml } from "./report-export.js"
+import { ReportFiles } from "./report-files.js"
 import { isPrevisitSession } from "./previsit-session.js"
 import { normalizePrevisitRequestId, previsitVerificationClosure, validatePrevisitReport, type PrevisitTaskRecord, type PrevisitWorkflowStore } from "./previsit-workflow.js"
 
@@ -59,7 +60,7 @@ function publicTask(task: PrevisitTaskRecord): Omit<PrevisitTaskRecord, "reportM
   return { ...record, reportReady: typeof reportMarkdown === "string" && reportMarkdown.length > 0 }
 }
 
-export function mountPrevisitWebRoutes(webServer: WebServer, workflow: PrevisitWorkflowStore): () => void {
+export function mountPrevisitWebRoutes(webServer: WebServer, workflow: PrevisitWorkflowStore, files = new ReportFiles()): () => void {
   return webServer.register({
     kind: "prefix",
     path: "/previsit/api/tasks",
@@ -94,6 +95,20 @@ export function mountPrevisitWebRoutes(webServer: WebServer, workflow: PrevisitW
             marker: "previsit-workflow-v1",
             task: { ...publicTask(task), ...(task.reportMarkdown === undefined ? {} : { reportMarkdown: task.reportMarkdown }) },
           })
+        }
+        if(rest[1]==="files") {
+          if(rest.length===2 && req.method==="GET") return writeJson(res,200,{ok:true,...files.list(task.id)})
+          if(rest.length===2 && req.method==="POST") {
+            const body=await readJson(req)
+            if(body.format!=="pdf"&&body.format!=="docx") return writeJson(res,400,{ok:false,message:"不支持该格式"})
+            return writeJson(res,200,{ok:true,file:await files.export(task,body.format)})
+          }
+          if(rest.length===3 && req.method==="GET") {
+            const file=files.get(rest[2]!,task.id)
+            res.writeHead(200,{"content-type":file.mediaType,"content-disposition":`attachment; filename="report.${file.format}"; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,"cache-control":"no-store","x-content-type-options":"nosniff"})
+            return res.end(Buffer.from(file.base64,"base64"))
+          }
+          return writeJson(res,405,{ok:false,message:"不支持该文件操作"})
         }
         if (rest.length === 2 && rest[1] === "report") {
           if (req.method === "PUT") {

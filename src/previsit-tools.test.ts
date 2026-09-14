@@ -41,6 +41,45 @@ function fixture() {
 }
 
 describe("Agent-owned paid-query boundary", () => {
+  it("exports a historical version without new MCP calls and rejects another workspace", async () => {
+    const f=fixture(),taskId=await f.begin();await f.anchor(taskId)
+    const report="# 合成甲公司\n"+["核心研判","产业定位","近期动态","业务假设","红线提示","现场必问","触达开场","覆盖说明"].map(t=>`## ${t}\n合成文本`).join("\n")
+    const original=await f.workflow.finalize(taskId,report,"partial"),calls=f.dispatch.mock.calls.length
+    const result=await f.call("previsit_report_export",{taskId,format:"docx"})
+    expect(result).toMatchObject({file:{taskId,format:"docx",version:1}})
+    expect(await f.workflow.get(taskId)).toEqual(original)
+    expect(f.dispatch).toHaveBeenCalledTimes(calls)
+    await expect(f.call("previsit_report_export",{taskId,format:"docx"},{agent:{...f.agent,session:{...f.agent.session,header:{cwd:"/other"}}}})).rejects.toThrow("工作区")
+  })
+  it("registers material tools scoped to the bound task without issuing provider calls", async () => {
+    const f = fixture(), taskId = await f.begin()
+    const material = {taskId,kind:"onsite",title:"合成笔记",locator:"第1页",sourceDate:"未知",text:"收入100万元"}
+    await expect(f.call("previsit_material_add",material)).rejects.toThrow("确认主体")
+    await f.anchor(taskId)
+    const calls = f.dispatch.mock.calls.length
+    await f.call("previsit_material_add",material)
+    const stored = (await f.workflow.get(taskId))!
+    await f.call("previsit_evidence_add",{taskId,materialId:stored.materials![0]!.id,entity:company.fullName,field:"收入",period:"未知",unit:"万元",value:"100",quote:"收入100万元",location:"第1页"})
+    expect(await f.call("previsit_evidence_list",{taskId})).toMatchObject({facts:[{value:"100"}]})
+    await expect(f.call("previsit_evidence_list",{taskId},{agent:{...f.agent,session:{...f.agent.session,header:{cwd:"/other"}}}})).rejects.toThrow("工作区")
+    expect(f.dispatch).toHaveBeenCalledTimes(calls)
+  })
+  it("continues a saved report without re-search, supports restart and preserves the parent", async () => {
+    const f = fixture(), parentTaskId = await f.begin()
+    await f.anchor(parentTaskId)
+    const report = "# 合成甲公司\n" + ["核心研判", "产业定位", "近期动态", "业务假设", "红线提示", "现场必问", "触达开场", "覆盖说明"].map(x => `## ${x}\n历史合成资料。`).join("\n")
+    const original = await f.workflow.finalize(parentTaskId, report, "partial")
+    const args = { parentTaskId, requestId: "PV-20260914-REVI", intent: "补充工商登记" }
+    const calls = f.dispatch.mock.calls.length
+    expect(await f.call("previsit_continue", args)).toMatchObject({ reportVersion: 2, baseReport: report, entity: company })
+    expect(f.dispatch).toHaveBeenCalledTimes(calls)
+    f.setReply({ "企业名称": company.fullName, "经营状态": "在业" })
+    await f.call("previsit_query", { taskId: args.requestId, dimension: "registration" })
+    await expect(f.call("previsit_finalize", {taskId: args.requestId, reportMarkdown: report + "\n新增工商信息。"})).resolves.toMatchObject({ reportVersion: 2, status: "partial" })
+    expect(await f.workflow.get(parentTaskId)).toEqual(original)
+    expect(await f.call("previsit_history", {taskId: parentTaskId})).toMatchObject({reportMarkdown:report,reportVersion:1})
+    await expect(f.call("previsit_history", {taskId: parentTaskId}, {agent:{...f.agent,session:{...f.agent.session,header:{cwd:"/other"}}}})).rejects.toThrow("工作区")
+  })
   it("persists provider risk findings before report generation", async () => {
     const f = fixture(), taskId = await f.begin()
     await f.anchor(taskId)

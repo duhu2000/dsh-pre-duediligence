@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 
 import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
 import { PrevisitLogo } from "./previsit-brand.js"
+import { ReportFilesPanel } from "./report-files-panel.js"
+import { MaterialPanel } from "./material-panel.js"
 import { processingStatus } from "./processing-status.js"
 import { dimensionLabel } from "./hosted-task-sync.js"
 import { PrevisitFields, usePrevisitComposer } from "./previsit-dock.js"
@@ -461,9 +463,15 @@ export function HistoryPanel(props: {
   onOpen(item: HostedTask): void
   onBack(): void
   onDownload(item: HostedTask): void
+  onContinue?(item: HostedTask, intent: string, requestId: string): Promise<void>
 }): JSX.Element {
   const [historyPhase, setHistoryPhase] = useState<PrevisitPhase>("output")
+  const [intent, setIntent] = useState("")
+  const [continuing, setContinuing] = useState(false)
+  const [continueError, setContinueError] = useState("")
+  const continuationId = useRef("")
   useEffect(() => { setHistoryPhase("output") }, [props.selected?.id])
+  useEffect(() => { setIntent(""); setContinueError(""); continuationId.current = "" }, [props.selected?.id])
   const selectedReport = props.selected?.reportMarkdown?.trim()
   if (props.selected !== null) {
     const item = props.selected
@@ -482,6 +490,19 @@ export function HistoryPanel(props: {
             <span className="qccPwStatus" data-status={status}>{STATUS_LABELS[status]}</span>
           </div>
           <p className="qccPwNote">企查查查询 {item.used} 次 · {item.runs.filter(run => run.status === "failed").length} 个错误{item.completedAt === undefined ? "" : ` · 完成于 ${new Date(item.completedAt).toLocaleString("zh-CN")}`}</p>
+          <p>报告 V{item.reportVersion ?? 1}{item.parentTaskId ? ` · 基于任务 ${item.parentTaskId}` : " · 初次尽调"}{item.supplementIntent ? ` · ${item.supplementIntent}` : ""}</p>
+          {item.inheritedRuns?.length ? <p>沿用 {item.inheritedRuns.length} 个历史维度，非本次重新查询；原查询日期保留在基础版本。</p> : null}
+          <div aria-label="报告版本记录">{props.hosted.filter(version => (version.rootTaskId ?? version.id) === (item.rootTaskId ?? item.id)).sort((a, b) => (a.reportVersion ?? 1) - (b.reportVersion ?? 1)).map(version => <button type="button" key={version.id} className="qccPwSecondary" disabled={version.id === item.id} onClick={() => props.onOpen(version)}>V{version.reportVersion ?? 1} · {version.reportReady ? "报告已生成" : "补充任务处理中"}</button>)}</div>
+          {props.onContinue && item.reportReady && item.entity ? <div>
+            <label>补充尽调要求<textarea style={{ width: "100%", boxSizing: "border-box", minHeight: 80 }} aria-label="补充尽调要求" value={intent} maxLength={4000} disabled={continuing} onKeyDown={event => event.stopPropagation()} onKeyUp={event => event.stopPropagation()} onChange={event => { setIntent(event.target.value); continuationId.current = "" }} /></label>
+            <p>创建独立补充任务和新版本，不修改原报告。可在新任务会话提交材料正文或使用宿主可用文件读取能力，登记来源并交叉比对；专用舆情接口和格式转换尚未接入。</p>
+            <button type="button" className="qccPwPrimary" disabled={continuing || !intent.trim()} onClick={() => {
+              if (!continuationId.current) continuationId.current = `PV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+              setContinuing(true); setContinueError("")
+              void props.onContinue!(item, intent.trim(), continuationId.current).catch(error => setContinueError(error instanceof Error ? error.message : String(error))).finally(() => setContinuing(false))
+            }}>{continuing ? "正在提交…" : "创建补充任务"}</button>
+            {continueError ? <p role="alert">{continueError}</p> : null}
+          </div> : null}
           <div className="qccPwHistoryActions">
             <button
               type="button"
@@ -499,6 +520,8 @@ export function HistoryPanel(props: {
         {historyPhase !== "output" ? null : reportHtml === null
           ? <Feedback tone="notice" title={item.reportReady ? "正在读取报告" : "报告尚未生成"}>{item.reportReady ? "已找到报告制品，但正文暂未返回；请返回清单后重试。" : "任务详情已恢复，报告生成后可在这里查看并下载。"}</Feedback>
           : <div className="qccPwCard qccPwReportCard"><ReportViewer html={reportHtml} /></div>}
+        <MaterialPanel task={item} />
+        {item.reportReady && origin.complete ? <ReportFilesPanel key={item.id} taskId={item.id} sessionId={item.sessionId} /> : null}
         <p className="qccPwNote">历史详情只读取该任务所属 Session 的 Host 制品，不会重新调用企查查，也不会覆盖当前会话任务。</p>
       </section>
     )
@@ -594,7 +617,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         } else {
           lastHostedLocation.current = undefined
         }
-        if (record === null || (!record.reportReady && !HOSTED_TERMINAL.has(record.state))) timer = setTimeout(refresh, 1000)
+        if (runtime.running || record === null || (!record.reportReady && !HOSTED_TERMINAL.has(record.state))) timer = setTimeout(refresh, 1000)
       } catch (error) {
         if (!disposed) {
           setHostError(error instanceof Error ? error.message : String(error))
@@ -604,7 +627,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
     }
     void refresh()
     return () => { disposed = true; if (timer !== undefined) clearTimeout(timer) }
-  }, [props.visible, sessionId, props.ctx, props.shared, shared.dismissedTaskIds.join("|")])
+  }, [props.visible, sessionId, props.ctx, props.shared, shared.dismissedTaskIds.join("|"), runtime.running])
 
   useEffect(() => {
     if (!props.visible || shared.view !== "history") return
@@ -846,6 +869,8 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       </nav>}
       {shared.view !== "history" ? <ExecutionProgress task={hostedTask} status={status} modelRunning={runtime.available ? runtime.running : undefined} syncError={hostError ?? runtime.lastAgentError ?? undefined} /> : null}
       <div className="qccPwBody">
+        {shared.view === "output" && hostedTask?.reportReady ? <ReportFilesPanel key={hostedTask.id} taskId={hostedTask.id} sessionId={hostedTask.sessionId} /> : null}
+        {shared.view !== "history" ? <MaterialPanel task={hostedTask} /> : null}
         {shared.view === "target" ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} /> : null}
         {shared.view === "collect" ? <OpportunityPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
@@ -861,6 +886,12 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
           onOpen={record => { void openHistoryTask(record) }}
           onBack={() => { setSelectedHistory(null); setDownloadNote(undefined) }}
           onDownload={record => { void downloadHistoryReport(record) }}
+          onContinue={async (record, intent, requestId) => {
+            if (hostedTask && !HOSTED_TERMINAL.has(hostedTask.state)) throw new Error("请先完成当前任务")
+            const prompt = `请基于历史报告创建补充尽调，不修改原报告。调用 previsit_continue，parentTaskId=${record.id}，requestId=${requestId}，intent=${JSON.stringify(intent)}。沿用已确认主体，按返回基础报告补充已支持维度；旧证据保留原日期。使用新任务ID完成 previsit_finalize，生成完整更新报告。`
+            const baseline = await props.startPrompt(sessionId, prompt)
+            props.shared.update(sessionId, state => ({ ...state, view: "collect", dismissedTaskIds: [...new Set([...state.dismissedTaskIds, ...(state.task ? [state.task.id] : []), ...(hostedTask ? [hostedTask.id] : [])])], task: { id: requestId, prompt, company: record.entity?.fullName ?? record.query, createdAt: new Date().toISOString(), nodeBaseline: baseline, seenRunning: false, selection: state.selection } }))
+          }}
         /> : null}
       </div>
       <footer className="qccPwFooter">

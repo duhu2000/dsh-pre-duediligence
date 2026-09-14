@@ -271,6 +271,8 @@ window.setTimeout(() => {
             const download = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryActions button")].find(button => button.textContent?.includes("下载报告"))
             document.body.dataset.historyDetail = String(detailHeading !== undefined)
             document.body.dataset.historyDownload = String(download !== undefined && !download.disabled)
+            document.body.dataset.historyContinuation = String(document.querySelector('[aria-label="补充尽调要求"]') !== null && [...document.querySelectorAll<HTMLButtonElement>("button")].some(button => button.textContent === "创建补充任务" && button.disabled))
+            document.body.dataset.historyVersions = String(document.querySelector('[aria-label="报告版本记录"]')?.textContent?.includes("V1") === true)
             const historyStage = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="历史任务阶段"] button')].find(button => button.textContent?.includes("证据核验"))
             flushSync(() => historyStage?.click())
             document.body.dataset.historyStageReview = String(document.querySelector('.qccPwTabs [data-selected="true"]')?.textContent === "任务历史" && document.querySelector(".qccPwBody")?.textContent?.includes("合成风险因子") === true)

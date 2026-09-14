@@ -74,6 +74,7 @@ export declare function HistoryPanel(props: {
     onOpen(item: HostedTask): void;
     onBack(): void;
     onDownload(item: HostedTask): void;
+    onContinue?(item: HostedTask, intent: string, requestId: string): Promise<void>;
 }): JSX.Element;
 export declare function apply(ctx: ClientContext): void;
 export {};

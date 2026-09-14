@@ -1,3 +1,4 @@
+import { type Material, type EvidenceFact, type EvidenceComparison } from "./material-evidence.js";
 import type { ToolOutcome } from "./tool-outcome.js";
 import type { ResultSummary } from "./result-summary.js";
 export declare const PREVISIT_TASK_STATES: readonly ["needs-entity-search", "needs-entity-confirmation", "entity-confirmed", "running", "finalizing", "completed", "partial", "failed"];
@@ -23,6 +24,16 @@ export type PrevisitArtifact = {
     createdAt: string;
 };
 export type PrevisitTaskRecord = {
+    materials?: Material[];
+    evidenceFacts?: EvidenceFact[];
+    evidenceComparisons?: EvidenceComparison[];
+    rootTaskId?: string;
+    parentTaskId?: string;
+    reportVersion?: number;
+    supplementIntent?: string;
+    inheritedRuns?: PrevisitRun[];
+    baselineCompletedAt?: string;
+    baselinePartial?: boolean;
     id: string;
     schemaVersion: 1;
     revision: number;
@@ -75,6 +86,14 @@ export declare function validatePrevisitReport(reportMarkdown: string, entityNam
  * private memory; only progress, entity identity and the user-facing report are persisted.
  */
 export declare class PrevisitWorkflowStore {
+    private continuationQueue;
+    continueFrom(input: {
+        parentTaskId: string;
+        requestId: string;
+        sessionId: string;
+        workspace: string;
+        intent: string;
+    }): Promise<PrevisitTaskRecord>;
     private readonly records;
     private table;
     private attachPromise;
@@ -105,6 +124,10 @@ export declare class PrevisitWorkflowStore {
         fullName: string;
         creditCode: string;
     }): Promise<PrevisitTaskRecord>;
+    private finalizationQueue;
+    /** Serialize evidence writes with publication: no late mutation of a published version. */
+    addEvidence(id: string, kind: "material" | "fact" | "comparison", input: Record<string, unknown>): Promise<PrevisitTaskRecord>;
     finalize(id: string, reportMarkdown: string, state: "completed" | "partial"): Promise<PrevisitTaskRecord>;
+    private finalizeRecord;
 }
 export {};

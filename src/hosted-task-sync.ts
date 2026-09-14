@@ -198,7 +198,13 @@ export function selectHostedTask(records: HostedTask[], active: ActiveTask | und
   const available = records.filter(record => !dismissed.has(record.id)).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
   if (active === undefined) return available[0] ?? null
   const direct = available.find(record => record.id === active.id)
-  if (direct !== undefined) return direct
+  if (direct !== undefined) {
+    if (HOSTED_TERMINAL.has(direct.state)) {
+      const continuation = available.find(record => record.rootTaskId === (direct.rootTaskId ?? direct.id) && (record.reportVersion ?? 1) > (direct.reportVersion ?? 1))
+      if (continuation) return continuation
+    }
+    return direct
+  }
   const startedAfter = new Date(active.createdAt).getTime() - 60_000
   return available.find(record => new Date(record.createdAt).getTime() >= startedAfter) ?? null
 }

@@ -1,3 +1,4 @@
+import { ReportFiles } from "./report-files.js";
 import { PrevisitWorkflowStore } from "./previsit-workflow.js";
 export declare const QUERY_ROUTES: {
     readonly entity_search: readonly ["company", "get_company_by_query"];
@@ -97,5 +98,5 @@ export type ToolHost = {
     get?(name: string): unknown;
 };
 /** Host-owned admission, entity binding, progress and fixed-route ToolRuntime dispatch. */
-export declare function registerPrevisitTools(ctx: ToolHost, workflow?: PrevisitWorkflowStore): () => void;
+export declare function registerPrevisitTools(ctx: ToolHost, workflow?: PrevisitWorkflowStore, files?: ReportFiles): () => void;
 export {};

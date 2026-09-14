@@ -1,3 +1,4 @@
+import { ReportFiles } from "./report-files.js";
 import { type PrevisitWorkflowStore } from "./previsit-workflow.js";
 type RequestLike = AsyncIterable<Uint8Array> & {
     method?: string;
@@ -15,5 +16,5 @@ export type WebServer = {
         handler(req: RequestLike, res: ResponseLike): unknown;
     }): () => void;
 };
-export declare function mountPrevisitWebRoutes(webServer: WebServer, workflow: PrevisitWorkflowStore): () => void;
+export declare function mountPrevisitWebRoutes(webServer: WebServer, workflow: PrevisitWorkflowStore, files?: ReportFiles): () => void;
 export {};

@@ -1,13 +1,13 @@
 # dsh-pre-duediligence
 
-0.1.32 重构采集摘要卡片，新增可追溯的核验与机会假设记录（支持、反证、未知、下一步、证据引用与修订历史），完成后保留当前阅读页面。旧报告不补造过程证据。保留继续尽调、报告版本、离线中文 PDF/Word 导出；真实上传尚未接通。详见 [发布说明](docs/RELEASE-0.1.32.md)。
+0.1.33 分离资料采集与证据核验：采集仅展示来源数据，核验前置风险研判并展示机会假设、支持、反证及证据缺口。支持有真实引用的阶段性风险分级；无需执行项目合并说明。“现场验证”改为“证据验证”，待沟通事项明确为“待客户确认”。保留报告版本、历史回看及离线中文 PDF/Word 导出。详见 [发布说明](docs/RELEASE-0.1.33.md)。
 
 ## 安装与三分钟上手
 
 访前尽调智能体：面向拜访前调查，提供企业尽调、客户尽调、客户背景调查、工商核验与风险信息整理；使用企查查 MCP，提供固定路由连续调用、主体确认、动态进度和可下载报告。
 
 ```sh
-dsh plugin --profile web add dsh-pre-duediligence@0.1.32
+dsh plugin --profile web add dsh-pre-duediligence@0.1.33
 ```
 
 请先满足下文的 DSH 与连接器要求；Better Sidebar 仅在需要可视化工作台时选装。安装后完整停止并重启对应 Profile。
@@ -92,7 +92,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-pre-duediligenc
 安装脚本默认向 DSH Web profile 安装两个基础 Bundle：
 
 1. `dsh-mcp-connector@0.2.32`：提供通用 MCP 连接器与市场，通过“企查查·企业工商”完成 OAuth，并动态挂载企业、风险、知产、经营、历史和董监高 MCP。
-2. `dsh-pre-duediligence@0.1.32`：提供左侧智能体入口、原生会话首页、提示词生成器、Host 执行门和 Skill。
+2. `dsh-pre-duediligence@0.1.33`：提供左侧智能体入口、原生会话首页、提示词生成器、Host 执行门和 Skill。
 
 默认不会安装 Better Sidebar。需要 Session 级可视化工作台时显式开启：
 
@@ -120,7 +120,7 @@ dsh web
 
 ~~~bash
 dsh plugin --profile web add dsh-mcp-connector@0.2.32
-dsh plugin --profile web add dsh-pre-duediligence@0.1.32 --allow-build=node-pty,dsh-pre-duediligence
+dsh plugin --profile web add dsh-pre-duediligence@0.1.33 --allow-build=node-pty,dsh-pre-duediligence
 dsh web
 ~~~
 
@@ -136,7 +136,7 @@ dsh web
 dsh plugin --profile web list --depth 0
 ~~~
 
-应始终看到所选基线的 Connector 和 `dsh-pre-duediligence@0.1.32`；仅在显式启用或原本已安装时看到 Sidebar。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”进入初始原生会话。无 Sidebar 时可继续生成提示词、回填/发送草稿并在会话中阅读报告；五项流程按钮会提示安装可选工作台。安装 Sidebar 时，右侧工作台初始仍关闭；点击业务按钮可主动打开，正式发送任务被接纳后会自动展开一次。仅回填不会展开，收起后轮询不会重新打开。其右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
+应始终看到所选基线的 Connector 和 `dsh-pre-duediligence@0.1.33`；仅在显式启用或原本已安装时看到 Sidebar。重启 DSH 并连接“企查查·企业工商”后，在左侧菜单点击“访前尽调”进入初始原生会话。无 Sidebar 时可继续生成提示词、回填/发送草稿并在会话中阅读报告；五项流程按钮会提示安装可选工作台。安装 Sidebar 时，右侧工作台初始仍关闭；点击业务按钮可主动打开，正式发送任务被接纳后会自动展开一次。仅回填不会展开，收起后轮询不会重新打开。其右侧“+”菜单不会列出该入口，普通会话保持 DSH 原样。
 
 ### 无 Sidebar 功能边界
 

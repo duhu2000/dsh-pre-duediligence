@@ -3,6 +3,7 @@ import { PlanCard } from "./plan-card.js"
 import { DEPTH_LABELS, derivePlans, deriveTasks, type PrevisitPlan } from "./previsit-task.js"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 
+import { RiskSummary } from "./risk-summary.js"
 import { AnalysisPanel, CollectionCards } from "./analysis-panels.js"
 import { BUDGET_OPTIONS, FOCUS_OPTIONS, OUTPUT_OPTIONS, PURPOSE_OPTIONS, ROLE_OPTIONS, type ComposerOption } from "./composer-model.js"
 import { PrevisitLogo } from "./previsit-brand.js"
@@ -40,7 +41,7 @@ import {
 } from "./workbench-state.js"
 import { WORKBENCH_CSS } from "./workbench-style.js"
 import { adoptTaskFromSnapshot, buildPrevisitReportHtml, captureTaskReport, taskDisplayLabel } from "./report-export.js"
-import { BUSINESS_STATES, isRiskFindingText, opportunityDimensions, opportunitySteps, parseCardInsights, riskDimensions, riskSteps, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
+import { opportunityDimensions, parseCardInsights, riskDimensions, type CardInsights, type Dimension, type Step, type ToolEvent } from "./stage-insights.js"
 
 export const inject = ["slots", "sessions", "workspaces", "conversation"] as const
 
@@ -320,72 +321,29 @@ export function ScanFindings({ task }: { task: HostedTask | null }): JSX.Element
   </div>
 }
 
-function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
-  const finished = props.status === "ready"
-  const running = props.status === "running"
-  const { insights } = props
-  const steps = opportunitySteps(props.events, insights, finished)
-  const dims = opportunityDimensions(props.events)
-  return (
-    <StagePanel eyebrow="COLLECT" title="资料采集" task={props.task}>
-      <Steps steps={steps} />
-      <Dimensions title="采集结果" items={dims} empty={running ? "正在建立主体与信号集…" : "尽调开始后显示采集结果"} />
-      <ScanFindings task={props.hostedTask} />
-      <div className="qccPwCard">
-        <div className="qccPwCardHeader"><div><h3>经营事实与研判</h3><p>以下内容来自本次查询返回；最终研判与查询执行状态分别展示。</p></div>{insights.state !== null
-          ? <span className="qccPwMode" data-tone="success">已研判{insights.confidence === null ? "" : ` · 置信度 ${insights.confidence}`}</span>
-          : insights.stateUndetermined
-            ? <span className="qccPwMode" data-tone="review">状态未定</span>
-            : <span className="qccPwMode" data-tone={running ? undefined : "neutral"}>{running ? "正在研判" : finished ? "未识别结论" : "待研判"}</span>}</div>
-        {insights.state ? <h3>{insights.state}</h3> : <p>尚未形成经营研判；先展示已返回的经营事实，不以查询成功推断经营良好。</p>}
-        <CollectionCards task={props.hostedTask} />
-        {insights.stateUndetermined ? <p className="qccPwNote">状态未定：公开证据不足，本次降级为清单式简报。</p> : null}
-        {insights.industryLink === null ? null : <p className="qccPwNote">产业链环节：{insights.industryLink}</p>}
-      </div>
-      <AnalysisPanel task={props.hostedTask} kind="hypothesis" legacy={insights.hypotheses} />
-    </StagePanel>
-  )
+export function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
+  return <StagePanel eyebrow="COLLECT" title="资料采集" task={props.task}>
+    <p className="qccPwNote">仅展示来源数据、样本和采集范围；经营判断、风险分级与机会假设请查看「证据核验」。</p>
+    <Dimensions title="采集结果" items={opportunityDimensions(props.events)} empty="尽调开始后显示采集结果" />
+    <ScanFindings task={props.hostedTask} />
+    <h3>客观数据摘要</h3>
+    <CollectionCards task={props.hostedTask} />
+    <details className="qccPwCard"><summary>风险明细与采集覆盖</summary><CollectionCards task={props.hostedTask} verification /></details>
+  </StagePanel>
 }
 
-function RiskPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
-  const finished = props.status === "ready"
-  const running = props.status === "running"
+export function RiskPanel(props: { task: ActiveTask | undefined; hostedTask: HostedTask | null; status: WorkbenchStatus; events: ToolEvent[]; insights: CardInsights }): JSX.Element {
   const { insights } = props
-  const steps = riskSteps(props.events, insights, finished)
-  const dims = riskDimensions(props.events)
-  const rows = (level: string) => insights.risks.filter(r => r.level === level)
-  const real = (level: string) => rows(level).filter(r => isRiskFindingText(r.text))
-  const judged = insights.sections.includes("红线提示")
-  return (
-    <StagePanel eyebrow="VERIFY" title="证据核验" task={props.task}>
-      <Steps steps={steps} />
-      <Dimensions title="核验结果" items={dims} empty={running ? "等待风险扫描…" : "尽调开始后显示核验结果"} />
-      <p className="qccPwNote">扫描发现见「资料采集」；这里展示明细查询范围、核验结论与下一步。</p>
-      <CollectionCards task={props.hostedTask} verification />
-      <AnalysisPanel task={props.hostedTask} kind="verification" />
-      <AnalysisPanel task={props.hostedTask} kind="hypothesis" legacy={insights.hypotheses} />
-      <div className="qccPwCard">
-        <div className="qccPwCardHeader"><div><h3>风险分级</h3></div></div>
-        {!judged
-          ? <p className="qccPwEmpty">{running ? "扫描与下钻后给出分级" : finished ? "报告未捕获" : "尽调开始后显示"}</p>
-          : (
-              <div className="qccPwRiskTiles">
-                {(["红线", "关注", "信息"] as const).map(level => {
-                  const items = real(level)
-                  const cleared = items.length === 0 && (rows(level).length > 0 || insights.riskNoRecord)
-                  return (
-                    <div key={level} className="qccPwRiskTile" data-level={level} data-clear={cleared} data-empty={items.length === 0}>
-                      <div className="qccPwRiskTileTop"><b>{level}</b><strong>{items.length}</strong></div>
-                      {items.length ? items.map((item, index) => <p key={index}>{item.text}</p>) : <p>{cleared ? "已核查，本次未发现公开记录" : "未形成明确结论"}</p>}
-                    </div>
-                  )
-                })}
-                <p className="qccPwRiskBoundary">绿色表示本次公开数据核查未发现，不代表风险绝对不存在。</p>
-              </div>
-            )}
-      </div>
-    </StagePanel>
-  )
+  return <StagePanel eyebrow="VERIFY" title="证据核验" task={props.task}>
+    <RiskSummary task={props.hostedTask} insights={insights} running={props.status === "running"} />
+    <AnalysisPanel task={props.hostedTask} kind="verification" />
+    <section className="qccPwCard"><h3>经营研判</h3><p>{insights.state ?? (insights.stateUndetermined ? "证据不足，状态未定" : "分析中，尚未形成经营判断")}</p>{insights.confidence ? <p>置信度：{insights.confidence}</p> : null}{insights.industryLink ? <p>研判中的产业链定位：{insights.industryLink}</p> : null}</section>
+    <AnalysisPanel task={props.hostedTask} kind="hypothesis" legacy={insights.hypotheses} />
+    <details className="qccPwCard"><summary>执行覆盖说明（查询状态，不代表结论通过）</summary>
+      <Dimensions title="执行覆盖" items={riskDimensions(props.events)} empty="尚无核验查询记录" />
+      <p className="qccPwNote">原始扫描计数和明细统一保留在「资料采集」。核验记录可展开真实证据引用与修订历史。</p>
+    </details>
+  </StagePanel>
 }
 
 function ReportViewer(props: { html: string }): JSX.Element {

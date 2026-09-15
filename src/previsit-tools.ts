@@ -277,6 +277,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
   register("previsit_record_analysis", "在取得关键资料后及时保存用户可见的核验或机会假设；同一 id 更新会追加修订，不能等最终报告才记录。支持/反证必须引用本任务真实 runId 或 factId；使用 previsit_history 查看引用。仅保存简短结论、证据边界与下一步，不保存内部思考。查询完成不等于判断成立。", {
     taskId: { type: "string" }, id: { type: "string", maxLength: 80 },
     kind: { type: "string", enum: ["verification", "hypothesis"] },
+    riskLevel: { type: "string", enum: ["红线", "关注", "信息"], description: "仅 verification 使用；形成风险判断后及时填报，必须有支持依据和真实引用。不按扫描计数自动定级，未分级则省略。" },
     title: { type: "string", maxLength: 160 }, summary: { type: "string", maxLength: 600 },
     status: { type: "string", enum: ["pending", "supported", "partial", "contradicted", "insufficient", "onsite"] },
     ...Object.fromEntries(["support", "counter", "unknown", "evidenceIds"].map(key => [key, { type: "array", maxItems: 12, items: { type: "string", maxLength: 600 } }])),

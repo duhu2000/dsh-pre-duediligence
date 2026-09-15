@@ -1,5 +1,9 @@
 /** DSH-UX-001 v1.5.0：所有变量和组件选择器均限定在本插件拥有的节点内。 */
 export const WORKBENCH_CSS = String.raw`
+.qccPwRiskSummary .qccPwRiskTiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+.qccPwRiskSummary .qccPwRiskTile[data-level="红线"]{grid-column:1 / -1}
+.qccPwRiskSummary .qccPwRiskTile{overflow-wrap:anywhere}
+@media(max-width:600px){.qccPwRiskSummary .qccPwRiskTiles{grid-template-columns:1fr}}
 .qccPwSummaryGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;align-items:start}
 .qccPwSummaryGrid .qccPwCard{margin:0;min-width:0;overflow-wrap:anywhere}
 .qccPwSummaryGrid li,.qccPwAnalysis li{margin:6px 0;line-height:1.65}

@@ -2,6 +2,7 @@
 export type AnalysisRecord = {
     id: string;
     kind: "verification" | "hypothesis";
+    riskLevel?: "红线" | "关注" | "信息";
     title: string;
     status: "pending" | "supported" | "partial" | "contradicted" | "insufficient" | "onsite";
     summary: string;
@@ -19,7 +20,7 @@ export declare const ANALYSIS_STATUSES: {
     readonly partial: "部分支持";
     readonly contradicted: "有反证";
     readonly insufficient: "证据不足";
-    readonly onsite: "待现场确认";
+    readonly onsite: "待客户确认";
 };
 export declare function parseAnalysisRecord(input: Record<string, unknown>): Omit<AnalysisRecord, "revision" | "updatedAt">;
 export declare function latestAnalysis(records?: AnalysisRecord[]): AnalysisRecord[];

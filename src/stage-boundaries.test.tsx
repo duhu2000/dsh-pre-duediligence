@@ -44,7 +44,7 @@ describe("collection and verification boundaries", () => {
   it("condenses skipped queries without missing-summary warnings", () => {
     const skipped = {...task,runs:[{id:"skip",dimension:"dishonest",status:"skipped" as const,quotaUsed:false,startedAt:"2026-09-15",message:"扫描计数为0，无需下钻"}]}
     const html=renderToStaticMarkup(<CollectionCards task={skipped} verification />)
-    expect(html).toContain("扫描计数为0")
+    expect(html).toContain("本次扫描未发现相关记录")
     expect(html).not.toContain("暂未提取到业务摘要")
     expect(html).not.toContain("0 项字段")
   })

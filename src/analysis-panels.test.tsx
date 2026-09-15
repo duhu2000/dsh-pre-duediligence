@@ -6,6 +6,19 @@ import { parseCardInsights } from "./stage-insights.js"
 import type { HostedTask } from "./hosted-task-sync.js"
 
 describe("readable evidence panels", () => {
+  it("shows skipped items without internal references or technical fallback text", () => {
+    const task = { runs: [
+      { id: "previsit-skipped-internal-id", dimension: "dishonest", status: "skipped", message: "风险扫描为 0，无需下钻" },
+      { id: "private-id-2", dimension: "enforcement", status: "skipped" },
+      { id: "private-id-3", dimension: "tax_abnormal", status: "skipped", message: "technical metadata" },
+    ] } as unknown as HostedTask
+    const before = JSON.stringify(task)
+    const html = renderToStaticMarkup(<CollectionCards task={task} verification />)
+    expect(html).toContain("无需执行 · 3 项")
+    expect(html).toContain("本次扫描未发现相关记录")
+    expect(html).not.toMatch(/previsit-skipped|private-id|technical metadata|引用|具体原因见原任务|无需下钻/)
+    expect(JSON.stringify(task)).toBe(before)
+  })
   it("separates risk detail from collection and exposes all collection dimensions", () => {
     const task = { runs: ["patents", "shareholders", "bidding", "judicial_documents"].map(dimension => ({ id: dimension, dimension, status: "done", startedAt: "2026-09-14", result: { summary: "合成摘要", facts: ["记录数：492", "企业名称：合成公司"], factors: [] } })) } as unknown as HostedTask
     const html = renderToStaticMarkup(<CollectionCards task={task} />)

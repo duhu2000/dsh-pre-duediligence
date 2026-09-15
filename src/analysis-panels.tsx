@@ -22,7 +22,7 @@ export function CollectionCards({ task, verification = false }: { task: HostedTa
       {run.message ? <p className="qccPwNote">{run.message}</p> : null}
       <details><summary>来源与已保存明细（{facts.length} 项字段）</summary><p className="qccPwNote">来源：{run.toolName ?? run.dimension} · {run.completedAt ?? run.startedAt} · 引用 {run.id}</p><ul>{facts.map(fact => <li key={fact}>{fact}</li>)}</ul></details>
     </article>
-  })}</div>{skipped.length ? <div className="qccPwCard"><h4>无需执行 · {skipped.length} 项</h4><ul>{skipped.map(run => <li key={run.id}>{dimensionLabel(run.dimension)}：{run.message || "已记录无需执行，具体原因见原任务"}（引用 {run.id}）</li>)}</ul><p className="qccPwNote">无需下钻不代表风险绝对不存在。</p></div> : null}</>
+  })}</div>{skipped.length ? <div className="qccPwCard"><h4>无需执行 · {skipped.length} 项</h4><ul>{skipped.map(run => <li key={run.id}>{dimensionLabel(run.dimension)}{["风险扫描为 0，无需下钻", "扫描计数为0，无需下钻"].includes(run.message ?? "") ? "：本次扫描未发现相关记录" : null}</li>)}</ul></div> : null}</>
 }
 
 export function AnalysisPanel({ task, kind, legacy = [] }: { task: HostedTask | null; kind: "verification" | "hypothesis"; legacy?: Hypothesis[] }): JSX.Element {

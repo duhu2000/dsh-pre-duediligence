@@ -2,6 +2,7 @@
 // 配色、字号、标题规范全部锁定为用户提供的 demo 设计，模型/前端都不再自行配色。
 // 纯函数，无 DOM 依赖，便于单测。
 import { isPrevisitSession } from "./previsit-session.js"
+import { formatReportTime, reportTextWithTime } from "./report-time.js"
 
 export type ReportMeta = {
   company?: string
@@ -323,11 +324,11 @@ footer{padding:14px 26px 20px;border-top:1px solid var(--line);color:var(--muted
 function deriveMeta(md: string, meta?: ReportMeta): { company: string; anchor: string; when: string } {
   const first = /^#?\s*(?:访前尽调报告|拜访作战卡)\s*·\s*([^\n锚]+)/m.exec(md)
   const anchorLine = /锚定主体：([^\n]+?)(?:\s*生成时间|$)/m.exec(md)
-  const whenLine = /生成时间[:：]\s*([0-9-]+)/.exec(md)
+  const whenLine = /生成时间[:：]\s*(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?(?:（北京时间）)?)/.exec(md)
   return {
     company: meta?.company || (first?.[1]?.trim() ?? "访前尽调报告"),
     anchor: (anchorLine?.[1] ?? "").trim().replace(/[｜|·\s]+$/, ""),
-    when: meta?.generatedAt || (whenLine?.[1] ?? ""),
+    when: formatReportTime(meta?.generatedAt || whenLine?.[1]),
   }
 }
 
@@ -347,6 +348,7 @@ export function wrapPrevisitReport(bodyHtml: string, m: ReportHero): string {
 }
 
 export function buildPrevisitReportHtml(cardMarkdown: string, meta?: ReportMeta): string {
+  if (meta?.generatedAt) cardMarkdown = reportTextWithTime(cardMarkdown, meta.generatedAt)
   const m = deriveMeta(cardMarkdown, meta)
   // 去掉正文里的一级标题和锚定行（已进 hero），其余进 body
   const body = cardMarkdown

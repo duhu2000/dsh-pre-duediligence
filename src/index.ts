@@ -45,7 +45,7 @@ export function loadBundledSkill(): SkillRegistration {
   return {
     name: SKILL_NAME,
     description: SKILL_DESCRIPTION,
-    whenToUse: "用户要求准备客户拜访、访前尽调、一页纸简报、授信面谈、商务谈判、签约核查、复访更新、触达路径或当面提问清单时使用。",
+    whenToUse: "用户要求准备客户拜访、访前尽调、一页纸简报、授信面谈、商务谈判、签约核查、复访更新、触达路径或当面提问清单时使用。从访前尽调入口发起的投资机构人员、深度尽调、完整报告任务也使用本技能，不转为 ic-memo-qcc。",
     content,
     source: "bundled",
     resourceBase: {
@@ -54,7 +54,7 @@ export function loadBundledSkill(): SkillRegistration {
     },
     metadata: {
       author: "QCC",
-      version: "0.1.34",
+      version: "0.1.35",
       industry: "enterprise-services",
       mcpServers: ["qcc-company", "qcc-risk", "qcc-ipr", "qcc-operation", "qcc-executive"],
     },

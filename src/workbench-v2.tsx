@@ -198,7 +198,7 @@ function ExecutionProgress(props: { task: HostedTask | null; status: WorkbenchSt
   )
 }
 
-function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: ActiveTask | undefined; input: SessionInput | undefined; send: (prompt: string) => Promise<void>; start: (prompt: string) => Promise<number>; onStarted: () => void }): JSX.Element {
+function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: ActiveTask | undefined; busy: boolean; input: SessionInput | undefined; send: (prompt: string) => Promise<void>; start: (prompt: string) => Promise<number>; onStarted: () => void }): JSX.Element {
   useSyncExternalStore(listener => props.input?.state.subscribe?.(listener) ?? (() => {}), () => props.input?.state.getSnapshot().draft ?? "")
   // 与输入框上方的设定条共用同一份状态与逻辑；草稿直接读写 DSH 输入框
   const actions = usePrevisitComposer({
@@ -212,6 +212,7 @@ function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: Acti
     start: props.start,
     onStarted: props.onStarted,
     draftMode: "isolated",
+    blocked: props.busy || props.task !== undefined,
   })
   return (
     <section className="qccPwPanel">
@@ -220,7 +221,7 @@ function SetupPanel(props: { sessionId: string; store: PrevisitStore; task: Acti
         {props.task === undefined ? null : <span className="qccPwTaskId">{taskDisplayLabel(props.task.id)}</span>}
       </header>
       <div className="qccPwCard qccPwSetupCard">
-        <PrevisitFields actions={actions} idPrefix={`qccPw-${props.sessionId}`} sessionId={props.sessionId} send={props.send} />
+        <PrevisitFields actions={actions} locked={props.busy || props.task !== undefined} idPrefix={`qccPw-${props.sessionId}`} sessionId={props.sessionId} send={props.send} />
       </div>
       {props.task === undefined ? null : (
         <div className="qccPwCard">
@@ -440,7 +441,7 @@ export function HistoryPanel(props: {
     const item = props.selected
     const status = hostedStatus(item)
     const origin = hostedTaskOrigin(item)
-    const reportHtml = selectedReport === undefined || selectedReport === "" ? null : buildPrevisitReportHtml(selectedReport)
+    const reportHtml = selectedReport === undefined || selectedReport === "" ? null : buildPrevisitReportHtml(selectedReport, item.completedAt ? { generatedAt: item.completedAt } : undefined)
     return (
       <section className="qccPwPanel">
         <header className="qccPwPageHeading qccPwHistoryHeading">
@@ -708,7 +709,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const status = hostStatus ?? deriveWorkbenchStatus(progressInput)
   const phaseStates = derivePhaseStates(progressInput)
   const insights = useMemo(() => parseCardInsights(cardText), [cardText])
-  const reportHtml = useMemo(() => cardText === null ? null : buildPrevisitReportHtml(cardText), [cardText])
+  const reportHtml = useMemo(() => cardText === null ? null : buildPrevisitReportHtml(cardText, hostedTask?.completedAt ? { generatedAt: hostedTask.completedAt } : undefined), [cardText, hostedTask?.completedAt])
 
   const newTask = () => {
     manualNavigation.current = false
@@ -844,7 +845,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       <div className="qccPwBody">
         {shared.view !== "history" ? <MaterialPanel task={hostedTask} /> : null}
         {shared.view === "target" && pendingPlan !== undefined ? <PlanCard key={pendingPlan.id} plan={pendingPlan} onConfirm={async message => { await props.startPrompt(sessionId, message, true); setDismissedPlanIds(ids => [...ids, pendingPlan.id]) }} onDismiss={() => setDismissedPlanIds(ids => [...ids, pendingPlan.id])} /> : null}
-        {shared.view === "target" && pendingPlan === undefined ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} send={async prompt => { await props.startPrompt(sessionId, prompt, true) }} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => { manualNavigation.current = false; setView("target") }} /> : null}
+        {shared.view === "target" && pendingPlan === undefined ? <SetupPanel busy={runtime.running} sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} send={async prompt => { await props.startPrompt(sessionId, prompt, true) }} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => { manualNavigation.current = false; setView("target") }} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} hostedTask={hostedTask} /> : null}
         {shared.view === "collect" ? <OpportunityPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "verify" ? <RiskPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}

@@ -9,6 +9,7 @@ import {
   PURPOSE_OPTIONS,
   ROLE_OPTIONS,
   composeFullSentence,
+  routePrevisitPrompt,
   type ComposerOption,
   type ComposerSelection,
 } from "./composer-model.js"
@@ -161,7 +162,7 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
     setOpen(false)
     window.setTimeout(() => triggerRef.current?.focus(), 0)
   }
-  const generated = composeFullSentence(selection, company)
+  const generated = routePrevisitPrompt(composeFullSentence(selection, company))
 
   const commit = (mode: DraftMergeMode) => {
     if (props.inputActions === undefined) {

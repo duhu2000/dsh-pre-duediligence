@@ -119,6 +119,7 @@ export type ComposerState = {
  */
 export declare const EMPTY_SELECTION: ComposerSelection;
 export declare const EMPTY_COMPOSER_STATE: ComposerState;
+export declare function routePrevisitPrompt(text: string): string;
 export declare function composeFullSentence(selection: ComposerSelection, company?: string): string;
 export declare function composeImperative(selection: ComposerSelection): string;
 export declare function updateManualText(state: ComposerState, text: string): ComposerState;

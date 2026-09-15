@@ -133,7 +133,7 @@ export function mountPrevisitWebRoutes(webServer: WebServer, workflow: PrevisitW
           }
           const html = buildPrevisitReportHtml(task.reportMarkdown, {
             ...(task.entity?.fullName === undefined ? {} : { company: task.entity.fullName }),
-            ...(task.completedAt === undefined ? {} : { generatedAt: task.completedAt.slice(0, 10) }),
+            ...(task.completedAt === undefined ? {} : { generatedAt: task.completedAt }),
           })
           const ascii = task.artifact.fileName.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_")
           res.writeHead(200, {

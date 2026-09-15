@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx"
 import PDFDocument from "pdfkit"
+import { reportTextWithTime } from "./report-time.js"
 import type { PrevisitTaskRecord, StorageDomain } from "./previsit-workflow.js"
 
 export type ReportFile = { id:string; taskId:string; version:number; format:"pdf"|"docx"; fileName:string; mediaType:string; sourceHash:string; sha256:string; createdAt:string; size:number }
@@ -13,7 +14,8 @@ const mime = {pdf:"application/pdf",docx:"application/vnd.openxmlformats-officed
 /** Text-preserving export: markdown notation stays visible; no remote images, HTML or scripts execute. */
 export async function renderReportFile(task:PrevisitTaskRecord,format:"pdf"|"docx",fontPath=process.env.DSH_PREVISIT_PDF_FONT):Promise<Buffer> {
   if (!task.reportMarkdown || !task.completedAt) throw new Error("报告尚未保存")
-  const lines = task.reportMarkdown.split(/\r?\n/)
+  const reportText = reportTextWithTime(task.reportMarkdown, task.completedAt)
+  const lines = reportText.split(/\r?\n/)
   const identity = `${task.entity?.fullName ?? task.query} · V${task.reportVersion ?? 1} · ${task.id}`
   if (format === "docx") {
     const fontName=process.env.DSH_PREVISIT_DOCX_FONT ?? "Arial Unicode MS"
@@ -29,7 +31,7 @@ export async function renderReportFile(task:PrevisitTaskRecord,format:"pdf"|"doc
     const pdf = new PDFDocument({size:"LETTER",margin:54,info:{Title:identity,Creator:"访前尽调"}})
     const chunks:Buffer[]=[]
     pdf.on("data",chunk=>chunks.push(chunk)); pdf.on("error",reject); pdf.on("end",()=>resolve(Buffer.concat(chunks)))
-    try { pdf.font(font).fontSize(16).text(identity).moveDown(); pdf.fontSize(11).text(task.reportMarkdown!,{lineGap:4}); pdf.end() }
+    try { pdf.font(font).fontSize(16).text(identity).moveDown(); pdf.fontSize(11).text(reportText,{lineGap:4}); pdf.end() }
     catch(error){pdf.destroy();reject(error)}
   })
 }
@@ -61,7 +63,7 @@ export class ReportFiles {
       await this.ready
       if(!["completed","partial"].includes(task.state)||!task.reportMarkdown) throw new Error("只能导出已保存报告")
       const sourceHash=hash(task.reportMarkdown)
-      const id=`RF-${hash(`${task.id}:${sourceHash}:${format}:text-v1`).slice(0,32)}`
+      const id=`RF-${hash(`${task.id}:${sourceHash}:${task.completedAt}:${format}:text-v2`).slice(0,32)}`
       let stored=this.files.get(id)
       if(!stored) {
         const bytes=await renderReportFile(task,format)

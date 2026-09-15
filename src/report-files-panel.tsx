@@ -27,8 +27,8 @@ export function ReportFilesPanel({ taskId, sessionId, onHtml }: { taskId: string
     finally { setBusy(null) }
   }
   return <div className="qccPwDownloadActions" aria-label="下载报告">
-    <button type="button" className="qccPwSecondary" disabled={busy !== null} onClick={() => void generate("docx")}>{busy === "docx" ? "正在生成 Word…" : "下载 Word"}</button>
     {onHtml ? <button type="button" className="qccPwSecondary" disabled={busy !== null} onClick={onHtml}>下载 HTML</button> : null}
+    <button type="button" className="qccPwSecondary" disabled={busy !== null} onClick={() => void generate("docx")}>{busy === "docx" ? "正在生成 Word…" : "下载 Word"}</button>
     <button type="button" className="qccPwPrimary" disabled={busy !== null} onClick={() => void generate("pdf")}>{busy === "pdf" ? "正在生成 PDF…" : "下载 PDF"}</button>
     {busy ? <span role="status">生成完成后自动下载</span> : null}
     {error ? <span role="alert">{error}</span> : null}

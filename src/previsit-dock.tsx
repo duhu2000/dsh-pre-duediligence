@@ -107,6 +107,7 @@ export function usePrevisitComposer(args: {
   onStarted?: () => void
   /** 右侧工作台必须与原生会话输入框隔离，避免输入中文时宿主抢焦点。 */
   draftMode?: "live" | "isolated"
+  blocked?: boolean
 }) {
   const { sessionId, store } = args
   const state = useSyncExternalStore(store.subscribe, () => store.get(sessionId), () => EMPTY_SESSION_STATE)
@@ -154,7 +155,7 @@ export function usePrevisitComposer(args: {
     setError(undefined)
   }
   const startTask = async () => {
-    if (inFlight.current) return
+    if (inFlight.current || args.blocked || (isolated && store.get(sessionId).task !== undefined)) return
     const lifetimeToken = lifetime.current
     const current = store.get(sessionId)
     // 隔离模式在点击“开始尽调”时才构造正式请求，输入过程不会污染或发送
@@ -191,10 +192,11 @@ export function usePrevisitComposer(args: {
 }
 
 // 六行表单 + 底部动作（两处渲染同一份）
-export function PrevisitFields(props: { actions: ComposerActions; idPrefix: string; startLabel?: string; sessionId?: string; send?: (prompt: string) => Promise<void> }): JSX.Element {
+export function PrevisitFields(props: { actions: ComposerActions; idPrefix: string; startLabel?: string; sessionId?: string; send?: (prompt: string) => Promise<void>; locked?: boolean }): JSX.Element {
   const imports = useImageImport(props.sessionId ?? "", props.send ?? (async () => { throw new Error("当前会话尚未就绪") }))
   const { actions: a } = props
   const st = a.state
+  if (props.locked) return <div className="qccDockBody" role="status"><h3>任务已提交</h3><p>请查看任务进展；如需确认主体，请在对话中选择。无需重复提交。</p><p>{st.task?.company ?? st.company}</p><p>本次设置以已发送的任务为准。开始另一项调查请使用「新的尽调」。</p></div>
   return (
     <DropZone className="qccDockBody" onFile={file => { if (props.send !== undefined) void imports.accept(file) }}>
       <div className="qccDockRow">

@@ -49,6 +49,7 @@ export declare function usePrevisitComposer(args: {
     onStarted?: () => void;
     /** 右侧工作台必须与原生会话输入框隔离，避免输入中文时宿主抢焦点。 */
     draftMode?: "live" | "isolated";
+    blocked?: boolean;
 }): {
     state: import("./previsit-store.js").PrevisitSessionState;
     manual: boolean;
@@ -69,6 +70,7 @@ export declare function PrevisitFields(props: {
     startLabel?: string;
     sessionId?: string;
     send?: (prompt: string) => Promise<void>;
+    locked?: boolean;
 }): JSX.Element;
 export declare function PrevisitDock(props: PrevisitDockProps): JSX.Element;
 export declare function DiligenceModeBar(props: {

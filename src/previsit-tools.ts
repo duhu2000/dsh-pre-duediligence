@@ -149,7 +149,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
     if (!exec.agent || !isPrevisitSession(exec.agent.session.id) || !qccTool(exec.name)) return undefined
     const permit = permits.get(exec.callId)
     return !disposed && permit?.owner === ownerOf(exec.agent) && permit.name === exec.name && permit.parent === exec.parent
-      ? undefined : "访前企查查调用必须通过 previsit_begin / previsit_confirm_entity / previsit_query；禁止绕过主体绑定与固定业务路由。"
+      ? undefined : "访前企查查调用必须通过 previsit_begin / previsit_confirm_entity / previsit_query；禁止绕过主体绑定与固定业务路由。请使用 qcc-previsit-onepager Skill，不因投资机构角色切换为 ic-memo-qcc。尚无任务时先 previsit_begin，再 previsit_query(dimension=entity_search)，取得候选后 previsit_confirm_entity；已有任务请沿用 taskId，不重复创建。"
   }))
   const register = (name: string, description: string, properties: object, required: string[], execute: (args: Record<string, unknown>, exec: Execution, agent: Agent) => Promise<unknown>) => {
     disposers.push(ctx.tools.register({

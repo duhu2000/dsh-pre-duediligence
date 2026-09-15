@@ -95,6 +95,11 @@ function hasSelection(selection: ComposerSelection): boolean {
     || selection.output !== undefined
 }
 
+export function routePrevisitPrompt(text: string): string {
+  if (!text.trim() || text.includes("请使用 qcc-previsit-onepager")) return text
+  return text + "\n请使用 qcc-previsit-onepager Skill 执行访前尽调；投资机构角色、深度尽调和完整报告也沿用本流程，不切换为 ic-memo-qcc。先 previsit_begin，再通过 previsit_query 的 entity_search 核实主体，使用 previsit_confirm_entity 绑定后继续查询。"
+}
+
 export function composeFullSentence(selection: ComposerSelection, company = ""): string {
   if (!hasSelection(selection) && company.trim() === "") {
     return ""

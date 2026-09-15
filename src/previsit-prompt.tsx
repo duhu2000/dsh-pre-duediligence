@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react"
 import { createPortal } from "react-dom"
+import { isInitialDraft } from "./initial-draft.js"
 
 import {
   BUDGET_OPTIONS,
@@ -30,7 +31,7 @@ export type PrevisitPromptProps = {
 export type DraftMergeMode = "replace" | "append"
 
 export function mergePromptDraft(existing: string, generated: string, mode: DraftMergeMode): string {
-  if (mode === "replace" || existing.trim() === "") return generated
+  if (mode === "replace" || existing.trim() === "" || isInitialDraft(existing)) return generated
   const separator = existing.endsWith("\n") ? "" : "\n"
   return existing + separator + generated
 }
@@ -201,7 +202,7 @@ export function PrevisitPromptGenerator(props: PrevisitPromptProps): JSX.Element
       setError("请至少填写企业信息。")
       return
     }
-    if (draft.trim() !== "" && draft.trim() !== generated.trim()) {
+    if (draft.trim() !== "" && !isInitialDraft(draft) && draft.trim() !== generated.trim()) {
       setConflict(true)
       return
     }

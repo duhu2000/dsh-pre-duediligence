@@ -1,12 +1,20 @@
 import { describe, expect, it, vi } from "vitest"
 import { QUERY_ROUTES, registerPrevisitTools, type ToolHost } from "./previsit-tools.js"
 import { PrevisitWorkflowStore } from "./previsit-workflow.js"
+import { INITIAL_DRAFT_TEXT } from "./initial-draft.js"
 
 const sessionId = "session-dsh-pre-duediligence-12345678-1234-4234-8234-123456789abc"
 const company = { fullName: "合成甲公司", creditCode: "913200000000000001" }
 const companyB = { fullName: "合成乙公司", creditCode: "913200000000000002" }
 type Definition = Parameters<ToolHost["tools"]["register"]>[0]
 type Execution = Parameters<Definition["execute"]>[1]
+it.each(["【企业名称】", INITIAL_DRAFT_TEXT, "准备拜访【客户】", "（这里输入企业名）"])("rejects unfilled target without task or MCP: %s", async query => {
+  const f = fixture(), create = vi.spyOn(f.workflow, "create")
+  await expect(f.call("previsit_begin", { query, depth: "fast" })).rejects.toThrow("尚未创建")
+  expect(create).not.toHaveBeenCalled()
+  expect(f.dispatch).not.toHaveBeenCalled()
+})
+
 function fixture() {
   const definitions = new Map<string, Definition>()
   let guard: Parameters<ToolHost["tools"]["guard"]>[0] = () => undefined

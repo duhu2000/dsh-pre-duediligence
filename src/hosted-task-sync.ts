@@ -215,8 +215,10 @@ export function selectHostedTask(records: HostedTask[], active: ActiveTask | und
 }
 
 /** Host 工作流已启动后，右侧不再停留在可重复提交的首页。 */
-export function hostedTaskView(task: HostedTask): Exclude<PrevisitView, "target" | "history"> {
+export function hostedTaskView(task: HostedTask): Exclude<PrevisitView, "history"> {
   if (task.reportReady || HOSTED_TERMINAL.has(task.state)) return "output"
+  if (!task.entity || task.state === "needs-entity-confirmation" || task.state === "needs-entity-search") return "target"
+  if (!task.runs.some(run => run.dimension !== "entity_search")) return "scope"
   // 报告整理中的兼容任务可能先进入 finalizing/output，但制品仍未就绪。
   // 保留最后一个真实查询所在页，用户可以继续看到采集/核验明细变化；
   // 完成后的导航由用户主动触发；此函数仍供历史详情定位使用。
@@ -277,7 +279,10 @@ export function syncHostedTaskState(
   // Host query is the authoritative snapshot after a task starts. This also
   // repairs a UI draft that continued changing after an accidental submit.
   const nextCompany = record.entity?.fullName ?? record.query
-  const nextView = locateCurrentStage && !record.reportReady && !HOSTED_TERMINAL.has(record.state) && state.view !== "history" ? hostedTaskView(record) : state.view
+  const desiredView = hostedTaskView(record)
+  const nextView = locateCurrentStage && !record.reportReady && !HOSTED_TERMINAL.has(record.state) && state.view !== "history"
+    ? state.view === "target" && record.entity && (desiredView === "collect" || desiredView === "verify") ? "scope" : desiredView
+    : state.view
   if (previous?.id === nextTask.id
     && previous.captureId === nextTask.captureId
     && previous.company === nextTask.company

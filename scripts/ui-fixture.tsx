@@ -285,7 +285,7 @@ window.setTimeout(() => {
           flushSync(() => historyCard?.click())
           window.setTimeout(() => {
             const detailHeading = [...document.querySelectorAll<HTMLElement>(".qccPwPageHeading h2")].find(node => node.textContent === "历史企业甲")
-            const download = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryActions button")].find(button => button.textContent?.includes("下载报告"))
+            const download = [...document.querySelectorAll<HTMLButtonElement>(".qccPwHistoryActions button")].find(button => button.textContent?.includes("下载 HTML"))
             document.body.dataset.historyDetail = String(detailHeading !== undefined)
             document.body.dataset.historyDownload = String(download !== undefined && !download.disabled)
             document.body.dataset.historyContinuation = String(document.querySelector('[aria-label="补充尽调要求"]') !== null && [...document.querySelectorAll<HTMLButtonElement>("button")].some(button => button.textContent === "创建补充任务" && button.disabled))

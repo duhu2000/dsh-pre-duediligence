@@ -144,10 +144,18 @@ export function parseCardInsights(md: string | null): CardInsights {
     const t = line.trim()
     if (!t.startsWith("|")) continue
     const cells = t.split("|").slice(1, -1).map(c => c.trim())
-    const level = cells[0] ?? ""
+    const level = strip(cells[0] ?? "")
     const hit = (["红线", "关注", "信息"] as const).find(l => level.startsWith(l))
     if (hit === undefined) continue
     risks.push({ level: hit, text: strip(cells[1] ?? "") })
+  }
+  // Also accept explicit prose conclusions; absence of a row is not a negative finding.
+  for (const line of riskSrc.split("\n")) {
+    if (line.trim().startsWith("|")) continue
+    const text = strip(line).replace(/^[\s#>\-•]+/, "")
+    const match = /^(红线|关注|信息)(?:事项|风险)?\s*[：:]\s*(.+)$/.exec(text)
+    if (match) risks.push({ level: match[1] as RiskItem["level"], text: match[2]! })
+    else if (/^(?:本次(?:核验|核查|尽调)?(?:范围内)?[，, ]*)?未发现(?:重大)?红线(?:风险|事项)?[。；;]?$/.test(text)) risks.push({level:"红线",text:"本次未发现红线"})
   }
   return {
     found: true,

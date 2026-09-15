@@ -328,7 +328,7 @@ export function OpportunityPanel(props: { task: ActiveTask | undefined; hostedTa
     <ScanFindings task={props.hostedTask} />
     <h3>客观数据摘要</h3>
     <CollectionCards task={props.hostedTask} />
-    <details className="qccPwCard"><summary>风险明细与采集覆盖</summary><CollectionCards task={props.hostedTask} verification /></details>
+    <section className="qccPwCard"><h3>风险明细与采集覆盖</h3><CollectionCards task={props.hostedTask} verification /></section>
   </StagePanel>
 }
 
@@ -467,13 +467,7 @@ export function HistoryPanel(props: {
             {continueError ? <p role="alert">{continueError}</p> : null}
           </div> : null}
           <div className="qccPwHistoryActions">
-            <button
-              type="button"
-              className="qccPwPrimary"
-              disabled={!item.reportReady || !origin.complete || props.downloadingTaskId === item.id}
-              title={!origin.complete ? "旧记录缺少来源 Session，无法安全下载" : item.reportReady ? "下载已保存的 HTML 报告" : "报告尚未生成"}
-              onClick={() => props.onDownload(item)}
-            >{props.downloadingTaskId === item.id ? "正在下载…" : "下载报告 ↓"}</button>
+            {item.reportReady && origin.complete ? <ReportFilesPanel key={item.id} taskId={item.id} sessionId={item.sessionId} onHtml={() => props.onDownload(item)} /> : <span>报告尚未生成或记录来源不完整，暂不可下载。</span>}
           </div>
         </div>
         <nav className="qccPwStages" aria-label="历史任务阶段" role="tablist">{PREVISIT_PHASES.map(phase => <button key={phase} type="button" role="tab" aria-selected={historyPhase === phase} className="qccPwStage" data-selected={historyPhase === phase} onClick={() => setHistoryPhase(phase)}><span className="qccPwStageIcon"><Icon name={phase} /></span><strong>{PHASE_LABELS[phase]}</strong></button>)}</nav>
@@ -484,7 +478,6 @@ export function HistoryPanel(props: {
           ? <Feedback tone="notice" title={item.reportReady ? "正在读取报告" : "报告尚未生成"}>{item.reportReady ? "已找到报告制品，但正文暂未返回；请返回清单后重试。" : "任务详情已恢复，报告生成后可在这里查看并下载。"}</Feedback>
           : <div className="qccPwCard qccPwReportCard"><ReportViewer html={reportHtml} /></div>}
         <MaterialPanel task={item} />
-        {item.reportReady && origin.complete ? <ReportFilesPanel key={item.id} taskId={item.id} sessionId={item.sessionId} /> : null}
         <p className="qccPwNote">历史详情只读取该任务所属 Session 的 Host 制品，不会重新调用企查查，也不会覆盖当前会话任务。</p>
       </section>
     )
@@ -535,7 +528,9 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const setTask = (fn: (current: ActiveTask | undefined) => ActiveTask | undefined) => props.shared.update(sessionId, s => ({ ...s, task: fn(s.task) }))
   const phase: PrevisitPhase = shared.view === "history" ? "target" : shared.view
   const setView = (view: PrevisitView) => { locatePrevisitView(props.shared, sessionId, view) }
-  const setPhase = (next: PrevisitPhase) => setView(next)
+  const manualNavigation = useRef(false)
+  const navigationTask = useRef<string>()
+  const setPhase = (next: PrevisitPhase) => { manualNavigation.current = true; setView(next) }
   const [runtime, setRuntime] = useState<RuntimeState>(EMPTY_RUNTIME)
   const [plans, setPlans] = useState<PrevisitPlan[]>([])
   const [dismissedPlanIds, setDismissedPlanIds] = useState<string[]>([])
@@ -578,14 +573,16 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
         setHostedTask(record)
         setHostError(undefined)
         if (record !== null) {
+          if (navigationTask.current !== undefined && navigationTask.current !== record.id) manualNavigation.current = false
+          navigationTask.current = record.id
           const snapshot = props.ctx.sessions.binding?.(sessionId)?.session.getSnapshot()
           const adopted = snapshot === undefined ? null : adoptTaskFromSnapshot(snapshot, sessionId, current.minimumNodeBaseline)
           const desiredView = hostedTaskView(record)
           const location = `${record.id}:${desiredView}`
           const awaitingPlan = snapshot === undefined ? undefined : derivePlans(snapshot).find(plan => plan.taskIds.length === 0 && !dismissedPlanIds.includes(plan.id) && !records.some(task => task.planId === plan.id))
-          const shouldLocate = awaitingPlan === undefined && lastHostedLocation.current !== location
+          const shouldLocate = !manualNavigation.current && awaitingPlan === undefined && lastHostedLocation.current !== location
           props.shared.update(sessionId, state => syncHostedTaskState(state, record, adopted, shouldLocate))
-          lastHostedLocation.current = location
+          lastHostedLocation.current = `${record.id}:${props.shared.get(sessionId).view}`
         } else {
           lastHostedLocation.current = undefined
         }
@@ -714,6 +711,7 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
   const reportHtml = useMemo(() => cardText === null ? null : buildPrevisitReportHtml(cardText), [cardText])
 
   const newTask = () => {
+    manualNavigation.current = false
     props.shared.update(sessionId, state => ({
       ...state,
       task: undefined,
@@ -844,10 +842,9 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
       {shared.view !== "history" && status === "ready" && shared.view !== "output" ? <div className="qccPwCard" role="status">报告已生成，已保留当前阅读页面。<button type="button" onClick={() => setPhase("output")}>查看报告</button></div> : null}
       {shared.view !== "history" ? <ExecutionProgress task={hostedTask} status={status} modelRunning={runtime.available ? runtime.running : undefined} syncError={hostError ?? runtime.lastAgentError ?? undefined} /> : null}
       <div className="qccPwBody">
-        {shared.view === "output" && hostedTask?.reportReady ? <ReportFilesPanel key={hostedTask.id} taskId={hostedTask.id} sessionId={hostedTask.sessionId} /> : null}
         {shared.view !== "history" ? <MaterialPanel task={hostedTask} /> : null}
         {shared.view === "target" && pendingPlan !== undefined ? <PlanCard key={pendingPlan.id} plan={pendingPlan} onConfirm={async message => { await props.startPrompt(sessionId, message, true); setDismissedPlanIds(ids => [...ids, pendingPlan.id]) }} onDismiss={() => setDismissedPlanIds(ids => [...ids, pendingPlan.id])} /> : null}
-        {shared.view === "target" && pendingPlan === undefined ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} send={async prompt => { await props.startPrompt(sessionId, prompt, true) }} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => setPhase("collect")} /> : null}
+        {shared.view === "target" && pendingPlan === undefined ? <SetupPanel sessionId={sessionId} store={props.shared} task={task} input={resolveSessionInput(props.ctx, sessionId)} send={async prompt => { await props.startPrompt(sessionId, prompt, true) }} start={prompt => props.startPrompt(sessionId, prompt)} onStarted={() => { manualNavigation.current = false; setView("target") }} /> : null}
         {shared.view === "scope" ? <ScopePanel state={shared} task={task} hostedTask={hostedTask} /> : null}
         {shared.view === "collect" ? <OpportunityPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
         {shared.view === "verify" ? <RiskPanel task={task} hostedTask={hostedTask} status={status} events={effectiveEvents} insights={insights} /> : null}
@@ -863,19 +860,20 @@ function PrevisitWorkbenchTab(props: BetterSidebarTabProps & {
           onBack={() => { setSelectedHistory(null); setDownloadNote(undefined) }}
           onDownload={record => { void downloadHistoryReport(record) }}
           onContinue={async (record, intent, requestId) => {
+            manualNavigation.current = false
             if (hostedTask && !HOSTED_TERMINAL.has(hostedTask.state)) throw new Error("请先完成当前任务")
             const prompt = `请基于历史报告创建补充尽调，不修改原报告。调用 previsit_continue，parentTaskId=${record.id}，requestId=${requestId}，intent=${JSON.stringify(intent)}。沿用已确认主体，按返回基础报告补充已支持维度；旧证据保留原日期。使用新任务ID完成 previsit_finalize，生成完整更新报告。`
             const baseline = await props.startPrompt(sessionId, prompt)
-            props.shared.update(sessionId, state => ({ ...state, view: "collect", dismissedTaskIds: [...new Set([...state.dismissedTaskIds, ...(state.task ? [state.task.id] : []), ...(hostedTask ? [hostedTask.id] : [])])], task: { id: requestId, prompt, company: record.entity?.fullName ?? record.query, createdAt: new Date().toISOString(), nodeBaseline: baseline, seenRunning: false, selection: state.selection } }))
+            props.shared.update(sessionId, state => ({ ...state, view: "scope", dismissedTaskIds: [...new Set([...state.dismissedTaskIds, ...(state.task ? [state.task.id] : []), ...(hostedTask ? [hostedTask.id] : [])])], task: { id: requestId, prompt, company: record.entity?.fullName ?? record.query, createdAt: new Date().toISOString(), nodeBaseline: baseline, seenRunning: false, selection: state.selection } }))
           }}
         /> : null}
       </div>
       <footer className="qccPwFooter">
-        <span className="qccPwFooterHint" data-tone={downloadNote === undefined && hostError === undefined ? undefined : "error"}>{downloadNote ?? hostError ?? "宿主收起侧拉或关闭本 Tab 不会取消任务，也不会删除历史或制品。"}</span>
+        <span className="qccPwFooterHint" data-tone={downloadNote === undefined && hostError === undefined ? undefined : "error"}>{downloadNote ?? hostError ?? ""}</span>
         <div className="qccPwFooterActions">
           {shared.view !== "target" && task !== undefined ? <button type="button" className="qccPwSecondary" onClick={newTask}>新的尽调</button> : null}
-          {shared.view === "output"
-            ? <button type="button" className="qccPwPrimary" aria-disabled={status !== "ready" || cardText === null} title={status === "ready" ? "下载为 HTML 文件，可直接打开或打印" : "报告尚未就绪，点击查看原因"} onClick={() => { void downloadReport() }}>下载报告<span>↓</span></button>
+          {shared.view === "output" && hostedTask?.reportReady ? <ReportFilesPanel key={hostedTask.id} taskId={hostedTask.id} sessionId={hostedTask.sessionId} onHtml={() => { void downloadReport() }} /> : shared.view === "output"
+            ? <button type="button" className="qccPwSecondary" aria-disabled={status !== "ready" || cardText === null} onClick={() => { void downloadReport() }}>下载 HTML</button>
             : null}
         </div>
       </footer>
@@ -924,7 +922,7 @@ export function apply(ctx: ClientContext): void {
     if (view !== undefined) locatePrevisitView(shared, sessionId, view)
   }
   const submissions = installSubmissionReveal(ctx, sessionId => {
-    try { openForSession(sessionId, "collect") }
+    try { openForSession(sessionId, "target") }
     catch (cause) {
       // No native notification service is required. Keep a single dismissible,
       // non-modal notice, without claiming that an already accepted send failed.

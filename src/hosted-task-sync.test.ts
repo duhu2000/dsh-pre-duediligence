@@ -85,10 +85,11 @@ describe("Host 任务接管", () => {
   })
 
   it("按 Host 阶段驱动右侧视图和状态", () => {
-    expect(hostedTaskView(makeHosted())).toBe("scope")
-    expect(hostedTaskView(makeHosted({ state: "running", stage: "collect" }))).toBe("collect")
-    expect(hostedTaskView(makeHosted({ state: "running", stage: "verify" }))).toBe("verify")
-    expect(hostedTaskView(makeHosted({ state: "finalizing", stage: "output" }))).toBe("scope")
+    expect(hostedTaskView(makeHosted())).toBe("target")
+    expect(hostedTaskView(makeHosted({ state: "running", stage: "collect" }))).toBe("target")
+    expect(hostedTaskView(makeHosted({ state: "running", stage: "verify" }))).toBe("target")
+    expect(hostedTaskView(makeHosted({ state: "finalizing", stage: "output" }))).toBe("target")
+    expect(hostedTaskView(makeHosted({ state: "entity-confirmed", stage: "scope", entity: {fullName:"示例公司",creditCode:"123"} }))).toBe("scope")
     expect(hostedTaskView(makeHosted({
       state: "finalizing",
       stage: "output",
@@ -196,7 +197,8 @@ describe("Host 任务接管", () => {
     )
     expect(result.task).toMatchObject({ id: record.id, captureId: "turn:7", company: "思必驰科技股份有限公司", nodeBaseline: 7, seenRunning: true })
     expect(result.company).toBe("思必驰科技股份有限公司")
-    expect(result.view).toBe("collect")
+    expect(result.view).toBe("scope")
+    expect(syncHostedTaskState(result, record, null, true).view).toBe("collect")
   })
 
   it("任务开始后以 Host 检索词覆盖继续变化的表单草稿", () => {

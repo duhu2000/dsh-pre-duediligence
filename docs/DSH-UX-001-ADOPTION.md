@@ -1,5 +1,19 @@
 # DSH-UX-001 采纳与验收记录
 
+## Unreleased：原生首页引导接入（UX-49 部分采用）
+
+最终本地复核：40 文件 / 274 测试、typecheck、build 通过；新增入口级主动清空不补填及 A/B 导航竞态回归。npm pack dry-run 通过（99 文件，约 13.93 MB，主要为既有中文字体）；未发布 npm。下文 263/272 项记录为开发过程阶段结果，不是最终计数。
+
+引用权威规范 `AI-设计/DSH智能体开发交互规范方案.md` DSH-UX-001 v1.5.6 的 UX-49、第11.1及14节；UX-48 不变。模板 ID 为 `dsh-initial-draft/previsit/1`，正文严格采用第11.1节，SHA-256 在 `src/initial-draft.ts` 固定并测试。
+
+已实现精确模板识别、向导保护、缺项 Skill 澄清、占位符 begin 防御和产品自有初始化内核。内核只接收显式新 Session 事件、消费标记后异步二次快照、revision=0 防输入后清空竞态、存储异常/能力缺失不写入；没有发送、工具或开台能力。内核端口是内部契约，不是虚构的 DSH 公开 API。
+
+2026-09-15 按用户最新范围，已将原生 setDraft 接入新建访前菜单入口，创建后、打开前写入；不在挂载/恢复/切回时补写。保护已有草稿、附件、引用及输入后清空的修订记录，不自动发送、调用业务工具或展开工作台。新增真实入口函数的模拟 Host 测试，当前 `pnpm check` 40 文件 / 272 测试、类型检查和构建通过。尚未完成真实 DSH A/B/legacy/普通会话、IME、四插件组合验证，也无公开 Host 不抢焦点保证及持久化初始化 ledger。详见兼容记录，不能将此范围内实现等同于完整 UX-49 验收。
+
+本地验证（2026-09-15）：`pnpm check` 通过，40 个测试文件 / 263 项测试、类型检查与构建通过；`git diff --check` 和 `npm pack --dry-run --ignore-scripts` 通过。`pnpm test:ui` 的 Chrome 首个场景进程未正常退出（status=null，未取得 UI 断言结果），不能计为通过。Skill 通用验证器因 Python 缺少 yaml 依赖未运行成功；仓库 Skill 契约测试已通过。完整门禁尚未通过，未 commit/push/创建 PR，无 PR CI 或真实 DSH 证据。
+
+补充验证：Chrome 崩溃记录显示 SIGABRT，调用栈在 macOS `_RegisterApplication`，不是页面断言失败。通过本地只读 HTTP 服务在隔离浏览器重新加载同一构建的 fixture，浅/深色 × 1440×900、390×700 四组均达到 `uiReady=true`，全部布尔 dataset 断言无 false、菜单/历史/回填及页面无横向溢出通过。这是替代浏览器回归，不改写原命令失败记录，也不是实际 DSH 的 UX-49 验收。Python 临时环境补齐 yaml 后，通用 Skill 验证器拒绝原有 DSH `whenToUse` / `user-invocable` 字段；保持 DSH 元数据不变，以本仓 Skill 契约检查为准，不为通过 Codex 格式检查删改 DSH 属性。
+
 ## 0.1.25：只读历史阶段与事实展示
 
 历史导航不改变当前 Session；扫描事实跟随原任务保存。执行成功与风险命中分别展示，不用绿色查询完成暗示企业安全。经营区域使用实际摘要而非固定状态占位。自动发布沿用 main CI → 注释 tag → OIDC npm 发布及 registry 核验。

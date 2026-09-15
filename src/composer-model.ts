@@ -1,3 +1,5 @@
+import { hasUnfilledPlaceholder, isInitialDraft } from "./initial-draft.js"
+
 export const COMPANY_PLACEHOLDER = "（这里输入企业名）"
 
 export type ComposerOption = {
@@ -96,6 +98,7 @@ function hasSelection(selection: ComposerSelection): boolean {
 }
 
 export function routePrevisitPrompt(text: string): string {
+  if (isInitialDraft(text) || hasUnfilledPlaceholder(text)) return text
   if (!text.trim() || text.includes("请使用 qcc-previsit-onepager")) return text
   return text + "\n请使用 qcc-previsit-onepager Skill 执行访前尽调；投资机构角色、深度尽调和完整报告也沿用本流程，不切换为 ic-memo-qcc。先 previsit_begin，再通过 previsit_query 的 entity_search 核实主体，使用 previsit_confirm_entity 绑定后继续查询。"
 }
@@ -219,7 +222,7 @@ export function validateComposerText(text: string): string | undefined {
   if (normalized === "") {
     return "请说明要拜访的企业"
   }
-  if (normalized.includes(COMPANY_PLACEHOLDER)) {
+  if (normalized.includes(COMPANY_PLACEHOLDER) || hasUnfilledPlaceholder(text)) {
     return "请将占位符替换为企业完整注册名称、简称或统一社会信用代码"
   }
   return undefined

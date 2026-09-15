@@ -36,6 +36,9 @@ export type LeftSidebarHost = {
             sessionId: string;
         }): Promise<string>;
         open?(sessionId: string): void;
+        scope?(id: string): {
+            get(name: string): unknown;
+        } | undefined;
     };
     workspaces?: {
         list?: SnapshotStore<WorkspaceSnapshot>;

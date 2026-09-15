@@ -1,5 +1,13 @@
 # 访前尽调兼容与验收记录
 
+## Unreleased：原生 setDraft 预填与 UX-49 兼容边界
+
+审计本机 conversation 0.1.2-rc.1 及 npm next 0.1.5-rc.2：公开 InputState 缺少 IME 状态与显式输入就绪快照；setDraft(text) 调用 selectEnd，没有不改变焦点的选项。不能把 plain 提交态解释为非组合态，不能访问标为 package-internal 的 editor 绕过限制。两个版本分别使用 imageIds / attachmentIds，未知附件状态不能假定为空。
+
+按用户收回范围的明确要求，本轮仅在访前菜单成功创建新 Session 后、open 前，通过公开 sessions.scope / conversation.input.for / state.getSnapshot / setDraft 接入预填。参照数据清洗补全的未挂载输入机写入时机，不读取私有 editor、不修改 Host。两次检查 plain、空草稿、draftRev=0、空 imageIds/attachmentIds 和 occurrences；会话已切换或插件卸载则跳过。初始化只在 create 成功分支调用，刷新、重挂载、旧会话及切回不重放，模块内 Set 额外阻止同 ID 重入；没有生产持久化 ledger，也不声称满足完整 UX-49。Host 缺少必要快照时保留空草稿与手动向导。setDraft 无公开 IME/不抢焦点保证，未挂载写入仅缩小影响范围，不能替代严格的 Host 保证。
+
+测试文件 `src/initial-draft.test.ts` 是产品内核隔离测试，非真实宿主验收；`previsit-tools.test.ts` 额外验证占位符不会创建任务或调用 MCP。缺主体由 Skill 澄清，尚未运行真实模型行为验证。
+
 ## 0.1.25：历史阶段与扫描事实（2026-09-13）
 
 新增可选 run.result 字段保存有界摘要、经营字段及风险因子。兼容旧记录；不从当前任务填补历史缺失。隔离浏览器覆盖历史清单无导航、历史阶段不跳出历史、扫描命中关注色。真实生产 MCP 不纳入合成测试通过声明。

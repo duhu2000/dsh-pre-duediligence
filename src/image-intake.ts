@@ -1,4 +1,5 @@
 import { isPrevisitSession } from "./previsit-session.js"
+import { isInitialDraft } from "./initial-draft.js"
 // 图片/文件名单接入（照数据清洗补全智能体的做法）：
 // 浏览器只把用户明确选择的图片以 Base64 暂存到 Host 的临时文件（0600、15 分钟 TTL）；
 // 真正的文字识别由宿主高层工具在当前 Agent 会话里调用本机 qcc-document-mcp（file_path）完成。
@@ -72,6 +73,7 @@ const cleanCell = (value: string): string => value.replace(/^\s*(?:[-•·●▪
 
 /** 从识别文字里确定性抽出企业名（一行可多家）；不猜测不存在的主体。 */
 export function extractCompanyNames(text: string, max: number = IMAGE_LIMITS.maxEntries): string[] {
+  if (isInitialDraft(text)) return []
   const out: string[] = []
   const seen = new Set<string>()
   for (const rawLine of text.split(/\r?\n/)) {

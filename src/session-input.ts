@@ -1,6 +1,6 @@
 /** DSH's public input registry resolves a stable input machine for one Session. */
 export type SessionInput = {
-  state: { getSnapshot(): { draft: string; phase?: string }; subscribe?(listener: () => void): () => void }
+  state: { getSnapshot(): { draft: string; phase?: string; draftRev?: number; imageIds?: readonly string[]; attachmentIds?: readonly string[]; occurrences?: readonly unknown[] }; subscribe?(listener: () => void): () => void }
   setDraft(text: string): void
 }
 

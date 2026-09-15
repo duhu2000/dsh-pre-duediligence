@@ -6,6 +6,7 @@ import { ReportFiles } from "./report-files.js"
 import { boundedText } from "./material-evidence.js"
 import { summarizeResult } from "./result-summary.js"
 import { toolJson } from "./tool-json.js"
+import { hasUnfilledPlaceholder, isInitialDraft } from "./initial-draft.js"
 import { isPrevisitSession } from "./previsit-session.js"
 import { classifyQccProviderOutcome } from "./tool-outcome.js"
 import { normalizePrevisitRequestId, previsitVerificationClosure, PrevisitWorkflowStore, validatePrevisitReport } from "./previsit-workflow.js"
@@ -229,6 +230,9 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
     sections: { type: "array", items: { type: "string" } }, planId: { type: "string" }, entities: { type: "integer", minimum: 1, maximum: 50 },
   }, ["query", "depth"], async (args, exec, agent) => {
     const query = string(args.query)
+    if (!query.trim() || isInitialDraft(query) || hasUnfilledPlaceholder(query) || query.includes("（这里输入企业名）")) {
+      throw new Error("请先提供企业名称、简称或统一社会信用代码，并替换未填写的占位符；尚未创建尽调任务或查询企业数据。")
+    }
     const depth = string(args.depth) as keyof typeof DEPTHS
     if (!Object.hasOwn(DEPTHS, depth)) throw new Error("无效尽调档位")
     const owner = ownerOf(agent)

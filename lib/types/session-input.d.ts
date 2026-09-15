@@ -4,6 +4,10 @@ export type SessionInput = {
         getSnapshot(): {
             draft: string;
             phase?: string;
+            draftRev?: number;
+            imageIds?: readonly string[];
+            attachmentIds?: readonly string[];
+            occurrences?: readonly unknown[];
         };
         subscribe?(listener: () => void): () => void;
     };

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom"
 
 import { PrevisitLogo } from "./previsit-brand.js"
 import { createPrevisitSession } from "./previsit-session.js"
+import { prefillCreatedPrevisitSession } from "./initial-draft.js"
 
 const WORKSPACES_SLOT_SELECTOR = '[data-slot="sidebar.workspaces"]'
 const LAUNCHER_MOUNT_SELECTOR = '[data-previsit-launcher-mount="true"]'
@@ -47,6 +48,7 @@ export type LeftSidebarHost = {
     list?: SnapshotStore<SessionListSnapshot>
     create?(options: { workspaceId: string; sessionId: string }): Promise<string>
     open?(sessionId: string): void
+    scope?(id: string): { get(name: string): unknown } | undefined
   }
   workspaces?: {
     list?: SnapshotStore<WorkspaceSnapshot>
@@ -163,6 +165,9 @@ export function registerLeftSidebarLauncher(
         const previous = ctx.sessions.list?.getSnapshot().current
         // DSH-UX-001 UX-03/UX-06：业务入口只进入 Session；工作台由输入框下方快捷按钮显式打开。
         const sessionId = await createPrevisitSession(ctx)
+        await prefillCreatedPrevisitSession(ctx, sessionId, () => isActive()
+          && ctx.sessions.list?.getSnapshot().current === previous
+          && previous !== sessionId)
         if (isActive() && ctx.sessions.list?.getSnapshot().current === previous) ctx.sessions.open?.(sessionId)
       },
     }),

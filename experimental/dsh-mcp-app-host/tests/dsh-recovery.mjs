@@ -5,12 +5,12 @@ import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 const repo=new URL('../../../',import.meta.url),path=r=>fileURLToPath(new URL(r,repo));
-const home=path('_scratch/dsh-f24-recovery-profile'),out=path('_scratch/dsh-recovery-evidence');
+const home=path(process.env.F24_TEST_HOME ?? '_scratch/dsh-f24-recovery-profile'),out=path(process.env.F24_TEST_OUTPUT ?? '_scratch/dsh-recovery-evidence');
 await mkdir(out,{recursive:true});
 const delay=ms=>new Promise(r=>setTimeout(r,ms));let child,bootCount=0;
 async function boot(){
  const log=path(`_scratch/dsh-recovery-boot-${++bootCount}.log`),fd=await open(log,'w');
- child=spawn(process.execPath,['/opt/homebrew/lib/node_modules/@deepseek-ai/dsh/lib/bin.js','web','--patch',path('_scratch/f24-saved.patch.yml'),'--host','127.0.0.1','--port','3091','--no-open'],{cwd:path('.'),env:{...process.env,DSH_HOME:home},stdio:['ignore',fd.fd,fd.fd]});
+ child=spawn(process.execPath,['/opt/homebrew/lib/node_modules/@deepseek-ai/dsh/lib/bin.js','web','--patch',path(process.env.F24_TEST_PATCH ?? '_scratch/f24-saved.patch.yml'),'--host','127.0.0.1','--port',process.env.F24_TEST_PORT ?? '3091','--no-open'],{cwd:path('.'),env:{...process.env,DSH_HOME:home},stdio:['ignore',fd.fd,fd.fd]});
  await fd.close();
  for(let i=0;i<200;i++){if(child.exitCode!==null)throw new Error('DSH_BOOT_FAILED (see local log)');const url=(await readFile(log,'utf8')).match(/http:\/\/127[^\s]+/)?.[0];if(url)return url;await delay(100);}
  throw new Error('DSH_BOOT_TIMEOUT');
@@ -56,6 +56,6 @@ try{
  await versions.selectOption(entries[1].id);await app().locator('#meta').filter({hasText:'报告版本 2'}).waitFor();await app().getByRole('button',{name:/保存的材料判断/}).click();await app().locator('#evidence').filter({hasText:'2026-08-01'}).waitFor();assert.match(await app().locator('#evidence').innerText(),/100 万元/);
  await page.reload();await expand();await app().locator('#meta').filter({hasText:'报告版本 2'}).waitFor();
  assert.equal(await digest(taskPath),taskBefore);assert.deepEqual(errors,[]);
- await writeFile(out+'/result.json',JSON.stringify({passed:true,realDSHRestarts:1,filteredVersions:entries.map(e=>e.label),restoredVersion:1,switchedBackVersion:2,taskStorageUnchanged:true,receiptRecoveryReadOnly:true,taskSHA256:taskBefore,logs,errors},null,2));
+ await writeFile(out+'/result.json',JSON.stringify({passed:true,sessionPath:(()=>{const u=new URL(sessionURL);u.searchParams.delete('token');return u.pathname+u.search+u.hash;})(),realDSHRestarts:1,filteredVersions:entries.map(e=>e.label),restoredVersion:1,switchedBackVersion:2,taskStorageUnchanged:true,receiptRecoveryReadOnly:true,taskSHA256:taskBefore,logs,errors},null,2));
  console.log('PASS: real process restart restores selected V1, evidence dates, V2 switchback, receipt read-only recovery and unchanged task bytes');
 }catch(e){console.error(await page.locator('body').innerText().catch(()=>''));await page.screenshot({path:out+'/failure.png'}).catch(()=>{});throw e;}finally{await browser.close();await stop();}

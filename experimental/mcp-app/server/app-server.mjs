@@ -31,7 +31,7 @@ export function createServer({ reader = createReader(snapshot, grant), audit = (
     });
   }
   const meta = { ui: { csp: { connectDomains: [], resourceDomains: [], frameDomains: [] }, prefersBorder: true } };
-  registerAppResource(server, '合成访前报告', resourceUri, { mimeType: RESOURCE_MIME_TYPE, _meta: meta }, async () => {
+  registerAppResource(server, mode === 'saved' ? '访前报告与证据' : '合成访前报告', resourceUri, { mimeType: RESOURCE_MIME_TYPE, _meta: meta }, async () => {
     audit({ method: 'resources/read', outcome: 'ok' });
     return { contents: [{ uri: resourceUri, mimeType: RESOURCE_MIME_TYPE, _meta: meta, text: await readFile(resourcePath, 'utf8') }] };
   });

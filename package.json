@@ -1,6 +1,6 @@
 {
   "name": "dsh-pre-duediligence",
-  "version": "0.1.37",
+  "version": "0.1.38",
   "description": "Pre-visit due diligence and company research in DeepSeek Harness with Host-tracked progress, fixed-route Qichacha MCP calls, entity confirmation, and downloadable reports.",
   "license": "MIT",
   "repository": {
@@ -46,9 +46,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:ui": "node scripts/ui-layout-regression.mjs",
-    "check": "pnpm run typecheck && pnpm run test && pnpm run build",
+    "check": "pnpm run typecheck && pnpm run test && pnpm run build && pnpm run test:report-app",
     "prepare": "pnpm run build",
-    "prepublishOnly": "pnpm run check"
+    "prepublishOnly": "pnpm run check",
+    "test:report-app": "PREVISIT_PRODUCTION_APP=1 node --test experimental/mcp-app/tests/service.test.mjs experimental/mcp-app/tests/build.test.mjs experimental/mcp-app/tests/saved-reader.test.mjs experimental/dsh-mcp-app-host/tests/*.test.mjs"
   },
   "dsh": {
     "bundle": {
@@ -59,7 +60,9 @@
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-sidebar"
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-tool"
       ]
     }
   },
@@ -121,7 +124,12 @@
     "customer-research"
   ],
   "dependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/core": "2.0.0",
+    "@modelcontextprotocol/ext-apps": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "docx": "^9.7.1",
-    "pdfkit": "^0.20.2"
+    "pdfkit": "^0.20.2",
+    "zod": "4.2.0"
   }
 }

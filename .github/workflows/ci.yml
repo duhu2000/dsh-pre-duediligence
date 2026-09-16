@@ -65,6 +65,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Report App gates
+        run: pnpm test:report-app
+
       - name: Isolated browser UI (not real DSH)
         run: pnpm test:ui
         env:

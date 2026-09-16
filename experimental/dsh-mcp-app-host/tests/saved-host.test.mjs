@@ -1,7 +1,7 @@
 import {receiptStorage} from './receipt-storage.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {apply} from '../lib/saved.js';
+const {apply} = await import(process.env.PREVISIT_PRODUCTION_APP ? '../../../lib/report-host.js' : '../lib/saved.js');
 import {savedTask} from '../../mcp-app/tests/saved-fixture.mjs';
 test('saved host binds real execution identity, rechecks source and fails after change/revoke/dispose',async()=>{
  let record=savedTask(),handler,definition,reads=0;const releases=[];

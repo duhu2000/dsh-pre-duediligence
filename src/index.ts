@@ -1,3 +1,4 @@
+import { apply as applyReportHost } from "./report-host.js"
 import { createSavedReportSource, type SavedReportSource } from "./saved-report-source.js"
 import { ImageIntakeStore } from "./image-intake.js"
 import { mountImageRoutes } from "./image-web.js"
@@ -56,7 +57,7 @@ export function loadBundledSkill(): SkillRegistration {
     },
     metadata: {
       author: "QCC",
-      version: "0.1.37",
+      version: "0.1.38",
       industry: "enterprise-services",
       mcpServers: ["qcc-company", "qcc-risk", "qcc-ipr", "qcc-operation", "qcc-executive"],
     },
@@ -66,6 +67,9 @@ export function loadBundledSkill(): SkillRegistration {
 export function apply(ctx: HostContext): void {
   const workflow = new PrevisitWorkflowStore()
   ctx.provide?.("previsitSavedReports", createSavedReportSource(workflow))
+  ctx.inject?.(["connection", "storageDomain", "previsitSavedReports"], async reportCtx => {
+    await applyReportHost(reportCtx, { savedReports: true })
+  })
   const files = new ReportFiles()
   const images = new ImageIntakeStore(ctx.tools)
   ctx.effect(() => registerPrevisitTools(ctx, workflow, { images, files }))

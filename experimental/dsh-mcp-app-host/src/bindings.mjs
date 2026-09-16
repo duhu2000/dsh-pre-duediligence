@@ -8,18 +8,18 @@ export const APP_TOOLS = ['previsit_evidence_get', 'previsit_artifacts_list'];
 const check = (ok, message) => { if (!ok) throw new Error(message); };
 
 // Synthetic demonstration grants; not a mapping to real DSH Profile history.
-export function createBindings({ ttlMs = 900000, maxViews = 100, now = Date.now } = {}) {
+export function createBindings({ ttlMs = 900000, maxViews = 100, now = Date.now, validateReport = (r, args) => r?.synthetic === true && r.schemaVersion === '1.0' && r.reportId === args.reportId && r.reportVersion === args.reportVersion && r.entity?.id === 'synthetic-company-a' } = {}) {
   const views = new Map();
   const sweep = () => { for (const [id, view] of views) if (now() >= view.expiresAt) views.delete(id); };
   return {
-    mint({ sessionId, callId, args, result }) {
+    mint({ sessionId, callId, args, result, scope }) {
       sweep();
       check(sessionId && callId, 'MISSING_EXECUTION_IDENTITY');
       check(views.size < maxViews, 'VIEW_LIMIT_REACHED');
       const r = result.structuredContent;
-      check(!result.isError && r?.synthetic === true && r.schemaVersion === '1.0' && r.reportId === args.reportId && r.reportVersion === args.reportVersion && r.entity?.id === 'synthetic-company-a', 'INVALID_SYNTHETIC_REPORT');
+      check(!result.isError && validateReport(r, args), 'INVALID_SYNTHETIC_REPORT');
       const viewId = randomUUID();
-      const view = structuredClone({ viewId, sessionId, callId, args, result, resourceUri: RESOURCE, expiresAt: now() + ttlMs });
+      const view = structuredClone({ viewId, sessionId, callId, args, result, ...(scope ? {scope} : {}), resourceUri: RESOURCE, expiresAt: now() + ttlMs });
       views.set(viewId, view);
       return { viewId, sessionId, callId, result: structuredClone(result) };
     },

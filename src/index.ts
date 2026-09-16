@@ -1,3 +1,4 @@
+import { createSavedReportSource, type SavedReportSource } from "./saved-report-source.js"
 import { ImageIntakeStore } from "./image-intake.js"
 import { mountImageRoutes } from "./image-web.js"
 import { readFileSync } from "node:fs"
@@ -29,6 +30,7 @@ type SkillRegistration = {
 }
 
 export type HostContext = ToolHost & {
+  provide?(name: "previsitSavedReports", value: SavedReportSource): unknown
   effect(setup: () => void | (() => void)): unknown
   inject?(deps: string[], setup: (ctx: HostContext & { webServer: WebServer; storageDomain: StorageDomain }) => void): unknown
   logger?: { info?(message: string): void; warn?(message: string): void }
@@ -63,6 +65,7 @@ export function loadBundledSkill(): SkillRegistration {
 
 export function apply(ctx: HostContext): void {
   const workflow = new PrevisitWorkflowStore()
+  ctx.provide?.("previsitSavedReports", createSavedReportSource(workflow))
   const files = new ReportFiles()
   const images = new ImageIntakeStore(ctx.tools)
   ctx.effect(() => registerPrevisitTools(ctx, workflow, { images, files }))

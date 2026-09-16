@@ -1,0 +1,51 @@
+import {chromium} from '../../mcp-app/node_modules/playwright/index.mjs';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+const repo=new URL('../../../',import.meta.url),file=p=>new URL(p,repo);
+const out=file('_scratch/dsh-saved-evidence/');await mkdir(out,{recursive:true});
+const url=(await readFile(file('_scratch/dsh-saved-host.log'),'utf8')).match(/http:\/\/127[^\s]+/)[0];
+const browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(15000);
+const logs=[],errors=[];page.on('console',m=>{if(m.text().startsWith('F24'))logs.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
+await page.addInitScript(()=>{window.__wire=[];window.addEventListener('message',e=>{if(e.data?.jsonrpc)window.__wire.push(e.data);});});
+try {
+ await page.goto(url);await page.getByRole('button',{name:'设置',exact:true}).waitFor();
+ await page.getByRole('button',{name:'继续',exact:true}).waitFor({timeout:2500}).catch(()=>{});
+ if(await page.getByRole('button',{name:'继续',exact:true}).count())await page.getByRole('button',{name:'继续',exact:true}).click();
+ if(await page.locator('[contenteditable=true]').getAttribute('aria-label')==='选择工作区'){
+  await page.getByRole('button',{name:'选择工作区',exact:true}).click();await page.getByText('F24 已保存报告验收',{exact:true}).last().click();
+ }
+ await page.getByRole('button',{name:'选择模型，当前 F24 保存格式验收（合成）',exact:true}).waitFor();
+ await page.waitForTimeout(800);
+ await page.locator('[contenteditable=true]').click();
+ await page.locator('[contenteditable=true]').pressSequentially('验证已保存报告读取（合成业务格式样本）',{delay:20});
+ console.log('Editor:',await page.locator('[contenteditable=true]').innerText());await page.getByRole('button',{name:'发送消息',exact:true}).click();
+ await page.getByRole('button',{name:'2 次工具调用',exact:true}).waitFor();await page.getByRole('button',{name:'2 次工具调用',exact:true}).click();
+ const app=page.frameLocator('iframe');await app.getByRole('heading',{name:'保存格式示例公司（合成）'}).waitFor();
+ console.log('Saved report displayed in DSH');
+ const storage=file('_scratch/dsh-f24-saved-profile/storages/previsit_tasks_v1.json');
+ const before=await readFile(storage);const hash=b=>createHash('sha256').update(b).digest('hex');
+ await app.getByRole('button',{name:/保存的材料判断/}).click();await app.locator('#evidence').filter({hasText:'2026-08-01'}).waitFor();
+ const frame=await(await app.locator('html').elementHandle()).ownerFrame();assert.equal(await frame.evaluate(()=>window.externalInstruction),undefined);
+ await app.getByRole('button',{name:/沿用旧版查询摘要/}).click();await app.locator('#evidence').filter({hasText:'2026-08-20T01:00:00Z'}).waitFor();assert.match(await app.locator('#evidence').innerText(),/来源日期：未记录/);
+ await app.getByRole('button',{name:/旧版缺失证据引用/}).click();await app.getByRole('alert').filter({hasText:'EVIDENCE_NOT_SAVED'}).waitFor();
+ await app.getByRole('button',{name:/保存的材料判断/}).click();await app.locator('#evidence').filter({hasText:'2026-08-01'}).waitFor();
+ assert.match(await app.locator('#artifacts').innerText(),/仅登记信息/);
+ await page.locator('[data-f24-report]').evaluate(e=>e.scrollIntoView({block:'start'}));await page.screenshot({path:new URL('saved-dsh.png',out).pathname,fullPage:true});
+ await page.getByRole('button',{name:'关闭报告',exact:true}).click();await page.locator('iframe').waitFor({state:'detached'});assert.ok(logs.includes('F24 teardown-complete'));
+ await page.getByRole('button',{name:'重新打开报告',exact:true}).click();await app.getByRole('heading',{name:'保存格式示例公司（合成）'}).waitFor();
+ await page.reload();await page.getByRole('button',{name:'2 次工具调用',exact:true}).waitFor();await page.getByRole('button',{name:'2 次工具调用',exact:true}).click();await app.getByRole('heading',{name:'保存格式示例公司（合成）'}).waitFor();
+ await app.getByRole('button',{name:/沿用旧版查询摘要/}).click();await app.locator('#evidence').filter({hasText:'2026-08-20T01:00:00Z'}).waitFor();
+ const after=await readFile(storage);assert.equal(hash(before),hash(after));assert.deepEqual(errors,[]);
+ await page.locator('[contenteditable=true]').fill('验证错误版本');await page.getByRole('button',{name:'发送消息',exact:true}).click();
+ await page.getByRole('button',{name:'2 次工具调用',exact:true}).last().waitFor();
+ await page.waitForFunction(()=>document.querySelectorAll('[data-f24-report]').length>=2);
+ const failedCard=page.locator('[data-f24-report]').last();
+ if(!await failedCard.isVisible()) await page.getByRole('button',{name:'2 次工具调用',exact:true}).last().click();
+ await failedCard.getByRole('alert').filter({hasText:'VERSION_NOT_FOUND'}).waitFor();
+ assert.equal(await failedCard.locator('iframe').count(),0);
+ const wire=(await Promise.all(page.frames().map(f=>f.evaluate(()=>window.__wire??[])))).flat();
+ await writeFile(new URL('result.json',out),JSON.stringify({passed:true,storageUnchanged:true,initialErrorDisplayed:true,storageSHA256:hash(after),logs,errors,wire},null,2));
+ console.log('PASS: saved business record, source dates, missing evidence, recovery, close/reopen/refresh, storage bytes unchanged');
+}catch(e){console.error(await page.locator('body').innerText());await page.screenshot({path:new URL('failure.png',out).pathname});throw e;}finally{await browser.close();}

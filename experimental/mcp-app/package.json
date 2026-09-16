@@ -7,7 +7,7 @@
     "node": "^24.0.0"
   },
   "scripts": {
-    "test": "node --test tests/service.test.mjs tests/build.test.mjs",
+    "test": "node --test tests/service.test.mjs tests/build.test.mjs tests/saved-reader.test.mjs",
     "build": "node build.mjs",
     "start": "node server/main.mjs",
     "test:protocol": "node --test tests/protocol.test.mjs",

@@ -309,6 +309,14 @@ export class PrevisitWorkflowStore {
     return this.attachPromise
   }
 
+  /** Detached read for report presentation. Never normalizes, migrates or persists. */
+  async readSnapshot(id: string): Promise<PrevisitTaskRecord | undefined> {
+    await this.attachPromise
+    const value = this.records.get(id) ?? await this.table?.get(id)
+    if (value === null || typeof value !== "object") return undefined
+    return structuredClone(value as PrevisitTaskRecord)
+  }
+
   async list(sessionId?: string): Promise<PrevisitTaskRecord[]> {
     const records: PrevisitTaskRecord[] = []
     for (const cached of this.records.values()) {

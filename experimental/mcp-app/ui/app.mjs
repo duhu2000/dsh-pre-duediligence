@@ -3,7 +3,7 @@ const app = new App({ name: 'Previsit report reader', version: '0.0.0' });
 const el = id => document.getElementById(id);
 let report, generation = 0, disposed = false;
 const pending = new Set();
-const labels = { supported: '有证据支持', contradicted: '有反证', insufficient: '证据不足', 'no-data': '无记录', failed: '失败', 'not-covered': '未覆盖', unknown: '待确认' };
+const labels = { supported: '有证据支持', contradicted: '有反证', insufficient: '证据不足', 'no-data': '无记录', failed: '失败', 'not-covered': '未覆盖', unknown: '待确认', done: '查询成功', skipped: '无需执行', 'no-permission': '无权限', 'not-executed': '未执行', running: '保存时尚未结束', partial: '部分支持', pending: '待验证', onsite: '待客户确认' };
 const text = (tag, value) => { const node = document.createElement(tag); node.textContent = value; return node; };
 function error(message) { el('error').textContent = message; }
 async function showEvidence(finding, button) {
@@ -33,13 +33,17 @@ app.ontoolresult = result => {
   const r = result.structuredContent;
   if (!r || r.schemaVersion !== '1.0' || !r.sections || !r.findings || !r.coverage) { error('报告字段缺失或版本不受支持'); return; }
   report = r;
+  el('badge').textContent = r.sourceKind === 'saved-task' ? '访前尽调 · 已保存报告' : '访前尽调 · 合成数据实验';
+  el('artifacts').textContent = r.artifacts?.length ? r.artifacts.map(a => `${a.fileName}（仅登记信息，未提供下载）`).join('；') : '本报告无已登记文件。';
+  el('original').hidden = !r.originalMarkdown;
+  el('original-text').textContent = r.originalMarkdown ?? '';
   el('title').textContent = r.entity.fullName;
   el('meta').textContent = `报告版本 ${r.reportVersion} · 生成于 ${r.generatedAt} · 数据时点 ${r.dataAsOf}`;
   el('status').textContent = r.status === 'partial' ? '报告已保存 · 部分覆盖' : '报告已保存';
   el('summary').textContent = r.summary; el('limitations').textContent = r.limitations.join(' ');
   el('evidence').textContent = '点击上方判断，读取本版本已保存证据。';
   for (const id of ['findings', 'nav', 'sections', 'coverage']) el(id).replaceChildren();
-  for (const f of r.findings) { const b = text('button', `${f.title} · ${labels[f.status] ?? '待核验'} → 查看证据`); b.type = 'button'; b.addEventListener('click', () => showEvidence(f, b)); el('findings').append(b); }
+  for (const f of r.findings) { const b = text('button', `${f.title} · ${labels[f.status] ?? '待核验'} → 查看证据`); b.type = 'button'; if (!f.evidenceIds.length) { b.disabled = true; b.textContent = `${f.title} · 未保存证据关联`; } b.addEventListener('click', () => showEvidence(f, b)); el('findings').append(b); }
   r.sections.forEach((s, i) => { const a = text('a', s.title); a.href = `#section-${i}`; el('nav').append(a); const section = document.createElement('article'); section.id = `section-${i}`; section.append(text('h2', s.title), text('p', s.text)); el('sections').append(section); });
   for (const c of r.coverage) { const p = text('p', `${c.title} · ${labels[c.status] ?? '待核验'}\n${c.detail}`); p.className = 'coverage'; el('coverage').append(p); }
   el('report').hidden = false; console.info('F24 report-rendered');

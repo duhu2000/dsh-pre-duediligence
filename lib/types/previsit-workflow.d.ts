@@ -118,6 +118,8 @@ export declare class PrevisitWorkflowStore {
         info?(message: string): void;
         warn?(message: string): void;
     }): Promise<void>;
+    /** Detached read for report presentation. Never normalizes, migrates or persists. */
+    readSnapshot(id: string): Promise<PrevisitTaskRecord | undefined>;
     list(sessionId?: string): Promise<PrevisitTaskRecord[]>;
     get(id: string): Promise<PrevisitTaskRecord | undefined>;
     put(record: PrevisitTaskRecord): Promise<PrevisitTaskRecord>;

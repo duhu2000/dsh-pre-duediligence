@@ -1,3 +1,4 @@
+import { type SavedReportSource } from "./saved-report-source.js";
 import { type WebServer } from "./previsit-web.js";
 import { type ToolHost } from "./previsit-tools.js";
 import { type StorageDomain } from "./previsit-workflow.js";
@@ -17,6 +18,7 @@ type SkillRegistration = {
     metadata: Readonly<Record<string, unknown>>;
 };
 export type HostContext = ToolHost & {
+    provide?(name: "previsitSavedReports", value: SavedReportSource): unknown;
     effect(setup: () => void | (() => void)): unknown;
     inject?(deps: string[], setup: (ctx: HostContext & {
         webServer: WebServer;

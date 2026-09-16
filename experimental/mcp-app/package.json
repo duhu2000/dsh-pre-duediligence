@@ -1,0 +1,28 @@
+{
+  "name": "previsit-mcp-app-experiment",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^24.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/service.test.mjs tests/build.test.mjs",
+    "build": "node build.mjs",
+    "start": "node server/main.mjs",
+    "test:protocol": "node --test tests/protocol.test.mjs",
+    "test:host": "node tests/basic-host.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/core": "2.0.0",
+    "@modelcontextprotocol/ext-apps": "2.0.0",
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "zod": "4.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "playwright": "1.57.0"
+  }
+}

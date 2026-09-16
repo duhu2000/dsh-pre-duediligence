@@ -35,7 +35,7 @@ Load **only one** Host entry: `lib/saved.js` with `{savedReports: true}`. It inj
 
 The service owns the Profile store. Session ID and workspace come from `exec.agent.session.id` and `exec.agent.session.header.cwd`; the App cannot supply either. Report ID is the exact PV task ID (not a root ID alias), with an explicit version. Reads are restricted to the owning session and workspace. The dedicated `readSnapshot` path does not call the existing normalizing/writing `get/list` methods, nor reopen the single-owner storage domain.
 
-Each view uses the standard MCP client/server protocol over an in-memory transport. Every App read reauthorizes through the source and compares the original snapshot digest. Deleted, reassigned or changed records fail closed. Memory grants still expire in 15 minutes; after Host restart, execute the report tool again. Automatic durable grant recovery and cross-session history browsing are not implemented.
+Each view uses the standard MCP client/server protocol over an in-memory transport. Every App read reauthorizes through the source and compares the original snapshot digest. Deleted, reassigned or changed records fail closed. Saved-mode cards now persist a minimal receipt in the separate `f24_saved_views_v1` Host domain. The receipt stores trusted execution identity, active report/version, previously seen content digests, and a fixed 30-day expiry, never report text or evidence. Resource reads rebuild the result from the authorized source, including after Host restart. A receipt does not replace source authorization. The original HTTP synthetic mode still uses 15-minute memory grants.
 
 Projection preserves original Markdown, eight report sections, saved finding-to-evidence links, run outcomes and original source dates. Material quotes require a matching material checksum and quote. Query summaries are labeled summaries, with collection time distinct from unknown source date. Missing historical links are not inferred. Registered HTML artifacts are metadata only; PDF/DOCX registry integration and downloads remain out of scope.
 
@@ -48,3 +48,14 @@ Projection preserves original Markdown, eight report sections, saved finding-to-
 5. Evidence: `_scratch/dsh-saved-evidence/result.json` and `saved-dsh.png`. The test checks that task-storage SHA-256 stays unchanged across viewing, evidence clicks, close/reopen and browser refresh. Initial wrong-version failures render a visible error, not an indefinite waiting state.
 
 Root `pnpm test` covers the business source only (reference downloads and Node-test experiments are intentionally excluded). Run the adjacent package and Host tests separately. All samples are synthetic in the real business storage format; this is not validation against customer reports or a production authorization certification.
+
+
+### Recovery and version history
+
+The Host toolbar lists published versions in the same report family, session, workspace and legal entity. Other owners, subjects and drafts are excluded; duplicate version numbers fail explicitly. Selection is saved in the Host receipt so refresh, close/reopen and process restart restore the selected version. Switching revisits pinned digests: a previously viewed version that changed in place cannot silently replace the original.
+
+Business report storage stays read-only. Creating a card and selecting a version write only the separate Host receipt domain. Reading/restoring a card does not write the receipt either. The Host caps receipts at 1,000 and version pins at 100; expired receipts are removed when creating another card. Expiry is absolute and never renewed by reads or switches. After 30 days, source changes, or a missing receipt, execute the opening tool again. Cards created by earlier experiment commits have no durable receipt and require one fresh tool execution; no authority is reconstructed from their browser metadata.
+
+Run `node tests/prepare-saved-profile.mjs`, then `npm run test:recovery`. This test owns two launches of the supported installed `dsh web` CLI, an isolated `_scratch/dsh-f24-recovery-profile`, and port 3091. It actually stops/restarts DSH, reauthenticates using the new local launch token, reopens the existing session, and checks V1 restoration, original evidence, V2 switchback, hidden cross-owner/subject versions, and unchanged report/receipt bytes during recovery. It shuts down its own processes and archives only token-free evidence in `_scratch/dsh-recovery-evidence`.
+
+This is still a single local Profile authorization model. Cross-session browsing, multiuser account permissions, rollout to a daily Profile, and real customer-report compatibility are not covered by the synthetic acceptance.

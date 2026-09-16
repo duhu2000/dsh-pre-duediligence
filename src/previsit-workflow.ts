@@ -317,6 +317,14 @@ export class PrevisitWorkflowStore {
     return structuredClone(value as PrevisitTaskRecord)
   }
 
+  /** Read-only inventory for scoped version metadata; no compatibility writes. */
+  async listSnapshots(): Promise<PrevisitTaskRecord[]> {
+    await this.attachPromise
+    const saved = new Map<string, unknown>(this.table?.entries() ?? [])
+    for (const [id, value] of this.records) saved.set(id, value)
+    return structuredClone([...saved.values()].filter(value => value !== null && typeof value === "object") as PrevisitTaskRecord[])
+  }
+
   async list(sessionId?: string): Promise<PrevisitTaskRecord[]> {
     const records: PrevisitTaskRecord[] = []
     for (const cached of this.records.values()) {

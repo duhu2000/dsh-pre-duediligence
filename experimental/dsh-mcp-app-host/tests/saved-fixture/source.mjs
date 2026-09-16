@@ -27,7 +27,16 @@ export async function apply(ctx){
  ctx.effect(()=>ctx.tools.register({name:'f24_fixture_prepare',description:'仅用于合成验收：预置业务格式保存记录。',parameters:{type:'object',properties:{},additionalProperties:false},output:{schema:{type:'object',properties:{reportId:{type:'string'}},required:['reportId'],additionalProperties:false},render:(_a,v)=>[{type:'text',text:JSON.stringify(v)}]},async execute(_a,exec){
   const t=savedTask(exec.agent.session.id,exec.agent.session.header.cwd);const key=createHash('sha256').update(t.sessionId).digest('hex').slice(0,12).toUpperCase();
   t.id=`PV-20260916-${key}-V2`;t.rootTaskId=t.parentTaskId=`PV-20260916-${key}-V1`;
-  await store.put({...t,id:t.parentTaskId,reportVersion:1});await store.put(t);return {reportId:t.id};
+  const first=structuredClone({...t,id:t.parentTaskId,reportVersion:1});
+  delete first.parentTaskId;
+  first.reportMarkdown=first.reportMarkdown.replaceAll('业务存储格式合成样本','V1 历史保存样本');
+  first.materials[0].text=first.materials[0].text.replace('100','50');
+  first.materials[0].sha256=createHash('sha256').update(first.materials[0].text).digest('hex');
+  first.materials[0].sourceDate='2026-07-01';first.evidenceFacts[0].quote=first.materials[0].text;first.evidenceFacts[0].value='50';
+  await store.put(first);await store.put(t);
+  await store.put({...t,id:t.id.replace('-V2','-V3'),reportVersion:3,sessionId:'another-session'});
+  await store.put({...t,id:t.id.replace('-V2','-V4'),reportVersion:4,entity:{fullName:'另一个主体（合成）',creditCode:'ANOTHER'}});
+  return {reportId:t.id};
  }}));
  ctx.effect(()=>ctx.llm.registerAdapter(['f24-saved-fixture'],new Fixture()));
 }

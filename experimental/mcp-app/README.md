@@ -50,3 +50,7 @@ The browser test uses installed macOS Chrome and a temporary Playwright profile.
 - UI renders text via `textContent`; the fixture deliberately contains script-looking material.
 - Initial result, click error/retry, duplicate click, teardown/remount and page refresh are tested. App/host cancellation and interrupted transport recovery are implemented only in limited form and not fully fault-tested.
 - No actual DSH or other production client acceptance. No remote authentication, real data, file downloads, supplement workflow, publication or deployment.
+
+## Installed DSH capability audit
+
+`node --test tests/dsh-installed-bridge.test.mjs` is a read-only, machine-specific probe for the installed `@deepseek-ai/dsh-mcp-client@0.1.2-rc.1`. It executes the artifact's extracted `syncTools` function with synthetic dependencies and inspects the installed tool-slot/RPC declarations. It confirms that this bridge does not forward UI discovery metadata and registers app-only tools as ordinary tools. The installed renderer exposes the keyed `tool.call.toolview` slot but lacks `tool.call.takeover` required by the inspected OpenMA renderer. This is not DSH GUI acceptance and does not execute or install a community plugin. Changed installed versions require a new audit.

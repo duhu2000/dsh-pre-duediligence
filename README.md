@@ -1,6 +1,14 @@
-# dsh-pre-duediligence
+# 访前尽调智能体 · dsh-pre-duediligence
 
-0.1.37 分离资料采集与证据核验：采集仅展示来源数据，核验前置风险研判并展示机会假设、支持、反证及证据缺口。支持有真实引用的阶段性风险分级；无需执行项目合并说明。“现场验证”改为“证据验证”，待沟通事项明确为“待客户确认”。保留报告版本、历史回看及离线中文 PDF/Word 导出。详见 [发布说明](docs/RELEASE-0.1.37.md)。
+拜访客户前，快速了解企业背景、经营动态与风险线索，整理值得核实的问题，生成可追溯的访前报告。面向银行客户经理、销售/BD、采购、投资及园区招商人员，在 DeepSeek Harness 原生会话中使用企查查 MCP 数据。
+
+- **资料采集**：确认企业主体，按拜访目标整理客观数据摘要与覆盖范围。
+- **证据核验**：区分事实、推断、支持与反证，突出风险线索及待确认事项。
+- **报告与复访**：在线预览，导出 HTML、Word、PDF；查看历史，继续尽调并保留报告版本。
+
+[安装与上手](#安装与三分钟上手) · [功能概览](#功能概览) · [兼容说明](docs/COMPATIBILITY.md) · [更新日志](CHANGELOG.md) · [历史文档](docs/archive/legacy-changes/README.md)
+
+当前发布版本：**0.1.37**。本版精简“无需执行”清单，移除内部引用 ID；详见 [发布说明](docs/RELEASE-0.1.37.md)。
 
 ## 安装与三分钟上手
 
@@ -23,7 +31,7 @@ dsh plugin --profile web add dsh-pre-duediligence@0.1.37
 相关智能体：[数据清洗补全](https://github.com/duhu2000/dsh-data-cleaning-agent) · [AI填表](https://github.com/duhu2000/dsh-form-fill-agent) · [访前尽调](https://github.com/duhu2000/dsh-pre-duediligence) · [招投标](https://github.com/duhu2000/dsh-tender-workbench)
 
 
-版本：**0.1.30**。本版保持 DSH-UX-001 v1.5.2 的 Workspace / Session 隔离、工作台初始关闭和核验完成门，并修复 Host 布局变化后的首页标题定位、菜单加载态文案以及历史详情与报告下载。当前任务、阶段进度、报告回写及下载仍绑定当前 Session；历史详情只读取记录所属 Session，不重新调用企查查。旧记录缺少来源时继续明确显示“未记录（旧记录）”，只进入 Profile 历史且不会被当前 Session 认领。本轮自动化使用合成 Host 记录，不声明生产账号全链路验收通过。详见 [更新日志](CHANGELOG.md)、[作用域契约](docs/TASK-SCOPE-HISTORY-CONTRACT.md)、[采用记录](docs/DSH-UX-001-ADOPTION.md)、[兼容与验收矩阵](docs/COMPATIBILITY.md)和[市场投稿登记](docs/MARKETPLACE.md)。
+开发与验收资料：[作用域契约](docs/TASK-SCOPE-HISTORY-CONTRACT.md) · [规范采用记录](docs/DSH-UX-001-ADOPTION.md) · [兼容与验收矩阵](docs/COMPATIBILITY.md) · [市场投稿登记](docs/MARKETPLACE.md)。自动化测试不等同于真实 DSH 与生产数据全链路验收。
 
 面向 DeepSeek Harness 的 Session 级访前尽调智能体。业务人员从左侧菜单进入，在会话级工作台定义一次拜访；Agent 调用企查查五类 MCP，使用机会与风险双引擎完成经营状态识别、假设与反证、风险核验，最终交付可追溯的访前尽调报告。
 

@@ -9,7 +9,6 @@ await mkdir("lib", { recursive: true })
 
 await build({
   entryPoints: ["src/index.ts"],
-  external: ["./report-host.js"],
   outfile: "lib/index.js",
   bundle: true,
   format: "esm",
@@ -20,11 +19,7 @@ await build({
 })
 
 const clientResult = await build({
-  stdin: { contents: `export * from "./src/client.tsx";
-import { apply as workbench, inject as workbenchInject } from "./src/client.tsx";
-import { apply as report, inject as reportInject } from "./experimental/dsh-mcp-app-host/src/client.jsx";
-export const inject = [...new Set([...workbenchInject, ...reportInject])];
-export function apply(ctx) { workbench(ctx); report(ctx); }`, resolveDir: process.cwd(), sourcefile: "production-client.mjs" },
+  entryPoints: ["src/client.tsx"],
   bundle: true,
   format: "cjs",
   platform: "browser",
@@ -59,7 +54,8 @@ ${clientOutput.text.replace(/[ \t]+$/gm, "")}
 
 await writeFile("lib/client.js", wrappedClient, "utf8")
 
-// The main plugin injects the saved-report host from this sibling runtime entry.
+// Preserve experimental artifacts for explicit isolated testing only.
+// Neither the main plugin nor its client loads these artifacts by default.
 // The synthetic server and test fixture are never installed or activated.
 await build({
   entryPoints: ["experimental/dsh-mcp-app-host/src/saved-index.mjs"],

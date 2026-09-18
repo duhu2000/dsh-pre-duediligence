@@ -43,7 +43,7 @@ globalThis.fetch = (async (input) => {
         runs: [
           { id: "scan", dimension: "risk_scan", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "合成扫描摘要", facts: [], factors: [{ name: "合成风险因子", count: 12 }] } },
           { id: "bidding", dimension: "bidding", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "", facts: ["总数：490", "records[1] · 项目名称：合成中标项目"], factors: [] } },
-          { id: "profile", dimension: "profile", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "", facts: ["企业名称：历史企业甲"], factors: [] } },
+          { id: "profile", dimension: "profile", status: "done", quotaUsed: true, startedAt: detail.createdAt, completedAt: detail.completedAt, result: { summary: "", facts: ["企业名称：历史企业甲"], factors: [], portrait: {products:["合成画像产品"],scale:"中型",qccIndustry:"一级：信息技术 / 三级：数据服务"} } },
         ],
         artifact: { id: "history-report", format: "html", fileName: "历史企业甲访前报告.html", mediaType: "text/html; charset=utf-8", createdAt: detail.completedAt },
         reportMarkdown: "# 访前尽调报告 · 历史企业甲\n## 1、核心研判\n历史报告正文",
@@ -293,7 +293,7 @@ window.setTimeout(() => {
             const collectStage = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="历史任务阶段"] button')].find(button => button.textContent?.includes("资料采集"))
             flushSync(() => collectStage?.click())
             document.body.dataset.collectionOnly = String(document.querySelector(".qccPwAnalysis") === null && document.querySelector(".qccPwRiskSummary") === null)
-            document.body.dataset.businessSummary = String(document.querySelector(".qccPwBody")?.textContent?.includes("合成中标项目") === true && document.querySelector(".qccPwBody")?.textContent?.includes("暂未提取到业务摘要") === true)
+            document.body.dataset.businessSummary = String(document.querySelector(".qccPwBody")?.textContent?.includes("合成中标项目") === true && document.querySelector(".qccPwPortrait")?.textContent?.includes("合成画像产品") === true && document.querySelector(".qccPwPortrait")?.textContent?.includes("一级：信息技术") === true)
             const historyStage = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="历史任务阶段"] button')].find(button => button.textContent?.includes("证据核验"))
             flushSync(() => historyStage?.click())
             document.body.dataset.verificationOnly = String(document.querySelector(".qccPwSummaryGrid") === null && document.querySelector(".qccPwRiskSummary") !== null)

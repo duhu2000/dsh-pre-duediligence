@@ -53,6 +53,16 @@ function fixture() {
 }
 
 describe("Agent-owned paid-query boundary", () => {
+  it("persists expanded profile through the existing bound route with one dispatch", async () => {
+    const f = fixture(), taskId = await f.begin()
+    await f.anchor(taskId)
+    f.setReply({ status: "success", data: { 主营产品: ["合成产品"], 企业规模: "中型", 企查查行业: {一级:"信息服务"} } })
+    const before = f.dispatch.mock.calls.length
+    await f.call("previsit_query", {taskId, dimension:"profile"})
+    expect(f.dispatch.mock.calls.length - before).toBe(1)
+    const task = await f.workflow.get(taskId)
+    expect(task?.runs.find(run => run.dimension === "profile")?.result?.portrait).toMatchObject({products:["合成产品"],scale:"中型",qccIndustry:"一级：信息服务"})
+  })
   it("records evidence-linked analysis revisions without extra queries and protects publication", async () => {
     const f = fixture(), taskId = await f.begin()
     await f.anchor(taskId)

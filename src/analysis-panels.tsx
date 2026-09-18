@@ -3,6 +3,7 @@ import type { HostedTask } from "./hosted-task-sync.js"
 import { dimensionLabel } from "./hosted-task-sync.js"
 import { TOOL_OUTCOME_LABELS } from "./tool-outcome.js"
 import type { Hypothesis } from "./stage-insights.js"
+import { CompanyPortraitView } from "./company-portrait-view.js"
 
 export const verificationDimension = (dimension: string) => /risk|dishonest|enforcement|terminated|freeze|exception|penalty|tax|judicial/.test(dimension)
 
@@ -16,8 +17,10 @@ export function CollectionCards({ task, verification = false }: { task: HostedTa
     const highlights = keyFacts.length ? keyFacts : facts.slice(0, 3)
     return <article className="qccPwCard" key={run.id}>
       <div className="qccPwCardHeader"><h3>{dimensionLabel(run.dimension)}</h3><span className="qccPwMode">{TOOL_OUTCOME_LABELS[run.status]}</span></div>
-      <p>{run.result?.summary || (run.status === "no-data" ? "本次查询未发现记录。" : facts.length ? "已取得来源信息，关键字段如下；尚非最终研判。" : "暂未提取到业务摘要；不代表无数据。")}</p>
-      {highlights.length ? <ul>{highlights.map(fact => <li key={fact}>{fact.length > 160 ? fact.slice(0, 160) + "…" : fact}</li>)}</ul> : null}
+      {run.result?.portrait && ["registration", "profile"].includes(run.dimension)
+        ? <CompanyPortraitView portrait={run.result.portrait} dimension={run.dimension} />
+        : <><p>{run.result?.summary || (run.status === "no-data" ? "本次查询未发现记录。" : facts.length ? "已取得来源信息，关键字段如下；尚非最终研判。" : "暂未提取到业务摘要；不代表无数据。")}</p>
+          {highlights.length ? <ul>{highlights.map(fact => <li key={fact}>{fact.length > 160 ? fact.slice(0, 160) + "…" : fact}</li>)}</ul> : null}</>}
       <p className="qccPwNote">覆盖边界：仅展示本次返回的摘要与有限样本；记录总数不等于已逐条核查。未展示字段可在原会话工具结果中查看。</p>
       {run.message ? <p className="qccPwNote">{run.message}</p> : null}
       <details><summary>来源与已保存明细（{facts.length} 项字段）</summary><p className="qccPwNote">来源：{run.toolName ?? run.dimension} · {run.completedAt ?? run.startedAt} · 引用 {run.id}</p><ul>{facts.map(fact => <li key={fact}>{fact}</li>)}</ul></details>

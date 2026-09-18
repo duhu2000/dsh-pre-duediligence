@@ -28,7 +28,8 @@
 第一项调用必须是 qcc-company / get_company_by_query。完成唯一主体锚定后，标准档基础集包括：
 
 - get_company_registration_info
-- get_company_profile（除简介外，务必取回并使用其产业字段：主营产品、业务模式、企查查行业分类、产业链定位，用于 A0 产业定位）
+- get_company_profile（保留简介、企查查行业一级至四级、主营产品数组、企业规模及可选产业链概览；实际未返回的业务模式和产业链定位不得伪装成字段事实）
+- 工商登记兼容旧国标行业文本与新四级对象，并保留地区信息的省份、城市、区域和地区代码。两套行业分类必须分开。新增字段随上述查询取得，不为同一批字段重复查询。
 - get_annual_reports
 - get_change_records
 - get_shareholder_info

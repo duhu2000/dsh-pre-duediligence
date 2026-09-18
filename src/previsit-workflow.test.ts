@@ -13,6 +13,17 @@ function storageFixture() {
 }
 
 describe("PrevisitWorkflowStore", () => {
+  it("restores optional portrait fields without modifying legacy records", async () => {
+    const storage = storageFixture(), first = new PrevisitWorkflowStore()
+    await first.attach(storage.domain)
+    const task = await first.create({id:"portrait-test",sessionId:"portrait-session",workspace:"/synthetic",query:"合成公司",depth:"fast"})
+    await first.startRun(task.id,{runId:"profile",dimension:"profile",quotaUsed:true})
+    const result = {summary:"",facts:[],factors:[],portrait:{products:["合成产品"],scale:"中型",qccIndustry:"一级：信息服务"}}
+    await first.finishRun(task.id,"profile","done",undefined,result)
+    const restored = new PrevisitWorkflowStore()
+    await restored.attach(storage.domain)
+    expect((await restored.get(task.id))?.runs[0]?.result).toEqual(result)
+  })
   it("persists public analysis revisions across restart and rejects resetting their subject", async () => {
     const storage = storageFixture(), first = new PrevisitWorkflowStore()
     await first.attach(storage.domain)

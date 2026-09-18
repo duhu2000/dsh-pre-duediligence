@@ -5,7 +5,7 @@ whenToUse: 用户要求准备客户拜访、访前尽调、一页纸简报、授
 user-invocable: true
 metadata:
   author: QCC
-  version: 0.1.39
+  version: 0.1.40
 ---
 
 # 访前尽调
@@ -72,7 +72,7 @@ metadata:
 
 若保存报告返回异常，先用 `previsit_history(taskId)` 确认报告是否已保存。已保存时读取原版本，不重新生成不同正文覆盖；只有明确要求补充内容时创建子任务。相同正文的保存重试是幂等的。
 
-### Agent-owned 执行门（0.1.39）
+### Agent-owned 执行门（0.1.40）
 
 只在从“访前尽调”入口创建的专属 Session 内执行。首先调用 `previsit_begin`，传入用户提供的企业检索词和 fast / standard / deep 档位，并将用户给出的 role（角色）、scene（拜访场合）、focus（关注点数组）、output（输出形态）、sections（重点展开段落）传入；这些信息记录到 Host 任务供工作台展示，未提供的字段不要编造。提示中含“访前任务 ID：PV-...”时，必须原样作为 `requestId` 传入。用户发送任务已经构成本任务在固定业务路由内连续执行的明确授权，禁止再询问是否允许调用企查查 MCP，也不要弹出调用次数或额度二次确认。插件不设 8 / 18 / 40 次硬上限。
 

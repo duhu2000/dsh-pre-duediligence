@@ -450,7 +450,7 @@ export function registerPrevisitTools(ctx: ToolHost, workflow = new PrevisitWork
       if (dimension === "entity_search") task.search = usable ? data : null
       if (dimension === "personnel") task.personnel = usable ? data : null
       if (dimension === "risk_scan") task.risk = usable ? data : null
-      await workflow.finishRun(task.id, callId, outcome, result.isError ? result.error?.message ?? "查询失败" : undefined, usable ? summarizeResult(data) : undefined)
+      await workflow.finishRun(task.id, callId, outcome, result.isError ? result.error?.message ?? "查询失败" : undefined, usable ? summarizeResult(data, dimension) : undefined)
       if (dimension === "risk_scan" && outcome === "no-data") {
         for (const detail of RISK_DETAIL_DIMENSIONS) {
           await recordSyntheticOutcome(task, detail, "skipped", "风险扫描无记录，无需下钻")
